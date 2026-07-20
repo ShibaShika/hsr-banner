@@ -25,7 +25,7 @@
 
 ### 1. 開啟管理後台
 在瀏覽器中打開您的管理後台網址：
-> `https://your-username.github.io/hsr-banner/admin.html`
+> `https://shibashika.github.io/hsr-banner/admin.html`
 *(或直接在本地電腦雙擊開啟專案中的 `admin.html`)*
 
 ### 2. 新增或修改資料
