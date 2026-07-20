@@ -23,11 +23,16 @@
         }
         
         body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; position: relative; }
-        h1 { text-align: center; color: var(--text); margin: 10px 0 15px 0; font-size: 24px; font-weight: bold; }
         
-        .toolbar { display: flex; gap: 10px; margin-bottom: 10px; padding: 0 2px; align-items: center; max-width: 320px; }
+        /* 頂部同一行的工具列配置 */
+        .header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 15px; flex-wrap: wrap; }
+        .header-left { display: flex; gap: 8px; align-items: center; }
+        .header-center { flex: 1; text-align: center; }
+        .header-right { display: flex; align-items: center; }
         
-        .table-wrap { overflow-x: auto; max-height: calc(100vh - 130px); border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
+        h1 { color: var(--text); margin: 0; font-size: 22px; font-weight: bold; }
+        
+        .table-wrap { overflow-x: auto; max-height: calc(100vh - 75px); border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
         table { border-collapse: collapse; min-width: 100%; text-align: center; font-size: 12px; background: var(--surface); }
         th, td { padding: 3px 2px; border: 1px solid var(--border); white-space: nowrap; min-width: 26px; }
         
@@ -69,11 +74,10 @@
         
         tr:hover td:not(.img-cell):not(.term-pool-empty):not(.term-shop-empty):not(:first-child) { filter: brightness(1.4); transition: all 0.2s; }
         tr:hover td:first-child { filter: none !important; }
-        .update-date { position: absolute; right: 15px; top: 15px; font-size: 13px; color: #888; }
         
         .col-highlight { filter: brightness(1.3); transition: filter 0.15s; }
 
-        .multi-select { position: relative; flex: 1; text-align: left; font-size: 12px; }
+        .multi-select { position: relative; text-align: left; font-size: 12px; width: 110px; }
         .select-box { background: #1c1c1c; color: #e0e0e0; border: 1px solid #444; padding: 5px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
         .select-box:hover { border-color: #666; background: #222; }
         .dropdown-panel { display: none; position: absolute; top: calc(100% + 4px); left: 0; background: #1e1e1e; border: 1px solid #555; border-radius: 6px; padding: 8px; z-index: 1000; min-width: 140px; box-shadow: 0 6px 16px rgba(0,0,0,0.7); max-height: 280px; overflow-y: auto; }
@@ -90,33 +94,38 @@
     <script src="characters.js"></script>
 </head>
 <body>
-    <div class="update-date">更新日期：2026/07/20</div>
-    <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
-    
-    <!-- 上方工具列含篩選器與 UI 縮放滑桿 -->
-    <div class="toolbar" style="display: flex; gap: 10px; margin-bottom: 10px; padding: 0 2px; align-items: center; flex-wrap: wrap;">
-        <div class="multi-select" id="path-dropdown">
-            <div class="select-box" id="path-select-box">全部命途</div>
-            <div class="dropdown-panel" id="path-panel">
-                <label><input type="checkbox" id="path-all" checked> <b>全部命途</b></label>
-                <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
-                <div id="path-items-container"></div>
+    <!-- 頂部統合工具列（左：篩選器、中：標題、右：UI滑桿與更新日期） -->
+    <div class="header-bar">
+        <div class="header-left">
+            <div class="multi-select" id="path-dropdown">
+                <div class="select-box" id="path-select-box">全部命途</div>
+                <div class="dropdown-panel" id="path-panel">
+                    <label><input type="checkbox" id="path-all" checked> <b>全部命途</b></label>
+                    <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
+                    <div id="path-items-container"></div>
+                </div>
             </div>
-        </div>
-        <div class="multi-select" id="elem-dropdown">
-            <div class="select-box" id="elem-select-box">全部屬性</div>
-            <div class="dropdown-panel" id="elem-panel">
-                <label><input type="checkbox" id="elem-all" checked> <b>全部屬性</b></label>
-                <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
-                <div id="elem-items-container"></div>
+            <div class="multi-select" id="elem-dropdown">
+                <div class="select-box" id="elem-select-box">全部屬性</div>
+                <div class="dropdown-panel" id="elem-panel">
+                    <label><input type="checkbox" id="elem-all" checked> <b>全部屬性</b></label>
+                    <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
+                    <div id="elem-items-container"></div>
+                </div>
             </div>
         </div>
 
-        <!-- 🌟 新增：UI 大小滑桿 -->
-        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #ccc; margin-left: auto; background: #1c1c1c; border: 1px solid #444; padding: 4px 8px; border-radius: 4px;">
-            <span>介面大小：</span>
-            <input type="range" id="ui-scale-slider" min="0.7" max="1.4" step="0.05" value="1" style="cursor: pointer; width: 90px; accent-color: #666;">
-            <span id="ui-scale-text" style="min-width: 35px; text-align: right;">100%</span>
+        <div class="header-center">
+            <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
+        </div>
+
+        <div class="header-right" style="display: flex; gap: 10px; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #ccc; background: #1c1c1c; border: 1px solid #444; padding: 4px 8px; border-radius: 4px;">
+                <span>介面大小：</span>
+                <input type="range" id="ui-scale-slider" min="0.7" max="1.4" step="0.05" value="1" style="cursor: pointer; width: 90px; accent-color: #666;">
+                <span id="ui-scale-text" style="min-width: 35px; text-align: right;">100%</span>
+            </div>
+            <div style="font-size: 12px; color: #888; white-space: nowrap;">更新日期：2026/07/21</div>
         </div>
     </div>
     
@@ -416,7 +425,6 @@
                 }
             });
 
-            // 🌟 綁定 UI 大小滑桿邏輯（已正確移至 initTracker 內部，可讀取 table 變數）
             const scaleSlider = document.getElementById('ui-scale-slider');
             const scaleText = document.getElementById('ui-scale-text');
 
