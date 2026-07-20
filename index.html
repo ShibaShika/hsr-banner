@@ -57,7 +57,7 @@
         .img-cell { background-color: #1e1e1e; padding: 2px; }
         .collab-empty { 
             color: transparent; 
-            background: repeating-linear-gradient(-45deg, #161616, #161616 8px, #1f1f1f 8px, #1f1f1f 16px);
+            background-image: linear-gradient(rgba(18, 18, 18, 0.85), rgba(18, 18, 18, 0.85));
         }
         .term-pool { background-color: #2e436e; color: #a5c8ff; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
         .term-pool-empty { background-color: #161616; color: transparent; }
@@ -327,7 +327,7 @@
                         cls = 'img-cell';
                         content = `<img src="${avatarUrl}" class="grid-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">`;
                     } else if (cell.status === 'COLLAB_EMPTY') {
-                        cls = 'collab-empty';
+                        cls = `collab-empty bg-${char.elem}`;
                         content = '';
                     } else if (cell.status === 'TERM_START') {
                         cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
