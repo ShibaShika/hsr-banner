@@ -1,12 +1,9 @@
 name: Auto Update Banners
 
-# 啟動條件
 on:
   schedule:
-    # 這裡使用 Cron 語法，設定為每週三的 UTC 時間 04:00 (相當於台灣時間中午 12:00) 執行一次
     - cron: '0 4 * * 3'
   workflow_dispatch: 
-    # 加入這行代表您可以隨時在 GitHub 網頁上「手動點擊按鈕」強制執行
 
 jobs:
   update-data:
@@ -17,9 +14,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
@@ -34,5 +31,4 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action Bot"
           git add index.html
-          # 如果檔案有變動就 commit 並 push，沒變動就不做事
           git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 自動更新卡池資料" && git push)
