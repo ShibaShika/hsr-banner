@@ -146,20 +146,25 @@
                     if (char.isCollab) {
                         const collabStart = char.isCollab;
                         const sIdx = patchesList.indexOf(collabStart);
+                        const spanCount = Math.min(6, sIdx); // 🌟 限制文字框最多合併 6 格寬
                         
                         if (pIdx < sIdx) {
-                            if (!collabSpanAdded) {
-                                history.push({ status: 'COLLAB_SPAN', count: sIdx });
-                                collabSpanAdded = true;
+                            if (pIdx === sIdx - spanCount) {
+                                if (!collabSpanAdded) {
+                                    history.push({ status: 'COLLAB_SPAN', count: spanCount });
+                                    collabSpanAdded = true;
+                                }
+                                return;
+                            } else if (pIdx > sIdx - spanCount) {
+                                return;
                             }
-                            return;
-                        }
-                        
-                        const lIdx = patchesList.length - 1; 
-                        if (pIdx === sIdx || pIdx === lIdx) {
-                            cellStatus = 'COLLAB_START'; 
                         } else {
-                            cellStatus = 'COLLAB_EMPTY'; 
+                            const lIdx = patchesList.length - 1; 
+                            if (pIdx === sIdx || pIdx === lIdx) {
+                                cellStatus = 'COLLAB_START'; 
+                            } else {
+                                cellStatus = 'COLLAB_EMPTY'; 
+                            }
                         }
                     }
                     
