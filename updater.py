@@ -2,70 +2,106 @@ import re
 import json
 import requests
 
-# 這裡未來需替換為實際提供 JSON 格式卡池資料的真實 API
-DATA_API_URL = "https://irminsul.gg/hsr/banners"
+# 真實的隱藏 API 網址 (目前為 4.4.51 測試資料，之後官方換版可動態修改)
+DATA_API_URL = "https://static.nanoka.cc/hsr/4.4.51/character.json"
+
+# 建立字典：負責把 API 內的英文屬性與命途，翻譯成網頁使用的中文
+ELEM_MAP = {
+    "Fire": "火", "Ice": "冰", "Thunder": "雷", 
+    "Wind": "風", "Physical": "物理", "Quantum": "量子", "Imaginary": "虛數"
+}
+PATH_MAP = {
+    "Warrior": "毀滅", "Rogue": "巡獵", "Mage": "智識", 
+    "Shaman": "同諧", "Warlock": "虛無", "Knight": "存護", 
+    "Priest": "豐饒", "Memory": "記憶", "Elation": "歡愉"
+}
 
 def fetch_latest_banners():
     """
-    此處為爬蟲抓取邏輯。
-    目前先回傳模擬資料，代表我們爬到了 4.5 版本的兩位新角色。
+    透過真實 API 抓取角色資料，並根據 ID 推斷卡池版本。
     """
-    # TODO: 實作 requests 抓取與 BeautifulSoup 解析邏輯
-    return {
-        "新角色A": ["4.5上"],
-        "新角色B": ["4.5下"]
+    try:
+        response = requests.get(DATA_API_URL)
+        response.raise_for_status()
+        raw_data = response.json()
+    except Exception as e:
+        print(f"抓取 API 失敗: {e}")
+        return {}
+
+    # 🌟 這裡就是您的「推斷邏輯」：只要在這裡設定新 ID 對應的卡池即可
+    # 未來如果有 4.6 的新角色，只需在這裡新增即可
+    target_ids = {
+        "1512": "4.5上", # 知更鳥•晴歌
+        "1513": "4.5下"  # 砂金•戲浪
     }
 
+    new_banner_data = {}
+    
+    for char_id, char_info in raw_data.items():
+        if char_id in target_ids:
+            # 取得原始資料
+            raw_name = char_info.get("name", "未知角色")
+            raw_elem = char_info.get("damageType", "")
+            raw_path = char_info.get("baseType", "")
+            
+            # 轉換為繁體中文標籤
+            name = raw_name.replace("鸟", "鳥") # 簡單的簡繁轉換，視需求增減
+            elem = ELEM_MAP.get(raw_elem, "未知")
+            path = PATH_MAP.get(raw_path, "未知")
+            banner = target_ids[char_id]
+            
+            # 將整理好的資料存入字典中
+            new_banner_data[name] = {
+                "runs": [banner],
+                "elem": elem,
+                "path": path
+            }
+            print(f"成功解析：{name} ({path}/{elem}) -> 預計卡池: {banner}")
+
+    return new_banner_data
+
 def update_js():
-    # 1. 改為讀取獨立的資料檔 js/characters.js
     with open('js/characters.js', 'r', encoding='utf-8') as f:
         js_content = f.read()
 
     new_banner_data = fetch_latest_banners()
     if not new_banner_data:
-        print("沒有抓到新資料，結束更新。")
+        print("沒有抓到需要更新的新角色，結束。")
         return
 
-    print(f"準備更新以下資料: {new_banner_data}")
-
-    # 2. 匹配新結構中的 RAW_CHARACTERS 陣列
     char_pattern = re.compile(r'const RAW_CHARACTERS = (\[.*?\]);', re.DOTALL)
     match = char_pattern.search(js_content)
     
     if match:
         char_json_str = match.group(1)
         try:
-            # 沿用原本的邏輯，確保 JavaScript 物件屬性有雙引號，以符合 Python JSON 解析標準
             clean_json_str = re.sub(r'(?<!")(\b\w+\b)\s*:', r'"\1":', char_json_str)
             clean_json_str = clean_json_str.replace("'", '"')
             
             characters = json.loads(clean_json_str)
             existing_names = {char.get('name') for char in characters}
             
-            # 3. 資料比對與合併
-            for name, patches in new_banner_data.items():
+            # 資料比對與合併
+            for name, data in new_banner_data.items():
                 if name in existing_names:
-                    # 既有角色：新增復刻版本紀錄
+                    # 既有角色新增復刻
                     for char in characters:
                         if char.get('name') == name:
-                            updated_runs = set(char.get('runs', []) + patches)
+                            updated_runs = set(char.get('runs', []) + data["runs"])
                             char['runs'] = sorted(list(updated_runs), reverse=True)
                 else:
-                    # 全新角色：自動新建一筆資料！
-                    print(f"發現新角色：{name}，自動加入資料庫！")
+                    # 🌟 全新角色自動建檔，並寫入 API 抓到的屬性與命途！
+                    print(f"將新角色加入資料庫：{name}")
                     characters.insert(0, {
                         "name": name,
-                        "path": "未知",  # 爬蟲若有抓到可在此填寫變數
-                        "elem": "未知",  # 爬蟲若有抓到可在此填寫變數
+                        "path": data["path"],
+                        "elem": data["elem"],
                         "avatar": "",
-                        "runs": patches
+                        "runs": data["runs"]
                     })
             
-            # 將資料轉回 JSON 字串格式
             new_char_str = json.dumps(characters, ensure_ascii=False, indent=4)
-            # 將 key 的雙引號拿掉，恢復成漂亮的 JavaScript 屬性風格
             new_char_str = re.sub(r'"(\w+)":', r'\1:', new_char_str)
-            
             new_js_content = js_content.replace(match.group(0), f'const RAW_CHARACTERS = {new_char_str};')
             
             with open('js/characters.js', 'w', encoding='utf-8') as f:
@@ -73,9 +109,7 @@ def update_js():
             print("js/characters.js 更新成功！")
             
         except json.JSONDecodeError as e:
-            print(f"解析 JS 內的資料失敗: {e}")
-    else:
-        print("在 js/characters.js 中找不到資料區塊。")
+            print(f"解析 JS 失敗: {e}")
 
 if __name__ == "__main__":
     update_js()
