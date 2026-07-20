@@ -96,14 +96,20 @@
     <!-- 上方工具列含篩選器與 UI 縮放滑桿 -->
     <div class="toolbar" style="display: flex; gap: 10px; margin-bottom: 10px; padding: 0 2px; align-items: center; flex-wrap: wrap;">
         <div class="multi-select" id="path-dropdown">
-            <!-- 原本的命途篩選器... -->
             <div class="select-box" id="path-select-box">全部命途</div>
-            <div class="dropdown-panel" id="path-panel">...</div>
+            <div class="dropdown-panel" id="path-panel">
+                <label><input type="checkbox" id="path-all" checked> <b>全部命途</b></label>
+                <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
+                <div id="path-items-container"></div>
+            </div>
         </div>
         <div class="multi-select" id="elem-dropdown">
-            <!-- 原本的屬性篩選器... -->
             <div class="select-box" id="elem-select-box">全部屬性</div>
-            <div class="dropdown-panel" id="elem-panel">...</div>
+            <div class="dropdown-panel" id="elem-panel">
+                <label><input type="checkbox" id="elem-all" checked> <b>全部屬性</b></label>
+                <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
+                <div id="elem-items-container"></div>
+            </div>
         </div>
 
         <!-- 🌟 新增：UI 大小滑桿 -->
@@ -409,20 +415,17 @@
                     if (c) c.classList.remove('col-highlight');
                 }
             });
-        }
-        
-            // 🌟 綁定 UI 大小滑桿邏輯
+
+            // 🌟 綁定 UI 大小滑桿邏輯（已正確移至 initTracker 內部，可讀取 table 變數）
             const scaleSlider = document.getElementById('ui-scale-slider');
             const scaleText = document.getElementById('ui-scale-text');
-            const tableWrap = document.querySelector('.table-wrap');
 
             scaleSlider.addEventListener('input', (e) => {
                 const scaleValue = e.target.value;
-                // 使用 zoom 屬性等比例縮放表格內部所有元素（包含頭像、文字、間距）
                 table.style.zoom = scaleValue;
-                // 更新百分比顯示文字
                 scaleText.textContent = Math.round(scaleValue * 100) + '%';
             });
+        }
         
         initTracker();
     </script>
