@@ -93,25 +93,27 @@
     <div class="update-date">更新日期：2026/07/20</div>
     <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
     
-    <div class="toolbar">
+    <!-- 上方工具列含篩選器與 UI 縮放滑桿 -->
+    <div class="toolbar" style="display: flex; gap: 10px; margin-bottom: 10px; padding: 0 2px; align-items: center; flex-wrap: wrap;">
         <div class="multi-select" id="path-dropdown">
+            <!-- 原本的命途篩選器... -->
             <div class="select-box" id="path-select-box">全部命途</div>
-            <div class="dropdown-panel" id="path-panel">
-                <label><input type="checkbox" id="path-all" checked> <b>全部命途</b></label>
-                <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
-                <div id="path-items-container"></div>
-            </div>
+            <div class="dropdown-panel" id="path-panel">...</div>
         </div>
         <div class="multi-select" id="elem-dropdown">
+            <!-- 原本的屬性篩選器... -->
             <div class="select-box" id="elem-select-box">全部屬性</div>
-            <div class="dropdown-panel" id="elem-panel">
-                <label><input type="checkbox" id="elem-all" checked> <b>全部屬性</b></label>
-                <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
-                <div id="elem-items-container"></div>
-            </div>
+            <div class="dropdown-panel" id="elem-panel">...</div>
+        </div>
+
+        <!-- 🌟 新增：UI 大小滑桿 -->
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #ccc; margin-left: auto; background: #1c1c1c; border: 1px solid #444; padding: 4px 8px; border-radius: 4px;">
+            <span>介面大小：</span>
+            <input type="range" id="ui-scale-slider" min="0.7" max="1.4" step="0.05" value="1" style="cursor: pointer; width: 90px; accent-color: #666;">
+            <span id="ui-scale-text" style="min-width: 35px; text-align: right;">100%</span>
         </div>
     </div>
-
+    
     <div class="table-wrap">
         <table id="tracker"></table>
     </div>
