@@ -410,7 +410,20 @@
                 }
             });
         }
+        
+            // 🌟 綁定 UI 大小滑桿邏輯
+            const scaleSlider = document.getElementById('ui-scale-slider');
+            const scaleText = document.getElementById('ui-scale-text');
+            const tableWrap = document.querySelector('.table-wrap');
 
+            scaleSlider.addEventListener('input', (e) => {
+                const scaleValue = e.target.value;
+                // 使用 zoom 屬性等比例縮放表格內部所有元素（包含頭像、文字、間距）
+                table.style.zoom = scaleValue;
+                // 更新百分比顯示文字
+                scaleText.textContent = Math.round(scaleValue * 100) + '%';
+            });
+        
         initTracker();
     </script>
 </body>
