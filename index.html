@@ -76,10 +76,16 @@
         /* 十字高亮效果 */
         .col-highlight { filter: brightness(1.3); transition: filter 0.15s; }
 
-        /* 篩選器樣式 */
-        .filter-container { display: flex; gap: 3px; padding: 1px 3px; align-items: center; justify-content: space-between; }
-        .filter-container select { background: #181818; color: #e0e0e0; border: 1px solid #444; font-size: 10px; padding: 2px; border-radius: 3px; outline: none; cursor: pointer; }
-        .filter-container select:hover { border-color: #666; }
+        /* 多選篩選器樣式 */
+        .filter-container { display: flex; gap: 4px; padding: 2px 4px; align-items: center; justify-content: space-between; font-size: 11px; }
+        .multi-select { position: relative; flex: 1; text-align: left; }
+        .select-box { background: #181818; color: #e0e0e0; border: 1px solid #444; padding: 3px 6px; border-radius: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none; }
+        .select-box:hover { border-color: #666; }
+        .dropdown-panel { display: none; position: absolute; top: 100%; left: 0; background: #1e1e1e; border: 1px solid #555; border-radius: 4px; padding: 6px; z-index: 100; min-width: 130px; box-shadow: 0 4px 10px rgba(0,0,0,0.6); max-height: 220px; overflow-y: auto; }
+        .dropdown-panel.show { display: block; }
+        .dropdown-panel label { display: flex; align-items: center; gap: 6px; padding: 3px 4px; cursor: pointer; color: #ccc; border-radius: 2px; }
+        .dropdown-panel label:hover { color: #fff; background: #2a2a2a; }
+        .dropdown-panel input[type="checkbox"] { cursor: pointer; accent-color: #555; }
     </style>
 </head>
 <body>
@@ -134,7 +140,7 @@
             {"patch": "4.4上", "date": "26/07/15"}, {"patch": "4.4下", "date": "26/08/05"}
         ];
 
-        // 資料庫維持「舊到新」排列
+        // 資料庫維持「舊到新」排列[cite: 1]
         const RAW_CHARACTERS = [
             { name: "希兒", path: "巡獵", elem: "量子", avatar: "", runs: ["1.0上", "1.4下"], term: { type: "pool", patch: "3.2上" } },
             { name: "景元", path: "智識", elem: "雷", avatar: "", runs: ["1.0下", "2.0下", "2.7上"] },
@@ -193,7 +199,7 @@
             { name: "吉爾伽美什", path: "毀滅", elem: "雷", avatar: "", isCollab: "4.4上", runs: [] }
         ];
 
-        // 格式化表頭日期的輔助函式
+        // 格式化表頭日期的輔助函式[cite: 1]
         function formatHeaderDate(dateStr) {
             const parts = dateStr.split('/');
             if (parts.length === 3) {
@@ -204,7 +210,7 @@
             return dateStr;
         }
 
-        // 初始化主程式
+        // 初始化主程式[cite: 1]
         async function initTracker() {
             try {
                 const res = await fetch('https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/cht/characters.json');
@@ -238,34 +244,41 @@
             const patchesList = PATCH_DATA.map(p => p.patch);
             const totalChars = CHARACTERS.length;
             
-            // 收集所有出現過的命途與屬性供篩選器選項使用
             const uniquePaths = [...new Set(RAW_CHARACTERS.map(c => c.path))];
             const uniqueElems = [...new Set(RAW_CHARACTERS.map(c => c.elem))];
 
-            // 構建表頭
+            // 構建表頭[cite: 1]
             let html = '<thead><tr><th></th>';
             [...PATCH_DATA].reverse().forEach(p => {
                 html += `<th>${formatHeaderDate(p.date)}</th>`;
             });
             
-            // 在左上角第二行插入篩選器
+            // 插入多選篩選器面板 HTML
             html += `</tr><tr><th>
                 <div class="filter-container">
-                    <select id="path-filter">
-                        <option value="">全部命途</option>
-                        ${uniquePaths.map(p => `<option value="${p}">${p}</option>`).join('')}
-                    </select>
-                    <select id="elem-filter">
-                        <option value="">全部屬性</option>
-                        ${uniqueElems.map(e => `<option value="${e}">${e}</option>`).join('')}
-                    </select>
+                    <div class="multi-select" id="path-dropdown">
+                        <div class="select-box" id="path-select-box">全部命途</div>
+                        <div class="dropdown-panel" id="path-panel">
+                            <label><input type="checkbox" id="path-all" checked> <b>全部命途</b></label>
+                            <div style="border-top: 1px solid #444; margin: 3px 0;"></div>
+                            ${uniquePaths.map(p => `<label><input type="checkbox" class="path-item" value="${p}" checked> ${p}</label>`).join('')}
+                        </div>
+                    </div>
+                    <div class="multi-select" id="elem-dropdown">
+                        <div class="select-box" id="elem-select-box">全部屬性</div>
+                        <div class="dropdown-panel" id="elem-panel">
+                            <label><input type="checkbox" id="elem-all" checked> <b>全部屬性</b></label>
+                            <div style="border-top: 1px solid #444; margin: 3px 0;"></div>
+                            ${uniqueElems.map(e => `<label><input type="checkbox" class="elem-item" value="${e}" checked> ${e}</label>`).join('')}
+                        </div>
+                    </div>
                 </div>
             </th>`;
             
             [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.patch}</th>`);
             html += '</tr></thead><tbody>';
             
-            // 構建表格內容
+            // 構建表格內容[cite: 1]
             CHARACTERS.forEach((char, index) => {
                 const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(char.name)}&background=random&color=fff&size=56&bold=true`;
                 const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
@@ -367,33 +380,87 @@
             
             table.innerHTML = html;
 
-            // 綁定篩選器聯動事件
-            const pathFilter = document.getElementById('path-filter');
-            const elemFilter = document.getElementById('elem-filter');
+            // 多選篩選器互動邏輯
+            const pathBox = document.getElementById('path-select-box');
+            const elemBox = document.getElementById('elem-select-box');
+            const pathPanel = document.getElementById('path-panel');
+            const elemPanel = document.getElementById('elem-panel');
+            
+            const pathAll = document.getElementById('path-all');
+            const pathItems = pathPanel.querySelectorAll('.path-item');
+            const elemAll = document.getElementById('elem-all');
+            const elemItems = elemPanel.querySelectorAll('.elem-item');
+
+            pathBox.addEventListener('click', (e) => {
+                e.stopPropagation();
+                elemPanel.classList.remove('show');
+                pathPanel.classList.toggle('show');
+            });
+
+            elemBox.addEventListener('click', (e) => {
+                e.stopPropagation();
+                pathPanel.classList.remove('show');
+                elemPanel.classList.toggle('show');
+            });
+
+            document.addEventListener('click', () => {
+                pathPanel.classList.remove('show');
+                elemPanel.classList.remove('show');
+            });
+
+            pathPanel.addEventListener('click', (e) => e.stopPropagation());
+            elemPanel.addEventListener('click', (e) => e.stopPropagation());
 
             function applyFilters() {
-                const selectedPath = pathFilter.value;
-                const selectedElem = elemFilter.value;
-                const rows = table.querySelectorAll('tbody tr');
+                const selectedPaths = Array.from(pathItems).filter(i => i.checked).map(i => i.value);
+                const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
 
+                // 更新按鈕顯示文字
+                pathBox.textContent = selectedPaths.length === pathItems.length ? '全部命途' : (selectedPaths.length === 0 ? '未選命途' : `命途 (${selectedPaths.length})`);
+                elemBox.textContent = selectedElems.length === elemItems.length ? '全部屬性' : (selectedElems.length === 0 ? '未選屬性' : `屬性 (${selectedElems.length})`);
+
+                const rows = table.querySelectorAll('tbody tr');
                 rows.forEach(row => {
                     const rowPath = row.getAttribute('data-path');
                     const rowElem = row.getAttribute('data-elem');
-                    const matchPath = !selectedPath || rowPath === selectedPath;
-                    const matchElem = !selectedElem || rowElem === selectedElem;
+                    const matchPath = selectedPaths.includes(rowPath);
+                    const matchElem = selectedElems.includes(rowElem);
 
-                    if (matchPath && matchElem) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
+                    row.style.display = (matchPath && matchElem) ? '' : 'none';
                 });
             }
 
-            pathFilter.addEventListener('change', applyFilters);
-            elemFilter.addEventListener('change', applyFilters);
+            pathAll.addEventListener('change', () => {
+                pathItems.forEach(i => i.checked = pathAll.checked);
+                applyFilters();
+            });
 
-            // 重新綁定十字高亮互動效果
+            pathItems.forEach(item => {
+                item.addEventListener('change', () => {
+                    const allChecked = Array.from(pathItems).every(i => i.checked);
+                    const noneChecked = Array.from(pathItems).every(i => !i.checked);
+                    pathAll.checked = allChecked;
+                    pathAll.indeterminate = !allChecked && !noneChecked;
+                    applyFilters();
+                });
+            });
+
+            elemAll.addEventListener('change', () => {
+                elemItems.forEach(i => i.checked = elemAll.checked);
+                applyFilters();
+            });
+
+            elemItems.forEach(item => {
+                item.addEventListener('change', () => {
+                    const allChecked = Array.from(elemItems).every(i => i.checked);
+                    const noneChecked = Array.from(elemItems).every(i => !i.checked);
+                    elemAll.checked = allChecked;
+                    elemAll.indeterminate = !allChecked && !noneChecked;
+                    applyFilters();
+                });
+            });
+
+            // 重新綁定十字高亮互動效果[cite: 1]
             const trackerTable = document.getElementById('tracker');
             trackerTable.addEventListener('mouseover', (e) => {
                 const cell = e.target.closest('td, th');
