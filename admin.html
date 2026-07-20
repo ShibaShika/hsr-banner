@@ -12,7 +12,7 @@
     <style>
         :root { --bg: #121212; --surface: #1e1e1e; --border: #444; --text: #e0e0e0; --primary: #2e436e; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .container { max-width: 1050px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         h1 { margin-top: 0; font-size: 24px; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         
         /* 頁籤樣式 */
@@ -24,7 +24,7 @@
 
         /* 表格與表單樣式 */
         table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 14px; }
-        th, td { border: 1px solid var(--border); padding: 8px; text-align: left; }
+        th, td { border: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: middle; }
         th { background: #2a2a2a; }
         input[type="text"], select { width: 100%; padding: 6px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus { border-color: #888; outline: none; }
@@ -63,10 +63,10 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 15%;">名稱</th>
-                        <th style="width: 12%;">命途</th>
-                        <th style="width: 12%;">屬性</th>
-                        <th style="width: 45%;">卡池歷史 (請用半形逗號分隔)</th>
+                        <th style="width: 14%;">名稱</th>
+                        <th style="width: 11%;">命途</th>
+                        <th style="width: 11%;">屬性</th>
+                        <th style="width: 48%;">卡池歷史 / 特殊取得機制</th>
                         <th style="width: 16%;">操作</th>
                     </tr>
                 </thead>
@@ -117,7 +117,7 @@
         let charsData = [...RAW_CHARACTERS];
         let patchesData = [...PATCH_DATA];
 
-        // 🌟 動態整合命途與屬性選項（結合全域設定檔與現有角色資料，未來新增不需改前端）
+        // 動態整合命途與屬性選項
         function getDynamicOptions(type) {
             let baseList = [];
             if (type === 'path') {
@@ -126,7 +126,6 @@
                 baseList = typeof ELEM_ORDER !== 'undefined' ? ELEM_ORDER : ["火", "冰", "雷", "風", "物理", "量子", "虛數"];
             }
             
-            // 確保資料中若有任何自訂或新出現的項目也不會漏掉
             const set = new Set(baseList);
             charsData.forEach(char => {
                 if (char[type]) set.add(char[type]);
@@ -150,6 +149,20 @@
             const availableElems = getDynamicOptions('elem');
 
             charsData.forEach((char, index) => {
+                // 判斷目前特殊的類型：'normal' | 'pool' | 'shop' | 'collab'
+                let specType = 'normal';
+                let specPatch = '';
+                let collabDate = '';
+
+                if (char.isCollab) {
+                    specType = 'collab';
+                    specPatch = char.isCollab;
+                    collabDate = char.collabDate || '';
+                } else if (char.term) {
+                    specType = char.term.type; // 'pool' 或 'shop'
+                    specPatch = char.term.patch;
+                }
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><input type="text" value="${char.name}" onchange="updateChar(${index}, 'name', this.value)"></td>
@@ -163,7 +176,33 @@
                             ${availableElems.map(e => `<option value="${e}" ${char.elem === e ? 'selected' : ''}>${e}</option>`).join('')}
                         </select>
                     </td>
-                    <td><input type="text" value="${(char.runs || []).join(', ')}" onchange="updateCharRuns(${index}, this.value)"></td>
+                    <td>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <select onchange="onSpecTypeChange(${index}, this.value)" style="font-size: 13px;">
+                                    <option value="normal" ${specType === 'normal' ? 'selected' : ''}>一般卡池歷史</option>
+                                    <option value="pool" ${specType === 'pool' ? 'selected' : ''}>星緣相邀 (常駐)</option>
+                                    <option value="shop" ${specType === 'shop' ? 'selected' : ''}>聚靈鑄星 (商店)</option>
+                                    <option value="collab" ${specType === 'collab' ? 'selected' : ''}>長期開放聯動</option>
+                                </select>
+                            </div>
+
+                            ${specType === 'normal' ? `
+                                <input type="text" value="${(char.runs || []).join(', ')}" placeholder="卡池歷史 (用逗號隔開，如: 1.0上, 1.4下)" onchange="updateCharRuns(${index}, this.value)">
+                            ` : ''}
+
+                            ${(specType === 'pool' || specType === 'shop') ? `
+                                <input type="text" value="${specPatch}" placeholder="起始版本 (如: 3.2上)" onchange="updateSpecPatch(${index}, '${specType}', this.value)">
+                            ` : ''}
+
+                            ${specType === 'collab' ? `
+                                <div style="display: flex; gap: 6px;">
+                                    <input type="text" value="${specPatch}" placeholder="聯動版本 (如: 3.4上)" onchange="updateCollabPatch(${index}, this.value)" style="flex: 1;">
+                                    <input type="text" value="${collabDate}" placeholder="聯動日期 (如: 2025/07/11)" onchange="updateCollabDate(${index}, this.value)" style="flex: 1;">
+                                </div>
+                            ` : ''}
+                        </div>
+                    </td>
                     <td>
                         <button class="btn btn-danger" onclick="deleteChar(${index})">刪除</button>
                     </td>
@@ -173,13 +212,44 @@
         }
 
         function updateChar(index, key, value) { charsData[index][key] = value; }
+
+        // 切換特殊類型下拉選單
+        function onSpecTypeChange(index, type) {
+            delete charsData[index].isCollab;
+            delete charsData[index].collabDate;
+            delete charsData[index].term;
+            charsData[index].runs = [];
+
+            if (type === 'pool' || type === 'shop') {
+                charsData[index].term = { type: type, patch: "3.2上" };
+            } else if (type === 'collab') {
+                charsData[index].isCollab = "3.4上";
+                charsData[index].collabDate = "2025/07/11";
+            }
+            renderChars();
+        }
+
+        function updateSpecPatch(index, type, value) {
+            charsData[index].term = { type: type, patch: value.trim() };
+        }
+
+        function updateCollabPatch(index, value) {
+            charsData[index].isCollab = value.trim();
+        }
+
+        function updateCollabDate(index, value) {
+            charsData[index].collabDate = value.trim();
+        }
+
         function updateCharRuns(index, value) {
             charsData[index].runs = value.split(',').map(s => s.trim()).filter(s => s !== "");
         }
+
         function addCharRow() {
-            charsData.unshift({ name: "新角色", path: "毀滅", elem: "火", avatar: "", runs: [] });
+            charsData.push({ name: "新角色", path: "毀滅", elem: "火", avatar: "", runs: [] });
             renderChars();
         }
+
         function deleteChar(index) {
             if(confirm('確定要刪除這位角色嗎？')) { charsData.splice(index, 1); renderChars(); }
         }
