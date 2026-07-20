@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>崩壞：星穹鐵道 - 資料管理後台</title>
+    <!-- 載入現有資料 -->
+    <script src="js/patches.js"></script>
+    <script src="js/characters.js"></script>
+    <style>
+        :root { --bg: #121212; --surface: #1e1e1e; --border: #444; --text: #e0e0e0; --primary: #2e436e; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h1 { margin-top: 0; font-size: 24px; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* 頁籤樣式 */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { background: #222; color: #aaa; border: 1px solid var(--border); padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .tab-btn.active { background: var(--primary); color: #fff; border-color: #5575b5; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* 表格與表單樣式 */
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 14px; }
+        th, td { border: 1px solid var(--border); padding: 8px; text-align: left; }
+        th { background: #2a2a2a; }
+        input[type="text"], select { width: 100%; padding: 6px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
+        input:focus { border-color: #888; outline: none; }
+        
+        /* 按鈕樣式 */
+        .btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .btn:hover { background: #444; }
+        .btn-add { background: #2d5a2d; border-color: #4a8a4a; margin-bottom: 10px; display: inline-block; }
+        .btn-add:hover { background: #3a753a; }
+        .btn-danger { background: #7a2222; border-color: #b53838; }
+        .btn-danger:hover { background: #9c2e2e; }
+        .btn-export { background: var(--primary); font-size: 16px; padding: 10px 20px; border-color: #5575b5; }
+        .btn-export:hover { background: #3b558c; }
+
+        /* 輸出區塊 */
+        .export-area { margin-top: 30px; padding-top: 20px; border-top: 2px dashed var(--border); }
+        textarea { width: 100%; height: 150px; background: #111; color: #8ef9f3; border: 1px solid #555; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 13px; box-sizing: border-box; margin-bottom: 15px; }
+        .success-msg { color: #86efac; font-size: 14px; display: none; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <span>⚙️ 資料管理後台</span>
+            <span style="font-size: 12px; color: #888; font-weight: normal;">直接在網頁修改，修改完點擊下方匯出複製</span>
+        </h1>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('chars')">🎭 角色管理 (characters.js)</button>
+            <button class="tab-btn" onclick="switchTab('patches')">📅 版本管理 (patches.js)</button>
+        </div>
+
+        <!-- 角色管理區塊 -->
+        <div id="tab-chars" class="tab-content active">
+            <button class="btn btn-add" onclick="addCharRow()">+ 新增角色</button>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">名稱</th>
+                        <th style="width: 12%;">命途</th>
+                        <th style="width: 12%;">屬性</th>
+                        <th style="width: 45%;">卡池歷史 (請用半形逗號分隔)</th>
+                        <th style="width: 16%;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="chars-tbody"></tbody>
+            </table>
+        </div>
+
+        <!-- 版本管理區塊 -->
+        <div id="tab-patches" class="tab-content">
+            <button class="btn btn-add" onclick="addPatchRow()">+ 新增版本</button>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40%;">版本名稱 (如: 4.5上)</th>
+                        <th style="width: 40%;">日期 (如: 26/03/15)</th>
+                        <th style="width: 20%;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="patches-tbody"></tbody>
+            </table>
+        </div>
+
+        <!-- 匯出與儲存區塊 -->
+        <div class="export-area">
+            <h3>📥 匯出修改後的檔案</h3>
+            <div style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <label><b>characters.js</b></label>
+                        <button class="btn btn-export" onclick="exportData('chars')">複製 Characters</button>
+                    </div>
+                    <textarea id="output-chars" readonly placeholder="點擊複製按鈕後，這裡會顯示程式碼..."></textarea>
+                </div>
+                
+                <div style="flex: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <label><b>patches.js</b></label>
+                        <button class="btn btn-export" onclick="exportData('patches')">複製 Patches</button>
+                    </div>
+                    <textarea id="output-patches" readonly placeholder="點擊複製按鈕後，這裡會顯示程式碼..."></textarea>
+                </div>
+            </div>
+            <span id="copy-msg" class="success-msg">✅ 已經複製到剪貼簿！請貼到對應的檔案中取代全部內容。</span>
+        </div>
+    </div>
+
+    <script>
+        // 將外部載入的變數存入記憶體中管理
+        let charsData = [...RAW_CHARACTERS];
+        let patchesData = [...PATCH_DATA];
+
+        const paths = ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
+        const elems = ["火", "冰", "雷", "風", "物理", "量子", "虛數"];
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // --- 渲染與操作：角色 ---
+        function renderChars() {
+            const tbody = document.getElementById('chars-tbody');
+            tbody.innerHTML = '';
+            charsData.forEach((char, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="text" value="${char.name}" onchange="updateChar(${index}, 'name', this.value)"></td>
+                    <td>
+                        <select onchange="updateChar(${index}, 'path', this.value)">
+                            ${paths.map(p => `<option value="${p}" ${char.path === p ? 'selected' : ''}>${p}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td>
+                        <select onchange="updateChar(${index}, 'elem', this.value)">
+                            ${elems.map(e => `<option value="${e}" ${char.elem === e ? 'selected' : ''}>${e}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td><input type="text" value="${(char.runs || []).join(', ')}" onchange="updateCharRuns(${index}, this.value)"></td>
+                    <td>
+                        <button class="btn btn-danger" onclick="deleteChar(${index})">刪除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateChar(index, key, value) { charsData[index][key] = value; }
+        function updateCharRuns(index, value) {
+            charsData[index].runs = value.split(',').map(s => s.trim()).filter(s => s !== "");
+        }
+        function addCharRow() {
+            charsData.unshift({ name: "新角色", path: "毀滅", elem: "火", avatar: "", runs: [] });
+            renderChars();
+        }
+        function deleteChar(index) {
+            if(confirm('確定要刪除這位角色嗎？')) { charsData.splice(index, 1); renderChars(); }
+        }
+
+        // --- 渲染與操作：版本 ---
+        function renderPatches() {
+            const tbody = document.getElementById('patches-tbody');
+            tbody.innerHTML = '';
+            patchesData.forEach((p, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="text" value="${p.patch}" onchange="updatePatch(${index}, 'patch', this.value)"></td>
+                    <td><input type="text" value="${p.date}" onchange="updatePatch(${index}, 'date', this.value)"></td>
+                    <td><button class="btn btn-danger" onclick="deletePatch(${index})">刪除</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updatePatch(index, key, value) { patchesData[index][key] = value; }
+        function addPatchRow() {
+            patchesData.unshift({ patch: "新版本", date: "YY/MM/DD" });
+            renderPatches();
+        }
+        function deletePatch(index) {
+            if(confirm('確定要刪除這個版本嗎？')) { patchesData.splice(index, 1); renderPatches(); }
+        }
+
+        // --- 核心：匯出程式碼 ---
+        function generateJSString(varName, data) {
+            let json = JSON.stringify(data, null, 4);
+            // 替換雙引號的 key，讓它變成乾淨的 JS 物件格式 (例如 "name": 變成 name:)
+            let jsString = json.replace(/"([^"]+)":/g, '$1:');
+            return `const ${varName} = ${jsString};\n`;
+        }
+
+        function exportData(type) {
+            let code = '';
+            let textareaId = '';
+            
+            if (type === 'chars') {
+                code = generateJSString('RAW_CHARACTERS', charsData);
+                textareaId = 'output-chars';
+            } else {
+                code = generateJSString('PATCH_DATA', patchesData);
+                textareaId = 'output-patches';
+            }
+
+            const textarea = document.getElementById(textareaId);
+            textarea.value = code;
+
+            navigator.clipboard.writeText(code).then(() => {
+                const msg = document.getElementById('copy-msg');
+                msg.style.display = 'inline-block';
+                setTimeout(() => msg.style.display = 'none', 3000);
+            });
+        }
+
+        // 初始化渲染
+        renderChars();
+        renderPatches();
+    </script>
+</body>
+</html>
