@@ -53,9 +53,9 @@
         .bg-Imaginary { background-color: var(--elem-imaginary); }
         .bg-Unknown { background-color: var(--elem-unknown); color: #fff !important; }
 
-        /* 卡池狀態樣式 */
+        /* 狀態顏色 */
         .up { background-color: var(--up); color: #000; font-weight: 800; font-size: 14px; }
-        .collab { background-color: #86efac; color: #000; font-weight: 800; font-size: 13px; } /* 聯動專屬綠色 */
+        .collab { background-color: #86efac; color: #000; font-weight: 800; font-size: 13px; } /* 聯動角色常駐綠色 */
         .none { background-color: #161616; color: #333; }
         .w-low { background-color: #242424; color: #888; }
         .w-med { background-color: #3b2818; color: #ccc; }
@@ -85,12 +85,25 @@
             "歡愉": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Elation.png"
         };
 
-        // 已刪除 3.8中，版本日期無縫銜接
         const PATCH_DATA = [
-            {"patch": "1.0上", "date": "23/04/26"}, {"patch": "1.0下", "date": "23/05/17"}, {"patch": "1.1上", "date": "23/06/07"}, {"patch": "1.1下", "date": "23/06/28"}, {"patch": "1.2上", "date": "23/07/19"}, {"patch": "1.2下", "date": "23/08/09"}, {"patch": "1.3上", "date": "23/08/30"}, {"patch": "1.3下", "date": "23/09/20"}, {"patch": "1.4上", "date": "23/10/11"}, {"patch": "1.4下", "date": "23/10/27"}, {"patch": "1.5上", "date": "23/11/15"}, {"patch": "1.5下", "date": "23/12/06"}, {"patch": "1.6上", "date": "23/12/27"}, {"patch": "1.6下", "date": "24/01/17"}, {"patch": "2.0上", "date": "24/02/06"}, {"patch": "2.0下", "date": "24/02/29"}, {"patch": "2.1上", "date": "24/03/27"}, {"patch": "2.1下", "date": "24/04/17"}, {"patch": "2.2上", "date": "24/05/08"}, {"patch": "2.2下", "date": "24/05/29"}, {"patch": "2.3上", "date": "24/06/19"}, {"patch": "2.3下", "date": "24/07/10"}, {"patch": "2.4上", "date": "24/07/31"}, {"patch": "2.4下", "date": "24/08/21"}, {"patch": "2.5上", "date": "24/09/10"}, {"patch": "2.5下", "date": "24/10/02"}, {"patch": "2.6上", "date": "24/10/23"}, {"patch": "2.6下", "date": "24/11/13"}, {"patch": "2.7上", "date": "24/12/04"}, {"patch": "2.7下", "date": "24/12/25"}, {"patch": "3.0上", "date": "25/01/15"}, {"patch": "3.0下", "date": "25/02/05"}, {"patch": "3.1上", "date": "25/02/26"}, {"patch": "3.1下", "date": "25/03/19"}, {"patch": "3.2上", "date": "25/04/09"}, {"patch": "3.2下", "date": "25/04/30"}, {"patch": "3.3上", "date": "25/05/21"}, {"patch": "3.3下", "date": "25/06/11"}, {"patch": "3.4上", "date": "25/07/02"}, {"patch": "3.4下", "date": "25/07/23"}, {"patch": "3.5上", "date": "25/08/13"}, {"patch": "3.5下", "date": "25/09/02"}, {"patch": "3.6上", "date": "25/09/24"}, {"patch": "3.6下", "date": "25/10/15"}, {"patch": "3.7上", "date": "25/11/05"}, {"patch": "3.7下", "date": "25/11/26"}, {"patch": "3.8上", "date": "25/12/17"}, {"patch": "3.8下", "date": "26/01/07"}, {"patch": "4.0上", "date": "26/01/28"}, {"patch": "4.0下", "date": "26/02/13"}, {"patch": "4.1上", "date": "26/03/03"}, {"patch": "4.1下", "date": "26/03/25"}, {"patch": "4.2上", "date": "26/04/08"}, {"patch": "4.2下", "date": "26/04/22"}, {"patch": "4.3上", "date": "26/05/13"}, {"patch": "4.3下", "date": "26/06/01"}, {"patch": "4.4上", "date": "26/06/22"}
+            {"patch": "1.0上", "date": "23/04/26"}, {"patch": "1.0下", "date": "23/05/17"}, {"patch": "1.1上", "date": "23/06/07"}, {"patch": "1.1下", "date": "23/06/28"},
+            {"patch": "1.2上", "date": "23/07/19"}, {"patch": "1.2下", "date": "23/08/09"}, {"patch": "1.3上", "date": "23/08/30"}, {"patch": "1.3下", "date": "23/09/20"},
+            {"patch": "1.4上", "date": "23/10/11"}, {"patch": "1.4下", "date": "23/10/27"}, {"patch": "1.5上", "date": "23/11/15"}, {"patch": "1.5下", "date": "23/12/06"},
+            {"patch": "1.6上", "date": "23/12/27"}, {"patch": "1.6下", "date": "24/01/17"}, {"patch": "2.0上", "date": "24/02/06"}, {"patch": "2.0下", "date": "24/02/29"},
+            {"patch": "2.1上", "date": "24/03/27"}, {"patch": "2.1下", "date": "24/04/17"}, {"patch": "2.2上", "date": "24/05/08"}, {"patch": "2.2下", "date": "24/05/29"},
+            {"patch": "2.3上", "date": "24/06/19"}, {"patch": "2.3下", "date": "24/07/10"}, {"patch": "2.4上", "date": "24/07/31"}, {"patch": "2.4下", "date": "24/08/21"},
+            {"patch": "2.5上", "date": "24/09/10"}, {"patch": "2.5下", "date": "24/10/02"}, {"patch": "2.6上", "date": "24/10/23"}, {"patch": "2.6下", "date": "24/11/13"},
+            {"patch": "2.7上", "date": "24/12/04"}, {"patch": "2.7下", "date": "24/12/25"}, {"patch": "3.0上", "date": "25/01/15"}, {"patch": "3.0下", "date": "25/02/05"},
+            {"patch": "3.1上", "date": "25/02/26"}, {"patch": "3.1下", "date": "25/03/19"}, {"patch": "3.2上", "date": "25/04/09"}, {"patch": "3.2下", "date": "25/04/30"},
+            {"patch": "3.3上", "date": "25/05/21"}, {"patch": "3.3下", "date": "25/06/11"}, {"patch": "3.4上", "date": "25/07/02"}, {"patch": "3.4下", "date": "25/07/23"},
+            {"patch": "3.5上", "date": "25/08/13"}, {"patch": "3.5下", "date": "25/09/02"}, {"patch": "3.6上", "date": "25/09/24"}, {"patch": "3.6下", "date": "25/10/15"},
+            {"patch": "3.7上", "date": "25/11/05"}, {"patch": "3.7下", "date": "25/11/26"}, {"patch": "3.8上", "date": "25/12/17"}, {"patch": "3.8下", "date": "26/01/07"},
+            {"patch": "4.0上", "date": "26/01/28"}, {"patch": "4.0下", "date": "26/02/13"}, {"patch": "4.1上", "date": "26/03/03"}, {"patch": "4.1下", "date": "26/03/25"},
+            {"patch": "4.2上", "date": "26/04/08"}, {"patch": "4.2下", "date": "26/04/22"}, {"patch": "4.3上", "date": "26/05/13"}, {"patch": "4.3下", "date": "26/06/01"},
+            {"patch": "4.4上", "date": "26/06/22"}
         ];
         
-        // 聯動角色新增 isCollab 屬性，指定從哪一個版本開始常駐
+        // 已全盤校正之核心資料庫
         const CHARACTERS = [
             { name: "吉爾伽美什", path: "智識", elem: "Imaginary", avatar: "", isCollab: "4.4上", runs: [] },
             { name: "遠坂凜", path: "智識", elem: "Ice", avatar: "", isCollab: "4.4上", runs: [] },
@@ -98,55 +111,55 @@
             { name: "千冶．刃", path: "毀滅", elem: "Fire", avatar: "", runs: ["4.3上"] },
             { name: "緋櫻", path: "巡獵", elem: "Ice", avatar: "", runs: ["4.2下"] },
             { name: "銀狼LV.999", path: "虛無", elem: "Quantum", avatar: "", runs: ["4.2上"] },
-            { name: "不死途", path: "虛無", elem: "Wind", avatar: "", runs: ["4.1上"] },
+            { name: "不死途", path: "虛無", elem: "Wind", avatar: "", runs: ["4.1下", "4.1上"] },
             { name: "火花", path: "歡愉", elem: "Fire", avatar: "", runs: ["4.0下"] },
-            { name: "爻光", path: "巡獵", elem: "Lightning", avatar: "", runs: ["4.0上"] },
-            { name: "大麗花", path: "豐饒", elem: "Wind", avatar: "", runs: ["3.8上"] }, 
+            { name: "爻光", path: "巡獵", elem: "Lightning", avatar: "", runs: ["4.3上", "4.0上"] },
+            { name: "大麗花", path: "豐饒", elem: "Wind", avatar: "", runs: ["4.2上", "3.8上"] },
             { name: "昔漣", path: "同諧", elem: "Ice", avatar: "", runs: ["3.7上"] },
             { name: "丹恆·藤荒", path: "存護", elem: "Physical", avatar: "", runs: ["3.6下"] },
-            { name: "長夜月", path: "記憶", elem: "Ice", avatar: "", runs: ["3.6上"] },
-            { name: "刻律德菈", path: "毀滅", elem: "Lightning", avatar: "", runs: ["3.5下"] },
-            { name: "海瑟音", path: "豐饒", elem: "Ice", avatar: "", runs: ["3.5上"] },
-            { name: "白厄", path: "虛無", elem: "Physical", avatar: "", runs: ["3.4下"] },
+            { name: "長夜月", path: "記憶", elem: "Ice", avatar: "", runs: ["4.0上", "3.6上"] },
+            { name: "刻律德菈", path: "毀滅", elem: "Lightning", avatar: "", runs: ["4.0下", "3.5下"] },
+            { name: "海瑟音", path: "豐饒", elem: "Ice", avatar: "", runs: ["4.0上", "3.5上"] },
+            { name: "白厄", path: "虛無", elem: "Physical", avatar: "", runs: ["3.8上", "3.4上"] },
             { name: "Archer", path: "巡獵", elem: "Fire", avatar: "", isCollab: "3.4上", runs: [] },
             { name: "Saber", path: "毀滅", elem: "Wind", avatar: "", isCollab: "3.4上", runs: [] },
-            { name: "賽飛兒", path: "同諧", elem: "Quantum", avatar: "", runs: ["3.3下"] },
-            { name: "風堇", path: "豐饒", elem: "Wind", avatar: "", runs: ["3.3上"] },
-            { name: "那刻夏", path: "毀滅", elem: "Fire", avatar: "", runs: ["3.2下"] },
-            { name: "遐蝶", path: "虛無", elem: "Physical", avatar: "", runs: ["3.2上"] },
-            { name: "萬敵", path: "毀滅", elem: "Lightning", avatar: "", runs: ["3.1下"] },
-            { name: "緹寶", path: "豐饒", elem: "Quantum", avatar: "", runs: ["3.1上"] },
-            { name: "阿格萊雅", path: "記憶", elem: "Lightning", avatar: "", runs: ["3.0下"] },
-            { name: "大黑塔", path: "智識", elem: "Ice", avatar: "", runs: ["3.0上"] },
-            { name: "忘歸人", path: "虛無", elem: "Fire", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1224.png", runs: ["2.7下"] },
-            { name: "星期日", path: "同諧", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1313.png", runs: ["2.7上"] },
-            { name: "亂破", path: "智識", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1317.png", runs: ["2.6上"] },
-            { name: "靈砂", path: "豐饒", elem: "Fire", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1222.png", runs: ["2.5下"] },
-            { name: "飛霄", path: "巡獵", elem: "Wind", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1220.png", runs: ["2.5上"] },
-            { name: "椒丘", path: "虛無", elem: "Fire", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1215.png", runs: ["2.4下"] },
-            { name: "雲璃", path: "毀滅", elem: "Physical", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1218.png", runs: ["2.4上"] },
-            { name: "翡翠", path: "智識", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1314.png", runs: ["2.3下"] },
-            { name: "流螢", path: "毀滅", elem: "Fire", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1310.png", runs: ["2.3上", "2.7下"] },
-            { name: "波提歐", path: "巡獵", elem: "Physical", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1315.png", runs: ["2.2下"] },
-            { name: "知更鳥", path: "同諧", elem: "Physical", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1309.png", runs: ["2.2上", "2.5上"] },
-            { name: "砂金", path: "存護", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1301.png", runs: ["2.1下", "2.6下"] },
-            { name: "黃泉", path: "虛無", elem: "Lightning", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1308.png", runs: ["2.1上", "2.6下"] },
-            { name: "花火", path: "同諧", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1306.png", runs: ["2.0下", "2.4下"] },
-            { name: "黑天鵝", path: "虛無", elem: "Wind", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1307.png", runs: ["2.0上", "2.5上"] },
-            { name: "真理醫生", path: "巡獵", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1304.png", runs: ["1.6下"] },
-            { name: "阮·梅", path: "同諧", elem: "Ice", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1303.png", runs: ["1.6上", "2.3上"] },
-            { name: "銀枝", path: "智識", elem: "Physical", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1302.png", runs: ["1.5下", "2.3下"] },
-            { name: "藿藿", path: "豐饒", elem: "Wind", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1217.png", runs: ["1.5上", "2.4上"] },
-            { name: "托帕", path: "巡獵", elem: "Fire", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1112.png", runs: ["1.4下", "2.2上", "2.5下"] },
-            { name: "鏡流", path: "毀滅", elem: "Ice", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1214.png", runs: ["1.4上", "2.1下"] },
-            { name: "符玄", path: "存護", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1208.png", runs: ["1.3下", "2.2下"] },
-            { name: "丹恆·飲月", path: "毀滅", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1213.png", runs: ["1.3上", "2.0上", "2.6上"] },
-            { name: "卡芙卡", path: "虛無", elem: "Lightning", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1005.png", runs: ["1.2下", "1.6下", "2.5上"] },
-            { name: "刃", path: "毀滅", elem: "Wind", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1205.png", runs: ["1.2上", "1.6上"] },
-            { name: "羅刹", path: "豐饒", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1203.png", runs: ["1.1下", "2.1上"] },
-            { name: "銀狼", path: "虛無", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1006.png", runs: ["1.1上", "1.5下"] },
-            { name: "景元", path: "智識", elem: "Lightning", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1204.png", runs: ["1.0下", "2.0下", "2.7上"] },
-            { name: "希兒", path: "巡獵", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1102.png", runs: ["1.0上", "1.4下"] }
+            { name: "賽飛兒", path: "同諧", elem: "Quantum", avatar: "", runs: ["3.7下", "3.3下"] },
+            { name: "風堇", path: "豐饒", elem: "Wind", avatar: "", runs: ["4.1上", "3.7下", "3.3上"] },
+            { name: "那刻夏", path: "毀滅", elem: "Fire", avatar: "", runs: ["3.6下", "3.2下"] },
+            { name: "遐蝶", path: "虛無", elem: "Physical", avatar: "", runs: ["4.2上", "3.7下", "3.3下", "3.2上"] },
+            { name: "萬敵", path: "毀滅", elem: "Lightning", avatar: "", runs: ["3.7下", "3.1下"] },
+            { name: "緹寶", path: "豐饒", elem: "Quantum", avatar: "", runs: ["4.2下", "3.7下", "3.5上", "3.1上"] },
+            { name: "阿格萊雅", path: "記憶", elem: "Lightning", avatar: "", runs: ["3.8下", "3.4上", "3.0下"] },
+            { name: "大黑塔", path: "智識", elem: "Ice", avatar: "", runs: ["3.6上", "3.3下", "3.0上"] },
+            { name: "忘歸人", path: "虛無", elem: "Fire", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1224.png", runs: ["3.8上", "3.2上", "2.7下"] },
+            { name: "星期日", path: "同諧", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1313.png", runs: ["4.2下", "3.4上", "3.8下", "2.7上"] },
+            { name: "亂破", path: "智識", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1317.png", runs: ["4.0下", "2.6上"] },
+            { name: "靈砂", path: "豐饒", elem: "Fire", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1222.png", runs: ["3.8上", "3.0上", "2.5下"] },
+            { name: "飛霄", path: "巡獵", elem: "Wind", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1220.png", runs: ["4.2下", "3.0上", "2.5上"] },
+            { name: "椒丘", path: "虛無", elem: "Fire", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1215.png", runs: ["3.2上", "2.4下"] },
+            { name: "雲璃", path: "毀滅", elem: "Physical", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1218.png", runs: ["3.2下", "2.4上"] },
+            { name: "翡翠", path: "智識", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1314.png", runs: ["3.0上", "2.3下"] },
+            { name: "流螢", path: "毀滅", elem: "Fire", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1310.png", runs: ["4.0下", "3.6下", "3.1下", "2.5上", "2.3上"] },
+            { name: "波提歐", path: "巡獵", elem: "Physical", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1315.png", runs: ["4.1下", "3.0下", "2.2下"] },
+            { name: "知更鳥", path: "同諧", elem: "Physical", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1309.png", runs: ["3.2上", "2.6下", "2.5上", "2.2上"] },
+            { name: "砂金", path: "存護", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1301.png", runs: ["2.6下", "2.1下"] },
+            { name: "黃泉", path: "虛無", elem: "Lightning", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1308.png", runs: ["3.2上", "2.6下", "2.1上"] },
+            { name: "花火", path: "同諧", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1306.png", runs: ["4.0下", "3.4上", "2.4下", "2.0下"] },
+            { name: "黑天鵝", path: "虛無", elem: "Wind", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1307.png", runs: ["4.0上", "2.5上", "2.0上"] },
+            { name: "真理醫生", path: "巡獵", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1304.png", runs: ["3.2下", "1.6下"] },
+            { name: "阮·梅", path: "同諧", elem: "Ice", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1303.png", runs: ["3.6上", "3.2上", "2.3上", "1.6上"] },
+            { name: "銀枝", path: "智識", elem: "Physical", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1302.png", runs: ["2.5上", "2.3下", "1.5下"] },
+            { name: "藿藿", path: "豐饒", elem: "Wind", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1217.png", runs: ["3.3上", "2.5下", "2.4上", "1.5上"] },
+            { name: "托帕", path: "巡獵", elem: "Fire", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1112.png", runs: ["3.3下", "3.0上", "2.5下", "2.2上", "1.4下"] },
+            { name: "鏡流", path: "毀滅", elem: "Ice", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1214.png", runs: ["3.4下", "2.1下", "1.4上"] },
+            { name: "符玄", path: "存護", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1208.png", runs: ["3.5下", "2.7下", "2.2下", "1.3下"] },
+            { name: "丹恆·飲月", path: "毀滅", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1213.png", runs: ["2.6上", "2.0上", "1.3上"] },
+            { name: "卡芙卡", path: "虛無", elem: "Lightning", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1005.png", runs: ["3.5上", "2.5上", "1.6下", "1.2下"] },
+            { name: "刃", path: "毀滅", elem: "Wind", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1205.png", runs: ["3.0上", "2.4上", "1.6上", "1.2上"] },
+            { name: "羅刹", path: "豐饒", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1203.png", runs: ["3.4上", "2.5下", "2.1上", "1.1下"] },
+            { name: "銀狼", path: "虛無", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1006.png", runs: ["3.7上", "3.2上", "2.0上", "1.5下", "1.1上"] },
+            { name: "景元", path: "智識", elem: "Lightning", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1204.png", runs: ["2.7上", "2.0下", "1.0下"] },
+            { name: "希兒", path: "巡獵", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1102.png", runs: ["3.0下", "2.4上", "1.4下", "1.0上"] }
         ];
 
         const table = document.getElementById('tracker');
@@ -160,7 +173,7 @@
         html += '</tr></thead><tbody>';
         
         CHARACTERS.forEach((char, index) => {
-            // 防破圖機制：若無設定 avatar 或圖片載入失敗，自動替換為 UI-Avatars 生成的文字頭像
+            // 防破圖機制：若無設定官方頭像或載入失敗，自動替換為 UI-Avatars 生成的精緻文字頭像
             const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(char.name)}&background=random&color=fff&size=56&bold=true`;
             const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
             const pathIconUrl = PATH_ICONS[char.path] || "";
@@ -179,12 +192,18 @@
             let history = [];
             let currentGap = 0;
             let hasReleased = false;
-            let isCollabActive = false;
 
             patchesList.forEach(patch => {
-                // 聯動角色專屬判定
-                if (char.isCollab === patch) {
-                    isCollabActive = true;
+                let isCollabActive = false;
+                
+                // 聯動常駐判定：若目前抓取到的版本是在聯動發布版本之後(含當下)，則改為常駐
+                if (char.isCollab) {
+                    const collabReleaseIndex = patchesList.indexOf(char.isCollab);
+                    const currentIndex = patchesList.indexOf(patch);
+                    // 陣列 0 是最新版，所以 currentIndex 越小代表版本越新
+                    if (currentIndex <= collabReleaseIndex) {
+                        isCollabActive = true;
+                    }
                 }
 
                 if (isCollabActive) {
