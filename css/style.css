@@ -19,9 +19,9 @@ body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: va
 
 /* 頂部同一行的工具列配置 */
 .header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 15px; flex-wrap: wrap; }
-.header-left { display: flex; gap: 8px; align-items: center; }
+.header-left { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .header-center { flex: 1; text-align: center; }
-.header-right { display: flex; align-items: center; }
+.header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 h1 { color: var(--text); margin: 0; font-size: 22px; font-weight: bold; }
 
@@ -79,7 +79,7 @@ tr:hover td:first-child { filter: none !important; }
 .dropdown-panel label:hover { color: #fff; background: #2a2a2a; }
 .dropdown-panel input[type="checkbox"] { cursor: pointer; accent-color: #666; width: 14px; height: 14px; }
 
-/* 🌟 新增：角色名稱搜尋框樣式 */
+/* 角色名稱搜尋框樣式 */
 .search-input { 
     background: #1c1c1c; 
     color: #e0e0e0; 
@@ -94,3 +94,25 @@ tr:hover td:first-child { filter: none !important; }
 }
 .search-input:hover { border-color: #666; background: #222; }
 .search-input:focus { border-color: #888; background: #222; width: 110px; }
+
+/* 🌟 新增：手機等小螢幕裝置的響應式優化 */
+@media (max-width: 768px) {
+    .header-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .header-left, .header-right {
+        justify-content: center;
+        width: 100%;
+    }
+    .header-center {
+        order: -1; /* 讓標題在手機上優先顯示在最上方 */
+    }
+    h1 {
+        font-size: 18px;
+    }
+    .table-wrap {
+        max-height: calc(100vh - 140px); /* 自動適應手機螢幕剩餘高度 */
+    }
+}
