@@ -25,7 +25,8 @@
         /* 表格與表單樣式 */
         table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 14px; }
         th, td { border: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: middle; }
-        th { background: #2a2a2a; }
+        /* 標頭全面置中 */
+        th { background: #2a2a2a; text-align: center; }
         input[type="text"], input[type="date"], select { padding: 5px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
@@ -97,7 +98,7 @@
                         <th style="width: 8%;">命途</th>
                         <th style="width: 8%;">屬性</th>
                         <th style="width: 63%;">取得機制與版本設定</th>
-                        <th style="width: 7%; text-align: center;">操作</th>
+                        <th style="width: 7%;">操作</th>
                     </tr>
                 </thead>
                 <tbody id="chars-tbody"></tbody>
@@ -112,7 +113,7 @@
                     <tr>
                         <th style="width: 40%;">版本名稱 (如: 4.5上)</th>
                         <th style="width: 40%;">日期 (如: 26/03/15)</th>
-                        <th style="width: 20%; text-align: center;">操作</th>
+                        <th style="width: 20%;">操作</th>
                     </tr>
                 </thead>
                 <tbody id="patches-tbody"></tbody>
