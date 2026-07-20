@@ -23,9 +23,12 @@
         }
         
         body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; position: relative; }
-        h1 { text-align: center; color: var(--text); margin: 10px 0 20px 0; font-size: 24px; font-weight: bold; }
+        h1 { text-align: center; color: var(--text); margin: 10px 0 15px 0; font-size: 24px; font-weight: bold; }
         
-        .table-wrap { overflow-x: auto; max-height: calc(100vh - 70px); border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
+        /* 上方工具列樣式 */
+        .toolbar { display: flex; gap: 10px; margin-bottom: 10px; padding: 0 2px; align-items: center; max-width: 320px; }
+        
+        .table-wrap { overflow-x: auto; max-height: calc(100vh - 130px); border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
         table { border-collapse: collapse; min-width: 100%; text-align: center; font-size: 12px; background: var(--surface); }
         th, td { padding: 3px 2px; border: 1px solid var(--border); white-space: nowrap; min-width: 26px; }
         
@@ -77,20 +80,40 @@
         .col-highlight { filter: brightness(1.3); transition: filter 0.15s; }
 
         /* 多選篩選器樣式 */
-        .filter-container { display: flex; gap: 4px; padding: 2px 4px; align-items: center; justify-content: space-between; font-size: 11px; }
-        .multi-select { position: relative; flex: 1; text-align: left; }
-        .select-box { background: #181818; color: #e0e0e0; border: 1px solid #444; padding: 3px 6px; border-radius: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none; }
-        .select-box:hover { border-color: #666; }
-        .dropdown-panel { display: none; position: absolute; top: 100%; left: 0; background: #1e1e1e; border: 1px solid #555; border-radius: 4px; padding: 6px; z-index: 100; min-width: 130px; box-shadow: 0 4px 10px rgba(0,0,0,0.6); max-height: 220px; overflow-y: auto; }
+        .multi-select { position: relative; flex: 1; text-align: left; font-size: 12px; }
+        .select-box { background: #1c1c1c; color: #e0e0e0; border: 1px solid #444; padding: 5px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .select-box:hover { border-color: #666; background: #222; }
+        .dropdown-panel { display: none; position: absolute; top: calc(100% + 4px); left: 0; background: #1e1e1e; border: 1px solid #555; border-radius: 6px; padding: 8px; z-index: 1000; min-width: 140px; box-shadow: 0 6px 16px rgba(0,0,0,0.7); max-height: 280px; overflow-y: auto; }
         .dropdown-panel.show { display: block; }
-        .dropdown-panel label { display: flex; align-items: center; gap: 6px; padding: 3px 4px; cursor: pointer; color: #ccc; border-radius: 2px; }
+        .dropdown-panel label { display: flex; align-items: center; gap: 8px; padding: 4px 6px; cursor: pointer; color: #ccc; border-radius: 3px; }
         .dropdown-panel label:hover { color: #fff; background: #2a2a2a; }
-        .dropdown-panel input[type="checkbox"] { cursor: pointer; accent-color: #555; }
+        .dropdown-panel input[type="checkbox"] { cursor: pointer; accent-color: #666; width: 14px; height: 14px; }
     </style>
 </head>
 <body>
-    <div class="update-date">更新日期：2026/07/20</div>
-    <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
+    <div class="update-date">更新日期：2026/07/20[cite: 1]</div>
+    <h1>崩壞：星穹鐵道 - 限定躍遷一覽表[cite: 1]</h1>
+    
+    <!-- 獨立於表格上方的工具列篩選器 -->
+    <div class="toolbar">
+        <div class="multi-select" id="path-dropdown">
+            <div class="select-box" id="path-select-box">全部命途</div>
+            <div class="dropdown-panel" id="path-panel">
+                <label><input type="checkbox" id="path-all" checked> <b>全部命途</b></label>
+                <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
+                <div id="path-items-container"></div>
+            </div>
+        </div>
+        <div class="multi-select" id="elem-dropdown">
+            <div class="select-box" id="elem-select-box">全部屬性</div>
+            <div class="dropdown-panel" id="elem-panel">
+                <label><input type="checkbox" id="elem-all" checked> <b>全部屬性</b></label>
+                <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
+                <div id="elem-items-container"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="table-wrap">
         <table id="tracker"></table>
     </div>
@@ -247,34 +270,21 @@
             const uniquePaths = [...new Set(RAW_CHARACTERS.map(c => c.path))];
             const uniqueElems = [...new Set(RAW_CHARACTERS.map(c => c.elem))];
 
+            // 動態填入篩選器選項
+            document.getElementById('path-items-container').innerHTML = uniquePaths.map(p => 
+                `<label><input type="checkbox" class="path-item" value="${p}" checked> ${p}</label>`
+            ).join('');
+            
+            document.getElementById('elem-items-container').innerHTML = uniqueElems.map(e => 
+                `<label><input type="checkbox" class="elem-item" value="${e}" checked> ${e}</label>`
+            ).join('');
+
             // 構建表頭[cite: 1]
             let html = '<thead><tr><th></th>';
             [...PATCH_DATA].reverse().forEach(p => {
                 html += `<th>${formatHeaderDate(p.date)}</th>`;
             });
-            
-            // 插入多選篩選器面板 HTML
-            html += `</tr><tr><th>
-                <div class="filter-container">
-                    <div class="multi-select" id="path-dropdown">
-                        <div class="select-box" id="path-select-box">全部命途</div>
-                        <div class="dropdown-panel" id="path-panel">
-                            <label><input type="checkbox" id="path-all" checked> <b>全部命途</b></label>
-                            <div style="border-top: 1px solid #444; margin: 3px 0;"></div>
-                            ${uniquePaths.map(p => `<label><input type="checkbox" class="path-item" value="${p}" checked> ${p}</label>`).join('')}
-                        </div>
-                    </div>
-                    <div class="multi-select" id="elem-dropdown">
-                        <div class="select-box" id="elem-select-box">全部屬性</div>
-                        <div class="dropdown-panel" id="elem-panel">
-                            <label><input type="checkbox" id="elem-all" checked> <b>全部屬性</b></label>
-                            <div style="border-top: 1px solid #444; margin: 3px 0;"></div>
-                            ${uniqueElems.map(e => `<label><input type="checkbox" class="elem-item" value="${e}" checked> ${e}</label>`).join('')}
-                        </div>
-                    </div>
-                </div>
-            </th>`;
-            
+            html += `</tr><tr><th><div style="text-align:center; padding: 0 4px;">&nbsp;</div></th>`;
             [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.patch}</th>`);
             html += '</tr></thead><tbody>';
             
@@ -434,7 +444,6 @@
                     }
                 });
 
-                // 防塌陷：若無符合條件的行，動態插入提示列保持表格高度
                 let emptyRow = table.querySelector('tbody tr.empty-row');
                 const totalCols = PATCH_DATA.length + 1;
                 if (visibleCount === 0) {
