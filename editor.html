@@ -206,6 +206,17 @@
             }
         }
 
+        // 依據版本名稱反查對應日期
+        function findDateByPatch(patchName) {
+            const p = patchesData.find(item => item.patch === patchName);
+            if (!p || !p.date) return "";
+            const parts = p.date.split('/');
+            if (parts.length === 3) {
+                return `20${parts[0]}-${parts[1]}-${parts[2]}`;
+            }
+            return "";
+        }
+
         // --- 渲染與操作：角色 ---
         function renderChars() {
             const tbody = document.getElementById('chars-tbody');
@@ -227,8 +238,17 @@
                     else if (termType === 'shop') currentType = 'shop';
 
                     let dateInputValue = "";
-                    if (isCollab && char.collabDate) {
-                        dateInputValue = char.collabDate.replace(/\//g, '-');
+                    if (isCollab) {
+                        if (char.collabDate) {
+                            dateInputValue = char.collabDate.replace(/\//g, '-');
+                        } else if (char.isCollab) {
+                            // 若原本只有版本名稱而無日期，自動從patchesData反查填入
+                            const foundDate = findDateByPatch(char.isCollab);
+                            if (foundDate) {
+                                dateInputValue = foundDate;
+                                char.collabDate = foundDate.replace(/-/g, '/');
+                            }
+                        }
                     }
 
                     const runs = char.runs || [];
