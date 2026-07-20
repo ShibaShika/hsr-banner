@@ -59,7 +59,7 @@
             const parts = dateStr.split('/');
             if (parts.length === 3) {
                 const yyyy = '20' + parts[0];
-                const mmdd = parts[1] + parts[2];
+                const mmdd = `${parts[1]}/${parts[2]}`; // 🌟 於月日之間加入斜線
                 return `${yyyy}<br>${mmdd}`;
             }
             return dateStr;
