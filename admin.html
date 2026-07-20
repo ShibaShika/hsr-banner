@@ -12,7 +12,7 @@
     <style>
         :root { --bg: #121212; --surface: #1e1e1e; --border: #444; --text: #e0e0e0; --primary: #2e436e; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1050px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .container { max-width: 1100px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         h1 { margin-top: 0; font-size: 24px; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         
         /* 頁籤樣式 */
@@ -32,7 +32,7 @@
         /* 按鈕樣式 */
         .btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
         .btn:hover { background: #444; }
-        .btn-add { background: #2d5a2d; border-color: #4a8a4a; margin-bottom: 10px; display: inline-block; }
+        .btn-add { background: #2d5a2d; border-color: #4a8a4a; margin-top: 10px; display: inline-block; }
         .btn-add:hover { background: #3a753a; }
         .btn-danger { background: #7a2222; border-color: #b53838; }
         .btn-danger:hover { background: #9c2e2e; }
@@ -43,6 +43,37 @@
         .export-area { margin-top: 30px; padding-top: 20px; border-top: 2px dashed var(--border); }
         textarea { width: 100%; height: 150px; background: #111; color: #8ef9f3; border: 1px solid #555; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 13px; box-sizing: border-box; margin-bottom: 15px; }
         .success-msg { color: #86efac; font-size: 14px; display: none; margin-left: 10px; }
+
+        /* 右側懸浮導航按鈕 */
+        .quick-nav {
+            position: fixed;
+            right: 25px;
+            bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+        .quick-nav-btn {
+            background: #2e436e;
+            color: #fff;
+            border: 1px solid #5575b5;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, transform 0.2s;
+        }
+        .quick-nav-btn:hover {
+            background: #3b558c;
+            transform: scale(1.08);
+        }
     </style>
 </head>
 <body>
@@ -59,24 +90,24 @@
 
         <!-- 角色管理區塊 -->
         <div id="tab-chars" class="tab-content active">
-            <button class="btn btn-add" onclick="addCharRow()">+ 新增角色</button>
             <table>
                 <thead>
                     <tr>
                         <th style="width: 14%;">名稱</th>
                         <th style="width: 11%;">命途</th>
                         <th style="width: 11%;">屬性</th>
-                        <th style="width: 48%;">卡池歷史 / 特殊取得機制</th>
+                        <th style="width: 48%;">卡池歷史與常駐/聯動設定</th>
                         <th style="width: 16%;">操作</th>
                     </tr>
                 </thead>
                 <tbody id="chars-tbody"></tbody>
             </table>
+            <!-- 新增角色按鈕移至表格下方 -->
+            <button class="btn btn-add" onclick="addCharRow()">+ 新增角色</button>
         </div>
 
         <!-- 版本管理區塊 -->
         <div id="tab-patches" class="tab-content">
-            <button class="btn btn-add" onclick="addPatchRow()">+ 新增版本</button>
             <table>
                 <thead>
                     <tr>
@@ -87,6 +118,7 @@
                 </thead>
                 <tbody id="patches-tbody"></tbody>
             </table>
+            <button class="btn btn-add" onclick="addPatchRow()">+ 新增版本</button>
         </div>
 
         <!-- 匯出與儲存區塊 -->
@@ -111,6 +143,12 @@
             </div>
             <span id="copy-msg" class="success-msg">✅ 已經複製到剪貼簿！請貼到對應的檔案中取代全部內容。</span>
         </div>
+    </div>
+
+    <!-- 右側懸浮導航按鈕 (頁首 / 頁尾) -->
+    <div class="quick-nav">
+        <button class="quick-nav-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'});" title="回到頁首">▲</button>
+        <button class="quick-nav-btn" onclick="window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});" title="移至頁尾">▼</button>
     </div>
 
     <script>
@@ -149,19 +187,11 @@
             const availableElems = getDynamicOptions('elem');
 
             charsData.forEach((char, index) => {
-                // 判斷目前特殊的類型：'normal' | 'pool' | 'shop' | 'collab'
-                let specType = 'normal';
-                let specPatch = '';
-                let collabDate = '';
-
-                if (char.isCollab) {
-                    specType = 'collab';
-                    specPatch = char.isCollab;
-                    collabDate = char.collabDate || '';
-                } else if (char.term) {
-                    specType = char.term.type; // 'pool' 或 'shop'
-                    specPatch = char.term.patch;
-                }
+                const isCollab = char.isCollab !== undefined;
+                const termType = char.term ? char.term.type : 'none'; // 'none' | 'pool' | 'shop'
+                const termPatch = char.term ? char.term.patch : '';
+                const collabPatch = char.isCollab || '';
+                const collabDate = char.collabDate || '';
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -177,30 +207,37 @@
                         </select>
                     </td>
                     <td>
-                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                            <div style="display: flex; gap: 6px; align-items: center;">
-                                <select onchange="onSpecTypeChange(${index}, this.value)" style="font-size: 13px;">
-                                    <option value="normal" ${specType === 'normal' ? 'selected' : ''}>一般卡池歷史</option>
-                                    <option value="pool" ${specType === 'pool' ? 'selected' : ''}>星緣相邀 (常駐)</option>
-                                    <option value="shop" ${specType === 'shop' ? 'selected' : ''}>聚靈鑄星 (商店)</option>
-                                    <option value="collab" ${specType === 'collab' ? 'selected' : ''}>長期開放聯動</option>
-                                </select>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <!-- 1. 卡池歷史 (正常顯示，聯動角色則隱藏) -->
+                            <div style="display: ${isCollab ? 'none' : 'block'};">
+                                <label style="font-size: 11px; color: #aaa; display: block; margin-bottom: 2px;">卡池歷史 (逗號分隔)</label>
+                                <input type="text" value="${(char.runs || []).join(', ')}" placeholder="例如: 1.0上, 1.4下" onchange="updateCharRuns(${index}, this.value)">
                             </div>
 
-                            ${specType === 'normal' ? `
-                                <input type="text" value="${(char.runs || []).join(', ')}" placeholder="卡池歷史 (用逗號隔開，如: 1.0上, 1.4下)" onchange="updateCharRuns(${index}, this.value)">
-                            ` : ''}
+                            <!-- 2. 常駐取得機制 (星緣/聚靈) 可與卡池歷史並存 -->
+                            <div style="display: ${isCollab ? 'none' : 'flex'}; gap: 6px; align-items: center;">
+                                <select onchange="updateTermType(${index}, this.value)" style="font-size: 12px; flex: 1;">
+                                    <option value="none" ${termType === 'none' ? 'selected' : ''}>無常駐機制 (星緣/聚靈)</option>
+                                    <option value="pool" ${termType === 'pool' ? 'selected' : ''}>星緣相邀</option>
+                                    <option value="shop" ${termType === 'shop' ? 'selected' : ''}>聚靈鑄星</option>
+                                </select>
+                                ${termType !== 'none' ? `
+                                    <input type="text" value="${termPatch}" placeholder="起始版本(如3.2上)" onchange="updateTermPatch(${index}, this.value)" style="flex: 1; font-size: 12px;">
+                                ` : ''}
+                            </div>
 
-                            ${(specType === 'pool' || specType === 'shop') ? `
-                                <input type="text" value="${specPatch}" placeholder="起始版本 (如: 3.2上)" onchange="updateSpecPatch(${index}, '${specType}', this.value)">
-                            ` : ''}
-
-                            ${specType === 'collab' ? `
-                                <div style="display: flex; gap: 6px;">
-                                    <input type="text" value="${specPatch}" placeholder="聯動版本 (如: 3.4上)" onchange="updateCollabPatch(${index}, this.value)" style="flex: 1;">
-                                    <input type="text" value="${collabDate}" placeholder="聯動日期 (如: 2025/07/11)" onchange="updateCollabDate(${index}, this.value)" style="flex: 1;">
-                                </div>
-                            ` : ''}
+                            <!-- 3. 長期開放聯動設定 -->
+                            <div style="display: flex; flex-direction: column; gap: 4px; background: #161616; padding: 6px; border-radius: 4px; border: 1px dashed #444;">
+                                <label style="font-size: 11px; display: flex; align-items: center; gap: 6px; cursor: pointer; color: ${isCollab ? '#8ef9f3' : '#aaa'}; font-weight: bold;">
+                                    <input type="checkbox" ${isCollab ? 'checked' : ''} onchange="toggleCollab(${index}, this.checked)" style="width: 13px; height: 13px; cursor: pointer;"> 長期開放聯動角色
+                                </label>
+                                ${isCollab ? `
+                                    <div style="display: flex; gap: 6px; margin-top: 2px;">
+                                        <input type="text" value="${collabPatch}" placeholder="聯動版本(如4.4上)" onchange="updateCollabPatch(${index}, this.value)" style="font-size: 12px;">
+                                        <input type="text" value="${collabDate}" placeholder="聯動日期(如2026/07/24)" onchange="updateCollabDate(${index}, this.value)" style="font-size: 12px;">
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
                     </td>
                     <td>
@@ -213,24 +250,37 @@
 
         function updateChar(index, key, value) { charsData[index][key] = value; }
 
-        // 切換特殊類型下拉選單
-        function onSpecTypeChange(index, type) {
-            delete charsData[index].isCollab;
-            delete charsData[index].collabDate;
-            delete charsData[index].term;
-            charsData[index].runs = [];
+        function updateCharRuns(index, value) {
+            charsData[index].runs = value.split(',').map(s => s.trim()).filter(s => s !== "");
+        }
 
-            if (type === 'pool' || type === 'shop') {
-                charsData[index].term = { type: type, patch: "3.2上" };
-            } else if (type === 'collab') {
-                charsData[index].isCollab = "3.4上";
-                charsData[index].collabDate = "2025/07/11";
+        function updateTermType(index, type) {
+            if (type === 'none') {
+                delete charsData[index].term;
+            } else {
+                const currentPatch = charsData[index].term ? charsData[index].term.patch : "3.2上";
+                charsData[index].term = { type: type, patch: currentPatch };
             }
             renderChars();
         }
 
-        function updateSpecPatch(index, type, value) {
-            charsData[index].term = { type: type, patch: value.trim() };
+        function updateTermPatch(index, value) {
+            if (charsData[index].term) {
+                charsData[index].term.patch = value.trim();
+            }
+        }
+
+        function toggleCollab(index, isChecked) {
+            if (isChecked) {
+                charsData[index].isCollab = "4.4上";
+                charsData[index].collabDate = "2026/07/24";
+                charsData[index].runs = [];
+                delete charsData[index].term;
+            } else {
+                delete charsData[index].isCollab;
+                delete charsData[index].collabDate;
+            }
+            renderChars();
         }
 
         function updateCollabPatch(index, value) {
@@ -241,17 +291,16 @@
             charsData[index].collabDate = value.trim();
         }
 
-        function updateCharRuns(index, value) {
-            charsData[index].runs = value.split(',').map(s => s.trim()).filter(s => s !== "");
-        }
-
         function addCharRow() {
             charsData.push({ name: "新角色", path: "毀滅", elem: "火", avatar: "", runs: [] });
             renderChars();
         }
 
         function deleteChar(index) {
-            if(confirm('確定要刪除這位角色嗎？')) { charsData.splice(index, 1); renderChars(); }
+            if(confirm('確定要刪除這位角色嗎？')) {
+                charsData.splice(index, 1);
+                renderChars();
+            }
         }
 
         // --- 渲染與操作：版本 ---
@@ -270,12 +319,17 @@
         }
 
         function updatePatch(index, key, value) { patchesData[index][key] = value; }
+        
         function addPatchRow() {
-            patchesData.unshift({ patch: "新版本", date: "YY/MM/DD" });
+            patchesData.push({ patch: "新版本", date: "YY/MM/DD" });
             renderPatches();
         }
+
         function deletePatch(index) {
-            if(confirm('確定要刪除這個版本嗎？')) { patchesData.splice(index, 1); renderPatches(); }
+            if(confirm('確定要刪除這個版本嗎？')) {
+                patchesData.splice(index, 1);
+                renderPatches();
+            }
         }
 
         // --- 核心：匯出程式碼 ---
