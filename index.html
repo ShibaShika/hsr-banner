@@ -82,7 +82,7 @@
         <table id="tracker"></table>
     </div>
 
-    <script>
+<script>
         const PATH_ICONS = {
             "毀滅": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Destruction.png",
             "巡獵": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Hunt.png",
@@ -127,14 +127,14 @@
             {"patch": "4.4上", "date": "26/07/15"}, {"patch": "4.4下", "date": "26/08/05"}
         ];
 
-        // 資料庫維持「舊到新」排列（希兒在最上面，最新角色在最下面）
+        // 資料庫維持「舊到新」排列
         const RAW_CHARACTERS = [
-            { name: "希兒", path: "巡獵", elem: "量子", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1102.png", runs: ["3.0下", "2.4上", "1.4下", "1.0上"], term: { type: "pool", patch: "3.2上" } },
-            { name: "景元", path: "智識", elem: "雷", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1204.png", runs: ["2.7上", "2.0下", "1.0下"] },
-            { name: "銀狼", path: "虛無", elem: "量子", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1006.png", runs: ["3.7上", "3.2上", "2.0上", "1.5下", "1.1上"], term: { type: "pool", patch: "4.2上" } },
-            { name: "羅刹", path: "豐饒", elem: "虛數", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1203.png", runs: ["3.4上", "2.5下", "2.1上", "1.1下"], term: { type: "shop", patch: "3.2上" } },
-            { name: "刃", path: "毀滅", elem: "風", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1205.png", runs: ["3.0上", "2.4上", "1.6上", "1.2上"], term: { type: "pool", patch: "3.2上" } },
-            { name: "卡芙卡", path: "虛無", elem: "雷", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1005.png", runs: ["3.5上", "2.5上", "1.6下", "1.2下"] },
+            { name: "希兒", path: "巡獵", elem: "量子", avatar: "", runs: ["3.0下", "2.4上", "1.4下", "1.0上"], term: { type: "pool", patch: "3.2上" } },
+            { name: "景元", path: "智識", elem: "雷", avatar: "", runs: ["2.7上", "2.0下", "1.0下"] },
+            { name: "銀狼", path: "虛無", elem: "量子", avatar: "", runs: ["3.7上", "3.2上", "2.0上", "1.5下", "1.1上"], term: { type: "pool", patch: "4.2上" } },
+            { name: "羅刹", path: "豐饒", elem: "虛數", avatar: "", runs: ["3.4上", "2.5下", "2.1上", "1.1下"], term: { type: "shop", patch: "3.2上" } },
+            { name: "刃", path: "毀滅", elem: "風", avatar: "", runs: ["3.0上", "2.4上", "1.6上", "1.2上"], term: { type: "pool", patch: "3.2上" } },
+            { name: "卡芙卡", path: "虛無", elem: "雷", avatar: "", runs: ["3.5上", "2.5上", "1.6下", "1.2下"] },
             { name: "丹恆•飲月", path: "毀滅", elem: "虛數", avatar: "", runs: ["2.6上", "2.0上", "1.3上"] },
             { name: "符玄", path: "存護", elem: "量子", avatar: "", runs: ["3.5下", "2.7下", "2.2下", "1.3下"], term: { type: "pool", patch: "3.2上" } },
             { name: "鏡流", path: "毀滅", elem: "冰", avatar: "", runs: ["3.4下", "2.1下", "1.4上"] },
@@ -186,9 +186,7 @@
             { name: "吉爾伽美什", path: "毀滅", elem: "雷", avatar: "", isCollab: "4.4上", runs: [] }
         ];
 
-        // 載入時自動反轉陣列，讓最新角色顯示在最上方，且序號保持正確
-        const CHARACTERS = [...RAW_CHARACTERS].reverse();
-
+        // 格式化表頭日期的輔助函式
         function formatHeaderDate(dateStr) {
             const parts = dateStr.split('/');
             if (parts.length === 3) {
@@ -199,144 +197,185 @@
             return dateStr;
         }
 
-        const table = document.getElementById('tracker');
-        const patchesList = PATCH_DATA.map(p => p.patch);
-        const totalChars = CHARACTERS.length;
-        
-        let html = '<thead><tr><th></th>';
-        [...PATCH_DATA].reverse().forEach(p => {
-            html += `<th>${formatHeaderDate(p.date)}</th>`;
-        });
-        html += '</tr><tr><th><div style="text-align:center; padding: 0 4px;">序號 / 角色資訊</div></th>';
-        [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.patch}</th>`);
-        html += '</tr></thead><tbody>';
-        
-        CHARACTERS.forEach((char, index) => {
-            const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(char.name)}&background=random&color=fff&size=56&bold=true`;
-            const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
-            const pathIconUrl = PATH_ICONS[char.path] || "";
-            const seqNum = totalChars - index;
-            
-            html += `<tr>
-                <td class="bg-${char.elem}">
-                    <div class="char-info-cell">
-                        <span class="char-seq">${seqNum}</span>
-                        ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${char.path}">` : '<div class="char-path-icon"></div>'}
-                        <img src="${avatarUrl}" class="char-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
-                        <span class="char-name">${char.name}</span>
-                    </div>
-                </td>`;
-            
-            let history = [];
-            let currentGap = 0;
-            let hasReleased = false;
+        // 初始化主程式 (改成 async 以便等待 fetch 資料)
+        async function initTracker() {
+            // 1. 自動從 StarRailRes 撈取頭像字典
+            try {
+                const res = await fetch('https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/cht/characters.json');
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    // 防呆正規化：處理各種符號差異 (移除中間點、統一剎/刹等)
+                    const normalize = (n) => n.replace(/[•·]/g, '').replace(/刹/g, '剎');
+                    const avatarMap = {};
+                    
+                    for (const id in data) {
+                        const officialName = data[id].name;
+                        const imgUrl = `https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/${data[id].icon}`;
+                        
+                        avatarMap[normalize(officialName)] = imgUrl;
+                        
+                        // 處理特例：托帕&帳帳 -> 托帕
+                        if (officialName.includes('&')) {
+                            avatarMap[normalize(officialName.split('&')[0])] = imgUrl;
+                        }
+                    }
 
-            patchesList.forEach(patch => {
-                let cellStatus = 'NONE';
+                    // 2. 將抓到的頭像網址填入陣列中對應的角色
+                    RAW_CHARACTERS.forEach(char => {
+                        const searchName = normalize(char.name);
+                        if (avatarMap[searchName] && !char.avatar) {
+                            char.avatar = avatarMap[searchName];
+                        }
+                    });
+                }
+            } catch (error) {
+                console.warn("頭像庫連線失敗，將使用文字備用頭像：", error);
+            }
+
+            // 3. 處理並反轉陣列準備渲染
+            const CHARACTERS = [...RAW_CHARACTERS].reverse();
+            const table = document.getElementById('tracker');
+            const patchesList = PATCH_DATA.map(p => p.patch);
+            const totalChars = CHARACTERS.length;
+            
+            // 構建表頭
+            let html = '<thead><tr><th></th>';
+            [...PATCH_DATA].reverse().forEach(p => {
+                html += `<th>${formatHeaderDate(p.date)}</th>`;
+            });
+            html += '</tr><tr><th><div style="text-align:center; padding: 0 4px;">序號 / 角色資訊</div></th>';
+            [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.patch}</th>`);
+            html += '</tr></thead><tbody>';
+            
+            // 構建表格內容
+            CHARACTERS.forEach((char, index) => {
+                const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(char.name)}&background=random&color=fff&size=56&bold=true`;
+                const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
+                const pathIconUrl = PATH_ICONS[char.path] || "";
+                const seqNum = totalChars - index;
                 
-                if (char.term) {
-                    const termIdx = patchesList.indexOf(char.term.patch);
-                    const pIdx = patchesList.indexOf(patch);
-                    if (pIdx >= termIdx) {
+                html += `<tr>
+                    <td class="bg-${char.elem}">
+                        <div class="char-info-cell">
+                            <span class="char-seq">${seqNum}</span>
+                            ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${char.path}">` : '<div class="char-path-icon"></div>'}
+                            <img src="${avatarUrl}" class="char-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
+                            <span class="char-name">${char.name}</span>
+                        </div>
+                    </td>`;
+                
+                let history = [];
+                let currentGap = 0;
+                let hasReleased = false;
+
+                patchesList.forEach(patch => {
+                    let cellStatus = 'NONE';
+                    
+                    if (char.term) {
+                        const termIdx = patchesList.indexOf(char.term.patch);
+                        const pIdx = patchesList.indexOf(patch);
                         if (pIdx === termIdx) {
                             history.push({ status: 'TERM_START', type: char.term.type });
-                        } else {
+                            return;
+                        } else if (pIdx > termIdx) {
                             history.push({ status: 'TERM_EMPTY', type: char.term.type });
-                        }
-                        return; // 終止後就不會再有復刻，直接跳過後續判斷
-                    }
-                }
-                
-                if (char.isCollab) {
-                    const collabStart = char.isCollab;
-                    const sIdx = patchesList.indexOf(collabStart);
-                    const pIdx = patchesList.indexOf(patch);
-                    const lIdx = patchesList.length - 1; 
-
-                    if (pIdx >= sIdx) {
-                        if (pIdx === sIdx || pIdx === lIdx) {
-                            cellStatus = 'COLLAB_START'; 
-                        } else {
-                            cellStatus = 'COLLAB_EMPTY'; 
+                            return;
                         }
                     }
-                }
+                    
+                    if (char.isCollab) {
+                        const collabStart = char.isCollab;
+                        const sIdx = patchesList.indexOf(collabStart);
+                        const pIdx = patchesList.indexOf(patch);
+                        const lIdx = patchesList.length - 1; 
 
-                if (cellStatus === 'COLLAB_START') {
-                    history.push({ status: 'COLLAB' });
-                } else if (cellStatus === 'COLLAB_EMPTY') {
-                    history.push({ status: 'COLLAB_EMPTY' });
-                } else if (char.runs && char.runs.includes(patch)) {
-                    hasReleased = true;
-                    currentGap = 0;
-                    history.push({ status: 'UP' });
-                } else {
-                    if (hasReleased) {
-                        currentGap++;
-                        history.push({ status: 'WAIT', gap: currentGap });
+                        if (pIdx >= sIdx) {
+                            if (pIdx === sIdx || pIdx === lIdx) {
+                                cellStatus = 'COLLAB_START'; 
+                            } else {
+                                cellStatus = 'COLLAB_EMPTY'; 
+                            }
+                        }
+                    }
+
+                    if (cellStatus === 'COLLAB_START') {
+                        history.push({ status: 'COLLAB' });
+                    } else if (cellStatus === 'COLLAB_EMPTY') {
+                        history.push({ status: 'COLLAB_EMPTY' });
+                    } else if (char.runs && char.runs.includes(patch)) {
+                        hasReleased = true;
+                        currentGap = 0;
+                        history.push({ status: 'UP' });
                     } else {
-                        history.push({ status: 'NONE' });
+                        if (hasReleased) {
+                            currentGap++;
+                            history.push({ status: 'WAIT', gap: currentGap });
+                        } else {
+                            history.push({ status: 'NONE' });
+                        }
                     }
+                });
+
+                history.reverse().forEach(cell => {
+                    let cls = '';
+                    let content = '';
+                    if (cell.status === 'UP' || cell.status === 'COLLAB') {
+                        cls = 'img-cell';
+                        content = `<img src="${avatarUrl}" class="grid-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">`;
+                    } else if (cell.status === 'COLLAB_EMPTY') {
+                        cls = `collab-empty bg-${char.elem}`;
+                        content = '';
+                    } else if (cell.status === 'TERM_START') {
+                        cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
+                        content = cell.type === 'pool' ? '星緣' : '聚靈';
+                    } else if (cell.status === 'TERM_EMPTY') {
+                        cls = cell.type === 'pool' ? 'term-pool-empty' : 'term-shop-empty';
+                        content = '';
+                    } else if (cell.status === 'NONE') {
+                        cls = 'none';
+                        content = '-';
+                    } else {
+                        content = cell.gap;
+                        if (cell.gap <= 3) cls = 'w-low';
+                        else if (cell.gap <= 7) cls = 'w-med';
+                        else if (cell.gap <= 12) cls = 'w-high';
+                        else cls = 'w-crit';
+                    }
+                    html += `<td class="${cls}">${content}</td>`;
+                });
+                html += `</tr>`;
+            });
+            html += '</tbody>';
+            
+            table.innerHTML = html;
+
+            // 重新綁定十字高亮互動效果
+            table.addEventListener('mouseover', (e) => {
+                const cell = e.target.closest('td, th');
+                if (!cell) return;
+                const colIndex = cell.cellIndex;
+                const rows = table.rows;
+                for (let i = 0; i < rows.length; i++) {
+                    const c = rows[i].cells[colIndex];
+                    if (c) c.classList.add('col-highlight');
                 }
             });
 
-            history.reverse().forEach(cell => {
-                let cls = '';
-                let content = '';
-                if (cell.status === 'UP' || cell.status === 'COLLAB') {
-                    cls = 'img-cell';
-                    content = `<img src="${avatarUrl}" class="grid-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">`;
-                } else if (cell.status === 'COLLAB_EMPTY') {
-                    cls = `collab-empty bg-${char.elem}`;
-                    content = '';
-                } else if (cell.status === 'TERM_START') {
-                    cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
-                    content = cell.type === 'pool' ? '星緣' : '聚靈';
-                } else if (cell.status === 'TERM_EMPTY') {
-                    cls = cell.type === 'pool' ? 'term-pool-empty' : 'term-shop-empty';
-                    content = '';
-                } else if (cell.status === 'NONE') {
-                    cls = 'none';
-                    content = '-';
-                } else {
-                    content = cell.gap;
-                    if (cell.gap <= 3) cls = 'w-low';
-                    else if (cell.gap <= 7) cls = 'w-med';
-                    else if (cell.gap <= 12) cls = 'w-high';
-                    else cls = 'w-crit';
+            table.addEventListener('mouseout', (e) => {
+                const cell = e.target.closest('td, th');
+                if (!cell) return;
+                const colIndex = cell.cellIndex;
+                const rows = table.rows;
+                for (let i = 0; i < rows.length; i++) {
+                    const c = rows[i].cells[colIndex];
+                    if (c) c.classList.remove('col-highlight');
                 }
-                html += `<td class="${cls}">${content}</td>`;
             });
-            html += `</tr>`;
-        });
-        html += '</tbody>';
-        
-        table.innerHTML = html;
+        }
 
-        // 十字高亮互動效果
-        const trackerTable = document.getElementById('tracker');
-        trackerTable.addEventListener('mouseover', (e) => {
-            const cell = e.target.closest('td, th');
-            if (!cell) return;
-            const colIndex = cell.cellIndex;
-            const rows = trackerTable.rows;
-            for (let i = 0; i < rows.length; i++) {
-                const c = rows[i].cells[colIndex];
-                if (c) c.classList.add('col-highlight');
-            }
-        });
-
-        trackerTable.addEventListener('mouseout', (e) => {
-            const cell = e.target.closest('td, th');
-            if (!cell) return;
-            const colIndex = cell.cellIndex;
-            const rows = trackerTable.rows;
-            for (let i = 0; i < rows.length; i++) {
-                const c = rows[i].cells[colIndex];
-                if (c) c.classList.remove('col-highlight');
-            }
-        });
-
+        // 啟動渲染
+        initTracker();
     </script>
 </body>
 </html>
