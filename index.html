@@ -160,7 +160,8 @@
             const patchesList = PATCH_DATA.map(p => p.patch);
             const totalChars = CHARACTERS.length;
             
-            const uniquePaths = [...new Set(RAW_CHARACTERS.map(c => c.path))];
+            const PATH_ORDER = ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
+            const uniquePaths = PATH_ORDER.filter(p => RAW_CHARACTERS.some(c => c.path === p));
             const uniqueElems = [...new Set(RAW_CHARACTERS.map(c => c.elem))];
 
             document.getElementById('path-items-container').innerHTML = uniquePaths.map(p => 
