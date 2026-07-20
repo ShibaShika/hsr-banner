@@ -206,7 +206,6 @@
             }
         }
 
-        // 依據版本名稱反查對應日期
         function findDateByPatch(patchName) {
             const p = patchesData.find(item => item.patch === patchName);
             if (!p || !p.date) return "";
@@ -242,7 +241,6 @@
                         if (char.collabDate) {
                             dateInputValue = char.collabDate.replace(/\//g, '-');
                         } else if (char.isCollab) {
-                            // 若原本只有版本名稱而無日期，自動從patchesData反查填入
                             const foundDate = findDateByPatch(char.isCollab);
                             if (foundDate) {
                                 dateInputValue = foundDate;
@@ -268,7 +266,7 @@
                         </td>
                         <td>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <!-- 上排：縮窄的下拉選單 + 右側的版本或日期輸入 -->
+                                <!-- 上排：縮窄的下拉選單 + 右側窄化的版本或日期輸入 -->
                                 <div style="display: flex; gap: 6px; align-items: center;">
                                     <select onchange="onTypeChange(${index}, this.value)" style="width: 130px; font-size: 12px; font-weight: bold; background: #222; flex-shrink: 0;">
                                         <option value="normal" ${currentType === 'normal' ? 'selected' : ''}>一般角色</option>
@@ -278,11 +276,12 @@
                                     </select>
 
                                     ${(currentType === 'pool' || currentType === 'shop') ? `
-                                        <input type="text" value="${termPatch}" placeholder="起始版本(如3.2上)" onchange="updateTermPatch(${index}, this.value)" style="flex: 1; font-size: 12px;">
+                                        <input type="text" value="${termPatch}" placeholder="起始版本(如3.2上)" onchange="updateTermPatch(${index}, this.value)" style="width: 140px; font-size: 12px; flex-shrink: 0;">
                                     ` : ''}
 
                                     ${currentType === 'collab' ? `
-                                        <input type="date" value="${dateInputValue}" onchange="updateCollabDate(${index}, this.value)" style="flex: 1; font-size: 12px;">
+                                        <input type="date" value="${dateInputValue}" onchange="updateCollabDate(${index}, this.value)" style="width: 150px; font-size: 12px; flex-shrink: 0;">
+                                        <span style="font-size: 11px; color: #8ef9f3; margin-left: 4px;">對應版本：<b>${char.isCollab || '未定'}</b></span>
                                     ` : ''}
                                 </div>
 
@@ -298,9 +297,7 @@
                                         `).join('')}
                                         <button type="button" class="btn" style="padding: 2px 8px; font-size: 12px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addRun(${index})" title="新增版本格">＋</button>
                                     </div>
-                                ` : `
-                                    <div style="font-size: 11px; color: #8ef9f3;">聯動對應版本：<b>${char.isCollab || '未定'}</b></div>
-                                `}
+                                ` : ''}
                             </div>
                         </td>
                         <td style="text-align: center;">
