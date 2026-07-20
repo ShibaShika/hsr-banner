@@ -70,7 +70,7 @@
         .w-crit { background-color: #7f1212; color: #fff; font-weight: bold; }
         
         tr:hover td:not(.img-cell):not(.term-pool-empty):not(.term-shop-empty):not(:first-child) { filter: brightness(1.4); transition: all 0.2s; }
-        tr:hover td:first-child { filter: brightness(0.95); }
+        tr:hover td:first-child { filter: none !important; }
         .update-date { position: absolute; right: 15px; top: 15px; font-size: 13px; color: #888; }
     
         /* 十字高亮效果 */
@@ -354,28 +354,33 @@
             table.innerHTML = html;
 
             // 重新綁定十字高亮互動效果
-            table.addEventListener('mouseover', (e) => {
+            const trackerTable = document.getElementById('tracker');
+            trackerTable.addEventListener('mouseover', (e) => {
                 const cell = e.target.closest('td, th');
                 if (!cell) return;
                 const colIndex = cell.cellIndex;
-                const rows = table.rows;
+                if (colIndex === 0) return; // 略過第一欄
+
+                const rows = trackerTable.rows;
                 for (let i = 0; i < rows.length; i++) {
                     const c = rows[i].cells[colIndex];
                     if (c) c.classList.add('col-highlight');
                 }
             });
 
-            table.addEventListener('mouseout', (e) => {
+            trackerTable.addEventListener('mouseout', (e) => {
                 const cell = e.target.closest('td, th');
                 if (!cell) return;
                 const colIndex = cell.cellIndex;
-                const rows = table.rows;
+                if (colIndex === 0) return; // 略過第一欄
+
+                const rows = trackerTable.rows;
                 for (let i = 0; i < rows.length; i++) {
                     const c = rows[i].cells[colIndex];
                     if (c) c.classList.remove('col-highlight');
                 }
             });
-        }
+            }
 
         // 啟動渲染
         initTracker();
