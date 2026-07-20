@@ -255,22 +255,20 @@
                     tr.innerHTML = `
                         <td><input type="text" value="${char.name || ''}" onchange="updateChar(${index}, 'name', this.value)" style="width: 100%;"></td>
                         <td>
-                            <!-- 命途選單置中 -->
                             <select onchange="updateChar(${index}, 'path', this.value)" style="width: 100%; text-align: center; text-align-last: center;">
                                 ${availablePaths.map(p => `<option value="${p}" ${char.path === p ? 'selected' : ''}>${p}</option>`).join('')}
                             </select>
                         </td>
                         <td>
-                            <!-- 屬性選單置中 -->
                             <select onchange="updateChar(${index}, 'elem', this.value)" style="width: 100%; text-align: center; text-align-last: center;">
                                 ${availableElems.map(e => `<option value="${e}" ${char.elem === e ? 'selected' : ''}>${e}</option>`).join('')}
                             </select>
                         </td>
                         <td>
-                            <!-- 使用 CSS Grid 嚴格對齊所有欄位 -->
-                            <div style="display: grid; grid-template-columns: 115px 105px 1fr; align-items: center; gap: 8px;">
-                                <!-- 欄位 1: 下拉選單 -->
-                                <select onchange="onTypeChange(${index}, this.value)" style="width: 100%; font-size: 12px; font-weight: bold; background: #222;">
+                            <!-- 嚴格對齊的 CSS Grid，將下拉選單寬度縮窄至僅包覆文字大小 (max-content) -->
+                            <div style="display: grid; grid-template-columns: max-content 105px 1fr; align-items: center; gap: 8px;">
+                                <!-- 欄位 1: 下拉選單 (自適應文字寬度) -->
+                                <select onchange="onTypeChange(${index}, this.value)" style="font-size: 12px; font-weight: bold; background: #222; padding-right: 20px;">
                                     <option value="normal" ${currentType === 'normal' ? 'selected' : ''}>一般角色</option>
                                     <option value="pool" ${currentType === 'pool' ? 'selected' : ''}>星緣相邀</option>
                                     <option value="shop" ${currentType === 'shop' ? 'selected' : ''}>聚靈鑄星</option>
