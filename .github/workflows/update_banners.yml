@@ -30,5 +30,5 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action Bot"
-          git add index.html
-          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 自動更新卡池資料" && git push)
+          git add js/characters.js js/patches.js
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 自動更新卡池與新角色資料" && git push)
