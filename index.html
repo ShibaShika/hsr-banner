@@ -202,22 +202,25 @@
                 let cls = '';
                 let content = '';
                 
-                // 🌟 攔截並合併儲存格
+                // 🌟 讓文字緊靠在頭像右側（從聯動版本的下一格開始合併剩餘格子）
                 if (cell.status === 'COLLAB_TEXT') {
                     if (!collabTextRendered) {
                         const sIdx = patchesList.indexOf(char.isCollab);
+                        // 計算從聯動版本左邊算起，還剩多少個舊格子需要合併
+                        const remainingSpan = patchesList.length - 1 - sIdx;
+                        
                         let dateStr = "";
-                        // 自動對應您的聯動版本與日期
                         if (char.isCollab === "3.4上") dateStr = "2025/07/11";
                         else if (char.isCollab === "4.4上") dateStr = "2026/07/24";
                         
-                        // 使用 colspan 將過去的網格全部合併
-                        html += `<td colspan="${sIdx}" class="collab-text">${dateStr} 後長期開放</td>`;
+                        if (remainingSpan > 0) {
+                            html += `<td colspan="${remainingSpan}" class="collab-text" style="text-align: left; padding-left: 8px;">${dateStr} 後長期開放</td>`;
+                        }
                         collabTextRendered = true;
                     }
-                    return; // 🌟 跳過下方原本的 td 組合
+                    return; 
                 }
-
+                
                 if (cell.status === 'UP' || cell.status === 'COLLAB') {
                         cls = 'img-cell';
                         content = `<img src="${avatarUrl}" class="grid-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">`;
