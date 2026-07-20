@@ -415,19 +415,41 @@
                 const selectedPaths = Array.from(pathItems).filter(i => i.checked).map(i => i.value);
                 const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
 
-                // 更新按鈕顯示文字
                 pathBox.textContent = selectedPaths.length === pathItems.length ? '全部命途' : (selectedPaths.length === 0 ? '未選命途' : `命途 (${selectedPaths.length})`);
                 elemBox.textContent = selectedElems.length === elemItems.length ? '全部屬性' : (selectedElems.length === 0 ? '未選屬性' : `屬性 (${selectedElems.length})`);
 
-                const rows = table.querySelectorAll('tbody tr');
+                const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
+                let visibleCount = 0;
                 rows.forEach(row => {
                     const rowPath = row.getAttribute('data-path');
                     const rowElem = row.getAttribute('data-elem');
                     const matchPath = selectedPaths.includes(rowPath);
                     const matchElem = selectedElems.includes(rowElem);
 
-                    row.style.display = (matchPath && matchElem) ? '' : 'none';
+                    if (matchPath && matchElem) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
                 });
+
+                // 防塌陷：若無符合條件的行，動態插入提示列保持表格高度
+                let emptyRow = table.querySelector('tbody tr.empty-row');
+                const totalCols = PATCH_DATA.length + 1;
+                if (visibleCount === 0) {
+                    if (!emptyRow) {
+                        emptyRow = document.createElement('tr');
+                        emptyRow.className = 'empty-row';
+                        emptyRow.innerHTML = `<td colspan="${totalCols}" style="text-align: center; padding: 25px; color: #888; background: #161616; font-size: 13px;">沒有符合條件的角色</td>`;
+                        table.querySelector('tbody').appendChild(emptyRow);
+                    }
+                    emptyRow.style.display = '';
+                } else {
+                    if (emptyRow) {
+                        emptyRow.style.display = 'none';
+                    }
+                }
             }
 
             pathAll.addEventListener('change', () => {
@@ -493,3 +515,4 @@
     </script>
 </body>
 </html>
+```[cite: 1]
