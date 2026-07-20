@@ -12,7 +12,7 @@
     <style>
         :root { --bg: #121212; --surface: #1e1e1e; --border: #444; --text: #e0e0e0; --primary: #2e436e; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1150px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .container { max-width: 1200px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         h1 { margin-top: 0; font-size: 24px; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         
         /* 頁籤樣式 */
@@ -26,7 +26,7 @@
         table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 14px; }
         th, td { border: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: middle; }
         th { background: #2a2a2a; }
-        input[type="text"], input[type="date"], select { padding: 6px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
+        input[type="text"], input[type="date"], select { padding: 5px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
         /* 按鈕樣式 */
@@ -96,7 +96,7 @@
                         <th style="width: 14%;">名稱</th>
                         <th style="width: 8%;">命途</th>
                         <th style="width: 8%;">屬性</th>
-                        <th style="width: 63%;">取得機制與版本格子設定</th>
+                        <th style="width: 63%;">取得機制與版本設定</th>
                         <th style="width: 7%; text-align: center;">操作</th>
                     </tr>
                 </thead>
@@ -265,37 +265,33 @@
                             </select>
                         </td>
                         <td>
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <!-- 上排：縮窄的下拉選單 + 右側窄化的版本或日期輸入 -->
-                                <div style="display: flex; gap: 6px; align-items: center;">
-                                    <select onchange="onTypeChange(${index}, this.value)" style="width: 130px; font-size: 12px; font-weight: bold; background: #222; flex-shrink: 0;">
-                                        <option value="normal" ${currentType === 'normal' ? 'selected' : ''}>一般角色</option>
-                                        <option value="pool" ${currentType === 'pool' ? 'selected' : ''}>星緣相邀</option>
-                                        <option value="shop" ${currentType === 'shop' ? 'selected' : ''}>聚靈鑄星</option>
-                                        <option value="collab" ${currentType === 'collab' ? 'selected' : ''}>長期聯動</option>
-                                    </select>
+                            <!-- 將下拉選單、版本/日期、歷史版本方塊全部合併至同一列 -->
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+                                <select onchange="onTypeChange(${index}, this.value)" style="width: 110px; font-size: 12px; font-weight: bold; background: #222; flex-shrink: 0;">
+                                    <option value="normal" ${currentType === 'normal' ? 'selected' : ''}>一般角色</option>
+                                    <option value="pool" ${currentType === 'pool' ? 'selected' : ''}>星緣相邀</option>
+                                    <option value="shop" ${currentType === 'shop' ? 'selected' : ''}>聚靈鑄星</option>
+                                    <option value="collab" ${currentType === 'collab' ? 'selected' : ''}>長期聯動</option>
+                                </select>
 
-                                    ${(currentType === 'pool' || currentType === 'shop') ? `
-                                        <input type="text" value="${termPatch}" placeholder="起始版本(如3.2上)" onchange="updateTermPatch(${index}, this.value)" style="width: 140px; font-size: 12px; flex-shrink: 0;">
-                                    ` : ''}
+                                ${(currentType === 'pool' || currentType === 'shop') ? `
+                                    <input type="text" value="${termPatch}" placeholder="起始版本" onchange="updateTermPatch(${index}, this.value)" style="width: 80px; font-size: 12px; flex-shrink: 0;">
+                                ` : ''}
 
-                                    ${currentType === 'collab' ? `
-                                        <input type="date" value="${dateInputValue}" onchange="updateCollabDate(${index}, this.value)" style="width: 150px; font-size: 12px; flex-shrink: 0;">
-                                        <span style="font-size: 11px; color: #8ef9f3; margin-left: 4px;">對應版本：<b>${char.isCollab || '未定'}</b></span>
-                                    ` : ''}
-                                </div>
+                                ${currentType === 'collab' ? `
+                                    <input type="date" value="${dateInputValue}" onchange="updateCollabDate(${index}, this.value)" style="width: 130px; font-size: 12px; flex-shrink: 0;">
+                                    <span style="font-size: 11px; color: #8ef9f3;">版本: <b>${char.isCollab || '未定'}</b></span>
+                                ` : ''}
 
-                                <!-- 下排：一格一格的卡池歷史版本方塊 (聯動角色隱藏) -->
                                 ${currentType !== 'collab' ? `
-                                    <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center; background: #161616; padding: 6px; border-radius: 4px; border: 1px solid #333;">
-                                        <span style="font-size: 11px; color: #aaa; width: 100%; margin-bottom: 2px;">卡池歷史版本：</span>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
                                         ${runs.map((run, rIdx) => `
                                             <div style="display: flex; align-items: center; gap: 2px; background: #222; padding: 2px 4px; border: 1px solid #555; border-radius: 3px;">
-                                                <input type="text" value="${run}" onchange="updateRun(${index}, ${rIdx}, this.value)" style="width: 55px; font-size: 11px; padding: 2px; background: transparent; border: none; color: #fff; text-align: center;">
-                                                <button type="button" onclick="removeRun(${index}, ${rIdx})" style="background: #7a2222; color: #fff; border: none; border-radius: 2px; width: 16px; height: 16px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="刪除此版本">✕</button>
+                                                <input type="text" value="${run}" onchange="updateRun(${index}, ${rIdx}, this.value)" style="width: 50px; font-size: 11px; padding: 2px; background: transparent; border: none; color: #fff; text-align: center;">
+                                                <button type="button" onclick="removeRun(${index}, ${rIdx})" style="background: #7a2222; color: #fff; border: none; border-radius: 2px; width: 14px; height: 14px; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="刪除">✕</button>
                                             </div>
                                         `).join('')}
-                                        <button type="button" class="btn" style="padding: 2px 8px; font-size: 12px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addRun(${index})" title="新增版本格">＋</button>
+                                        <button type="button" class="btn" style="padding: 2px 6px; font-size: 11px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addRun(${index})" title="新增版本格">＋</button>
                                     </div>
                                 ` : ''}
                             </div>
