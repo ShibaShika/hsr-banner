@@ -25,7 +25,7 @@
 
 ### 1. 開啟管理後台
 在瀏覽器中打開您的管理後台網址：
-> https://shibashika.github.io/hsr-banner/admin.html
+> https://shibashika.github.io/hsr-banner/editor.html
 
 ### 2. 新增或修改資料
 * **角色管理**：可在此頁籤中直接修改角色名稱、切換命途、屬性，或維護卡池歷史紀錄。
