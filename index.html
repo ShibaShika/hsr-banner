@@ -6,7 +6,6 @@
     <title>崩壞：星穹鐵道 - 限定躍遷一覽表</title>
     <style>
         :root {
-            /* 基礎暗色系 */
             --bg: #121212;
             --surface: #1e1e1e;
             --border: #333;
@@ -14,87 +13,38 @@
             --up: #facc15;
             --th-bg: #222;
             
-            /* 屬性底色 (參考官方與截圖配色) */
-            --elem-fire: #fca5a5;      /* 火 - 淺紅 */
-            --elem-ice: #93c5fd;       /* 冰 - 淺藍 */
-            --elem-lightning: #d8b4fe; /* 雷 - 淺紫 */
-            --elem-wind: #86efac;      /* 風 - 淺綠 */
-            --elem-physical: #d1d5db;  /* 物理 - 淺灰 */
-            --elem-quantum: #c4b5fd;   /* 量子 - 靛紫 */
-            --elem-imaginary: #fde047; /* 虛數 - 淺黃 */
-            --elem-unknown: #444444;   /* 未知 */
+            /* 屬性底色 */
+            --elem-fire: #fca5a5;
+            --elem-ice: #93c5fd;
+            --elem-lightning: #d8b4fe;
+            --elem-wind: #86efac;
+            --elem-physical: #d1d5db;
+            --elem-quantum: #c4b5fd;
+            --elem-imaginary: #fde047;
+            --elem-unknown: #444444;
         }
         
-        body { 
-            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; 
-            background: var(--bg); color: var(--text); 
-            margin: 0; padding: 10px; 
-        }
-        h1 { 
-            text-align: center; color: var(--text); 
-            margin: 10px 0 20px 0; font-size: 24px; font-weight: bold;
-        }
+        body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; }
+        h1 { text-align: center; color: var(--text); margin: 10px 0 20px 0; font-size: 24px; font-weight: bold; }
         
-        /* 表格外框與滾動設定 */
-        .table-wrap { 
-            overflow-x: auto; 
-            max-height: calc(100vh - 70px); 
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5); 
-        }
-        table { 
-            border-collapse: collapse; min-width: 100%; 
-            text-align: center; font-size: 13px; /* 字體縮小，版面更緊湊 */
-            background: var(--surface); 
-        }
+        .table-wrap { overflow-x: auto; max-height: calc(100vh - 70px); border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
+        table { border-collapse: collapse; min-width: 100%; text-align: center; font-size: 13px; background: var(--surface); }
+        th, td { padding: 4px 6px; border: 1px solid var(--border); white-space: nowrap; min-width: 30px; }
         
-        /* 儲存格縮減 Padding 讓表格變矮變窄 */
-        th, td { 
-            padding: 4px 6px; 
-            border: 1px solid var(--border); 
-            white-space: nowrap; min-width: 30px; 
-        }
+        thead th { background: var(--th-bg); position: sticky; z-index: 10; font-weight: 600; color: #fff; }
+        thead tr:nth-child(1) th { top: 0; font-size: 11px; color: #aaa; border-bottom: none; padding-bottom: 2px; padding-top: 6px; }
+        thead tr:nth-child(2) th { top: 25px; border-top: none; padding-top: 2px; }
         
-        /* --- 表頭固定設定 --- */
-        thead th { 
-            background: var(--th-bg); position: sticky; 
-            z-index: 10; font-weight: 600; color: #fff; 
-        }
-        /* 第一列：日期 */
-        thead tr:nth-child(1) th { 
-            top: 0; font-size: 11px; color: #aaa; 
-            border-bottom: none; padding-bottom: 2px; padding-top: 6px;
-        }
-        /* 第二列：版本號 */
-        thead tr:nth-child(2) th { 
-            top: 25px; border-top: none; padding-top: 2px;
-        }
-        
-        /* --- 最左側角色資訊欄固定 --- */
-        th:first-child, td:first-child { 
-            position: sticky; left: 0; 
-            z-index: 11; text-align: left; 
-            box-shadow: 2px 0 5px rgba(0,0,0,0.4); 
-            padding: 0; /* 內部用 Flex 控制間距 */
-        }
-        /* 左上角交叉點，需要最高層級 */
+        th:first-child, td:first-child { position: sticky; left: 0; z-index: 11; text-align: left; box-shadow: 2px 0 5px rgba(0,0,0,0.4); padding: 0; }
         thead tr:nth-child(1) th:first-child { z-index: 12; top: 0; background: var(--th-bg); }
         thead tr:nth-child(2) th:first-child { z-index: 12; top: 25px; background: var(--th-bg); }
 
-        /* --- 複合角色資訊格 (Flexbox) --- */
-        .char-info-cell {
-            display: flex;
-            align-items: center;
-            padding: 4px 8px;
-            color: #000; /* 屬性底色較亮，字體改為黑色 */
-            font-weight: 600;
-        }
+        .char-info-cell { display: flex; align-items: center; padding: 4px 8px; color: #000; font-weight: 600; }
         .char-seq { width: 22px; text-align: center; font-size: 14px; opacity: 0.8; }
         .char-path-icon { width: 22px; height: 22px; margin-right: 6px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); }
-        .char-avatar { width: 28px; height: 28px; border-radius: 4px; object-fit: cover; border: 1px solid rgba(0,0,0,0.2); margin-right: 8px; }
+        .char-avatar { width: 28px; height: 28px; border-radius: 4px; object-fit: cover; border: 1px solid rgba(0,0,0,0.2); margin-right: 8px; background: #222; }
         .char-name { font-size: 14px; min-width: 80px; }
 
-        /* 屬性底色 */
         .bg-Fire { background-color: var(--elem-fire); }
         .bg-Ice { background-color: var(--elem-ice); }
         .bg-Lightning { background-color: var(--elem-lightning); }
@@ -104,7 +54,6 @@
         .bg-Imaginary { background-color: var(--elem-imaginary); }
         .bg-Unknown { background-color: var(--elem-unknown); color: #fff !important; }
 
-        /* --- 右側卡池狀態樣式 --- */
         .up { background-color: var(--up); color: #000; font-weight: 800; font-size: 14px; }
         .none { background-color: #161616; color: #333; }
         .w-low { background-color: #242424; color: #888; }
@@ -118,576 +67,101 @@
 </head>
 <body>
     <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
-    
     <div class="table-wrap">
         <table id="tracker"></table>
     </div>
 
     <script>
-        // ==========================================
-        // 翻譯與圖示對照字典
-        // ==========================================
         const PATH_ICONS = {
-            "毀滅": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Warrior.png",
-            "巡獵": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Rogue.png",
-            "智識": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Mage.png",
-            "同諧": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Shaman.png",
-            "虛無": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Warlock.png",
-            "存護": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Knight.png",
-            "豐饒": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Priest.png",
-            "記憶": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Memory.png",
-            "歡愉": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Joy.png",
-            "未知": ""
+            "毀滅": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Destruction.png",
+            "巡獵": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Hunt.png",
+            "智識": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Erudition.png",
+            "同諧": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Harmony.png",
+            "虛無": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Nihility.png",
+            "存護": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Preservation.png",
+            "豐饒": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Abundance.png",
+            "記憶": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Remembrance.png",
+            "歡愉": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Elation.png"
         };
 
-        const EN_TO_TC_DICT = {
-            "Nova": "姬子·啟行", "Sparxie": "火花", "Sparkle": "花火",
-            "Permansor Terrae": "丹恆·騰荒", "Evernight": "長夜月"
-        };
+        const EN_TO_TC_DICT = { "Nova": "姬子·啟行", "Sparxie": "火花", "Permansor Terrae": "丹恆·騰荒", "Evernight": "長夜月" };
+        function getLocalizedName(name) { return EN_TO_TC_DICT[name] || name; }
 
-        function getLocalizedName(name) {
-            return EN_TO_TC_DICT[name] || name;
-        }
-
-        // ==========================================
-        // 版本與日期資料
-        // ==========================================
         const PATCH_DATA = [
             {"patch": "1.0上", "date": "23/04/26"}, {"patch": "1.0下", "date": "23/05/17"}, {"patch": "1.1上", "date": "23/06/07"}, {"patch": "1.1下", "date": "23/06/28"}, {"patch": "1.2上", "date": "23/07/19"}, {"patch": "1.2下", "date": "23/08/09"}, {"patch": "1.3上", "date": "23/08/30"}, {"patch": "1.3下", "date": "23/09/20"}, {"patch": "1.4上", "date": "23/10/11"}, {"patch": "1.4下", "date": "23/10/27"}, {"patch": "1.5上", "date": "23/11/15"}, {"patch": "1.5下", "date": "23/12/06"}, {"patch": "1.6上", "date": "23/12/27"}, {"patch": "1.6下", "date": "24/01/17"}, {"patch": "2.0上", "date": "24/02/06"}, {"patch": "2.0下", "date": "24/02/29"}, {"patch": "2.1上", "date": "24/03/27"}, {"patch": "2.1下", "date": "24/04/17"}, {"patch": "2.2上", "date": "24/05/08"}, {"patch": "2.2下", "date": "24/05/29"}, {"patch": "2.3上", "date": "24/06/19"}, {"patch": "2.3下", "date": "24/07/10"}, {"patch": "2.4上", "date": "24/07/31"}, {"patch": "2.4下", "date": "24/08/21"}, {"patch": "2.5上", "date": "24/09/10"}, {"patch": "2.5下", "date": "24/10/02"}, {"patch": "2.6上", "date": "24/10/23"}, {"patch": "2.6下", "date": "24/11/13"}, {"patch": "2.7上", "date": "24/12/04"}, {"patch": "2.7下", "date": "24/12/25"}, {"patch": "3.0上", "date": "25/01/15"}, {"patch": "3.0下", "date": "25/02/05"}, {"patch": "3.1上", "date": "25/02/26"}, {"patch": "3.1下", "date": "25/03/19"}, {"patch": "3.2上", "date": "25/04/09"}, {"patch": "3.2下", "date": "25/04/30"}, {"patch": "3.3上", "date": "25/05/21"}, {"patch": "3.3下", "date": "25/06/11"}, {"patch": "3.4上", "date": "25/07/02"}, {"patch": "3.4下", "date": "25/07/23"}, {"patch": "3.5上", "date": "25/08/13"}, {"patch": "3.5下", "date": "25/09/02"}, {"patch": "3.6上", "date": "25/09/24"}, {"patch": "3.6下", "date": "25/10/15"}, {"patch": "3.7上", "date": "25/11/05"}, {"patch": "3.7下", "date": "25/11/26"}, {"patch": "3.8上", "date": "25/12/17"}, {"patch": "3.8中", "date": "26/01/07"}, {"patch": "3.8下", "date": "26/01/28"}, {"patch": "4.0上", "date": "26/02/13"}, {"patch": "4.0下", "date": "26/03/03"}, {"patch": "4.1上", "date": "26/03/25"}, {"patch": "4.1下", "date": "26/04/08"}, {"patch": "4.2上", "date": "26/04/22"}, {"patch": "4.2下", "date": "26/05/13"}, {"patch": "4.3上", "date": "26/06/01"}, {"patch": "4.3下", "date": "26/07/15"}
         ];
         
-        // ==========================================
-        // 角色資料庫 (包含屬性與命途)
-        // 未來由 Python 爬蟲更新此區塊
-        // ==========================================
         const CHARACTERS = [
-    {
-        name: "吉爾伽美什",
-        path: "智識",
-        elem: "Lightning",
-        runs: [
-            "4.4下"
-        ]
-    },
-    {
-        name: "遠坂凜",
-        path: "智識",
-        elem: "Ice",
-        runs: [
-            "4.4下"
-        ]
-    },
-    {
-        name: "姬子·啟行",
-        path: "智識",
-        elem: "Fire",
-        runs: [
-            "4.4上"
-        ]
-    },
-    {
-        name: "千冶．刃",
-        path: "虛無",
-        elem: "Fire",
-        runs: [
-            "4.3上"
-        ]
-    },
-    {
-        name: "緋櫻",
-        path: "豐饒",
-        elem: "Physical",
-        runs: [
-            "4.2下"
-        ]
-    },
-    {
-        name: "銀狼LV.999",
-        path: "豐饒",
-        elem: "Imaginary",
-        runs: []
-    },
-    {
-        name: "不死途",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "4.1下"
-        ]
-    },
-    {
-        name: "火花",
-        path: "歡愉",
-        elem: "Fire",
-        runs: [
-            "4.0下"
-        ]
-    },
-    {
-        name: "爻光",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "4.3上",
-            "4.1上"
-        ]
-    },
-    {
-        name: "大麗花",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "4.2上",
-            "3.8中"
-        ]
-    },
-    {
-        name: "昔漣",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "3.8上"
-        ]
-    },
-    {
-        name: "丹恆·騰荒",
-        path: "存護",
-        elem: "Physical",
-        runs: [
-            "3.6下"
-        ]
-    },
-    {
-        name: "長夜月",
-        path: "記憶",
-        elem: "Ice",
-        runs: [
-            "4.0上",
-            "3.6下"
-        ]
-    },
-    {
-        name: "刻律德菈",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "4.0下",
-            "3.6上"
-        ]
-    },
-    {
-        name: "海瑟音",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "4.0上",
-            "3.5下"
-        ]
-    },
-    {
-        name: "白厄",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "3.8上",
-            "3.5上"
-        ]
-    },
-    {
-        name: "賽飛兒",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "3.7下",
-            "3.4上"
-        ]
-    },
-    {
-        name: "風堇",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "4.1上",
-            "3.7下",
-            "3.4上"
-        ]
-    },
-    {
-        name: "那刻夏",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "3.6下",
-            "3.3上"
-        ]
-    },
-    {
-        name: "遐蝶",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "4.2上",
-            "3.7下",
-            "3.3下",
-            "3.3上"
-        ]
-    },
-    {
-        name: "萬敵",
-        path: "未知",
-        elem: "Unknown",
-        runs: [
-            "3.7下",
-            "3.2上"
-        ]
-    },
-    {
-        name: "緹寶",
-        path: "同諧",
-        elem: "Quantum",
-        runs: [
-            "4.2下",
-            "3.7下",
-            "3.5上",
-            "3.2下"
-        ]
-    },
-    {
-        name: "阿格萊雅",
-        path: "記憶",
-        elem: "Lightning",
-        runs: [
-            "3.8下",
-            "3.4上",
-            "3.1下"
-        ]
-    },
-    {
-        name: "大黑塔",
-        path: "智識",
-        elem: "Ice",
-        runs: [
-            "3.6上",
-            "3.3下",
-            "3.1上"
-        ]
-    },
-    {
-        name: "忘歸人",
-        path: "虛無",
-        elem: "Fire",
-        runs: [
-            "3.8中",
-            "3.2下",
-            "3.0下"
-        ]
-    },
-    {
-        name: "星期日",
-        path: "同諧",
-        elem: "Imaginary",
-        runs: [
-            "4.2下",
-            "4.0上",
-            "3.5上",
-            "3.0下"
-        ]
-    },
-    {
-        name: "亂破",
-        path: "智識",
-        elem: "Imaginary",
-        runs: [
-            "4.0下",
-            "2.6下"
-        ]
-    },
-    {
-        name: "靈砂",
-        path: "豐饒",
-        elem: "Fire",
-        runs: [
-            "3.8中",
-            "3.0下",
-            "2.6下"
-        ]
-    },
-    {
-        name: "飛霄",
-        path: "巡獵",
-        elem: "Wind",
-        runs: [
-            "4.2下",
-            "3.0下",
-            "2.6上"
-        ]
-    },
-    {
-        name: "椒丘",
-        path: "虛無",
-        elem: "Fire",
-        runs: [
-            "3.2上",
-            "2.5上"
-        ]
-    },
-    {
-        name: "雲離",
-        path: "毀滅",
-        elem: "Physical",
-        runs: [
-            "4.3下",
-            "3.2下",
-            "2.6上"
-        ]
-    },
-    {
-        name: "翡翠",
-        path: "智識",
-        elem: "Quantum",
-        runs: [
-            "3.0上",
-            "2.4上"
-        ]
-    },
-    {
-        name: "流螢",
-        path: "毀滅",
-        elem: "Fire",
-        runs: [
-            "4.0下",
-            "3.7上",
-            "3.2下",
-            "2.6下"
-        ]
-    },
-    {
-        name: "波提歐",
-        path: "巡獵",
-        elem: "Physical",
-        runs: [
-            "4.1下",
-            "3.1上",
-            "2.3下"
-        ]
-    },
-    {
-        name: "知更鳥",
-        path: "同諧",
-        elem: "Physical",
-        runs: [
-            "4.3下",
-            "3.2上",
-            "2.7上",
-            "2.4下"
-        ]
-    },
-    {
-        name: "砂金",
-        path: "存護",
-        elem: "Imaginary",
-        runs: [
-            "2.6下",
-            "2.2上"
-        ]
-    },
-    {
-        name: "黃泉",
-        path: "虛無",
-        elem: "Lightning",
-        runs: [
-            "3.2上",
-            "2.7上",
-            "2.2上"
-        ]
-    },
-    {
-        name: "花火",
-        path: "同諧",
-        elem: "Quantum",
-        runs: [
-            "4.0下",
-            "3.4下",
-            "2.5下",
-            "2.2上"
-        ]
-    },
-    {
-        name: "黑天鵝",
-        path: "虛無",
-        elem: "Wind",
-        runs: [
-            "4.0上",
-            "2.5下",
-            "2.1上"
-        ]
-    },
-    {
-        name: "真理醫生",
-        path: "巡獵",
-        elem: "Imaginary",
-        runs: [
-            "3.2下",
-            "2.0上"
-        ]
-    },
-    {
-        name: "阮·梅",
-        path: "同諧",
-        elem: "Ice",
-        runs: [
-            "4.3下",
-            "3.6上",
-            "3.2下"
-        ]
-    },
-    {
-        name: "銀枝",
-        path: "智識",
-        elem: "Physical",
-        runs: [
-            "4.3下",
-            "2.5上",
-            "2.0下"
-        ]
-    },
-    {
-        name: "藿藿",
-        path: "豐饒",
-        elem: "Wind",
-        runs: [
-            "4.3下",
-            "3.3上",
-            "2.6上",
-            "2.0下"
-        ]
-    },
-    {
-        name: "托帕",
-        path: "巡獵",
-        elem: "Fire",
-        runs: [
-            "4.3下",
-            "3.3下",
-            "3.0下",
-            "2.4下"
-        ]
-    },
-    {
-        name: "鏡流",
-        path: "毀滅",
-        elem: "Ice",
-        runs: [
-            "3.4下",
-            "2.2上",
-            "1.5上"
-        ]
-    },
-    {
-        name: "符玄",
-        path: "存護",
-        elem: "Quantum",
-        runs: [
-            "4.3下",
-            "3.5下",
-            "3.0上"
-        ]
-    },
-    {
-        name: "丹恆·飲月",
-        path: "毀滅",
-        elem: "Imaginary",
-        runs: [
-            "2.6上",
-            "2.0下",
-            "1.4上"
-        ]
-    },
-    {
-        name: "卡芙卡",
-        path: "虛無",
-        elem: "Lightning",
-        runs: [
-            "3.5上",
-            "2.5下",
-            "2.0下",
-            "1.4上"
-        ]
-    },
-    {
-        name: "刃",
-        path: "毀滅",
-        elem: "Wind",
-        runs: [
-            "3.0上",
-            "2.4下"
-        ]
-    },
-    {
-        name: "羅刹",
-        path: "豐饒",
-        elem: "Imaginary",
-        runs: [
-            "4.3下",
-            "3.4上",
-            "2.6上"
-        ]
-    },
-    {
-        name: "銀狼",
-        path: "虛無",
-        elem: "Quantum",
-        runs: [
-            "4.3下",
-            "3.7上",
-            "3.2下",
-            "2.1上",
-            "1.4上"
-        ]
-    },
-    {
-        name: "景元",
-        path: "智識",
-        elem: "Lightning",
-        runs: [
-            "2.7上",
-            "2.1上",
-            "1.1下"
-        ]
-    },
-    {
-        name: "希兒",
-        path: "巡獵",
-        elem: "Quantum",
-        runs: [
-            "4.3下",
-            "3.0下",
-            "2.4下"
-        ]
-    }
-];
+            { name: "吉爾伽美什", path: "智識", elem: "Imaginary", runs: [] },
+            { name: "遠坂凜", path: "智識", elem: "Ice", runs: [] },
+            { name: "姬子·啟行", path: "智識", elem: "Fire", runs: ["4.4上"] },
+            { name: "千冶．刃", path: "虛無", elem: "Fire", runs: ["4.3上"] },
+            { name: "緋櫻", path: "豐饒", elem: "Physical", runs: ["4.2下"] },
+            { name: "銀狼LV.999", path: "豐饒", elem: "Imaginary", runs: [] },
+            { name: "不死途", path: "未知", elem: "Unknown", runs: ["4.1下"] },
+            { name: "火花", path: "歡愉", elem: "Fire", runs: ["4.0下"] },
+            { name: "爻光", path: "未知", elem: "Unknown", runs: ["4.3上", "4.1上"] },
+            { name: "大麗花", path: "未知", elem: "Unknown", runs: ["4.2上", "3.8中"] },
+            { name: "昔漣", path: "未知", elem: "Unknown", runs: ["3.8上"] },
+            { name: "丹恆·騰荒", path: "存護", elem: "Physical", runs: ["3.6下"] },
+            { name: "長夜月", path: "記憶", elem: "Ice", runs: ["4.0上", "3.6下"] },
+            { name: "刻律德菈", path: "未知", elem: "Unknown", runs: ["4.0下", "3.6上"] },
+            { name: "海瑟音", path: "未知", elem: "Unknown", runs: ["4.0上", "3.5下"] },
+            { name: "白厄", path: "未知", elem: "Unknown", runs: ["3.8上", "3.5上"] },
+            { name: "賽飛兒", path: "未知", elem: "Unknown", runs: ["3.7下", "3.4上"] },
+            { name: "風堇", path: "未知", elem: "Unknown", runs: ["4.1上", "3.7下", "3.4上"] },
+            { name: "那刻夏", path: "未知", elem: "Unknown", runs: ["3.6下", "3.3上"] },
+            { name: "遐蝶", path: "未知", elem: "Unknown", runs: ["4.2上", "3.7下", "3.3下", "3.3上"] },
+            { name: "萬敵", path: "未知", elem: "Unknown", runs: ["3.7下", "3.2上"] },
+            { name: "緹寶", path: "同諧", elem: "Quantum", runs: ["4.2下", "3.7下", "3.5上", "3.2下"] },
+            { name: "阿格萊雅", path: "記憶", elem: "Lightning", runs: ["3.8下", "3.4上", "3.1下"] },
+            { name: "大黑塔", path: "智識", elem: "Ice", runs: ["3.6上", "3.3下", "3.1上"] },
+            { name: "忘歸人", path: "虛無", elem: "Fire", runs: ["3.8中", "3.2下", "3.0下"] },
+            { name: "星期日", path: "同諧", elem: "Imaginary", runs: ["4.2下", "4.0上", "3.5上", "3.0下"] },
+            { name: "亂破", path: "智識", elem: "Imaginary", runs: ["4.0下", "2.6下"] },
+            { name: "靈砂", path: "豐饒", elem: "Fire", runs: ["3.8中", "3.0下", "2.6下"] },
+            { name: "飛霄", path: "巡獵", elem: "Wind", runs: ["4.2下", "3.0下", "2.6上"] },
+            { name: "椒丘", path: "虛無", elem: "Fire", runs: ["3.2上", "2.5上"] },
+            { name: "雲離", path: "毀滅", elem: "Physical", runs: ["4.3下", "3.2下", "2.6上"] },
+            { name: "翡翠", path: "智識", elem: "Quantum", runs: ["3.0上", "2.4上"] },
+            { name: "流螢", path: "毀滅", elem: "Fire", runs: ["4.0下", "3.7上", "3.2下", "2.6下"] },
+            { name: "波提歐", path: "巡獵", elem: "Physical", runs: ["4.1下", "3.1上", "2.3下"] },
+            { name: "知更鳥", path: "同諧", elem: "Physical", runs: ["4.3下", "3.2上", "2.7上", "2.4下"] },
+            { name: "砂金", path: "存護", elem: "Imaginary", runs: ["2.6下", "2.2上"] },
+            { name: "黃泉", path: "虛無", elem: "Lightning", runs: ["3.2上", "2.7上", "2.2上"] },
+            { name: "花火", path: "同諧", elem: "Quantum", runs: ["4.0下", "3.4下", "2.5下", "2.2上"] },
+            { name: "黑天鵝", path: "虛無", elem: "Wind", runs: ["4.0上", "2.5下", "2.1上"] },
+            { name: "真理醫生", path: "巡獵", elem: "Imaginary", runs: ["3.2下", "2.0上"] },
+            { name: "阮·梅", path: "同諧", elem: "Ice", runs: ["4.3下", "3.6上", "3.2下"] },
+            { name: "銀枝", path: "智識", elem: "Physical", runs: ["4.3下", "2.5上", "2.0下"] },
+            { name: "藿藿", path: "豐饒", elem: "Wind", runs: ["4.3下", "3.3上", "2.6上", "2.0下"] },
+            { name: "托帕", path: "巡獵", elem: "Fire", runs: ["4.3下", "3.3下", "3.0下", "2.4下"] },
+            { name: "鏡流", path: "毀滅", elem: "Ice", runs: ["3.4下", "2.2上", "1.5上"] },
+            { name: "符玄", path: "存護", elem: "Quantum", runs: ["4.3下", "3.5下", "3.0上"] },
+            { name: "丹恆·飲月", path: "毀滅", elem: "Imaginary", runs: ["2.6上", "2.0下", "1.4上"] },
+            { name: "卡芙卡", path: "虛無", elem: "Lightning", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1005.png", runs: ["3.5上", "2.5下", "2.0下", "1.4上", "1.2下"] },
+            { name: "刃", path: "毀滅", elem: "Wind", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1205.png", runs: ["3.0上", "2.4下", "1.6上", "1.2上"] },
+            { name: "羅刹", path: "豐饒", elem: "Imaginary", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1203.png", runs: ["4.3下", "3.4上", "2.6上", "1.1下"] },
+            { name: "銀狼", path: "虛無", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1006.png", runs: ["4.3下", "3.7上", "3.2下", "2.1上", "1.4上", "1.1上"] },
+            { name: "景元", path: "智識", elem: "Lightning", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1204.png", runs: ["2.7上", "2.1上", "1.0下"] },
+            { name: "希兒", path: "巡獵", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1102.png", runs: ["4.3下", "3.0下", "2.4下", "1.4下", "1.0上"] }
+        ];
 
-        // ==========================================
-        // 渲染邏輯
-        // ==========================================
         const table = document.getElementById('tracker');
         const patchesList = PATCH_DATA.map(p => p.patch);
         const totalChars = CHARACTERS.length;
         
-        // 建立表頭 (第一行日期、第二行版本號)
         let html = '<thead><tr><th></th>';
         [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.date}</th>`);
         html += '</tr><tr><th><div style="text-align:center; padding: 0 10px;">序號 / 角色資訊</div></th>';
         [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.patch}</th>`);
         html += '</tr></thead><tbody>';
         
-        // 建立資料行
         CHARACTERS.forEach((char, index) => {
             const localizedName = getLocalizedName(char.name);
-            // 透過 UI-Avatars 產生暫時的大頭貼
-            const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(localizedName)}&background=random&color=fff&size=56&bold=true`;
+            // 若有設定 avatar 則使用官方圖，否則使用文字暫代圖
+            const avatarUrl = char.avatar ? char.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(localizedName)}&background=random&color=fff&size=56&bold=true`;
             const pathIconUrl = PATH_ICONS[char.path] || "";
-            // 計算倒序序號 (最新的角色序號最大)
             const seqNum = totalChars - index;
             
             html += `<tr>
@@ -722,12 +196,9 @@
             history.reverse().forEach(cell => {
                 let cls = '';
                 let text = '';
-                
-                if (cell.status === 'UP') {
-                    cls = 'up'; text = 'UP';
-                } else if (cell.status === 'NONE') {
-                    cls = 'none'; text = '-';
-                } else {
+                if (cell.status === 'UP') { cls = 'up'; text = 'UP'; }
+                else if (cell.status === 'NONE') { cls = 'none'; text = '-'; }
+                else {
                     text = cell.gap;
                     if (cell.gap <= 3) cls = 'w-low';
                     else if (cell.gap <= 7) cls = 'w-med';
