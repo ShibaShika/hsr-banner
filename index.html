@@ -55,7 +55,7 @@
 
         /* 狀態顏色 */
         .up { background-color: var(--up); color: #000; font-weight: 800; font-size: 13px; }
-        .collab { background-color: #86efac; color: #000; font-weight: 800; font-size: 12px; } 
+        .collab { background-color: #86efac; color: #000; font-weight: 800; font-size: 11px; line-height: 1.1; } 
         .collab-empty { background-color: #86efac; color: transparent; } 
         .none { background-color: #161616; color: #333; }
         .w-low { background-color: #242424; color: #888; }
@@ -119,10 +119,10 @@
         ];
 
         const CHARACTERS = [
-            { name: "吉爾伽美什", path: "智識", elem: "虛數", avatar: "", isCollab: "4.4上", runs: [] },
-            { name: "遠坂凜", path: "智識", elem: "冰", avatar: "", isCollab: "4.4上", runs: [] },
+            { name: "吉爾伽美什", path: "智識", elem: "虛數", avatar: "", isCollab: "4.4上", collabDate: "07/24", runs: [] },
+            { name: "遠坂凜", path: "智識", elem: "冰", avatar: "", isCollab: "4.4上", collabDate: "07/24", runs: [] },
             { name: "姬子·啟行", path: "智識", elem: "火", avatar: "", runs: ["4.4上"] },
-            { name: "千冶．刃", path: "毀滅", elem: "火", avatar: "", runs: ["4.3上"] },
+            { name: "千冶．刃", path: "毀滅", elem: "Fire", avatar: "", runs: ["4.3上"] },
             { name: "緋英", path: "巡獵", elem: "冰", avatar: "", runs: ["4.2下"] },
             { name: "銀狼LV.999", path: "虛無", elem: "量子", avatar: "", runs: ["4.2上"] },
             { name: "不死途", path: "虛無", elem: "風", avatar: "", runs: ["4.1下", "4.1上"] },
@@ -135,8 +135,8 @@
             { name: "刻律德菈", path: "毀滅", elem: "雷", avatar: "", runs: ["4.0下", "3.5下"] },
             { name: "海瑟音", path: "豐饒", elem: "冰", avatar: "", runs: ["4.0上", "3.5上"] },
             { name: "白厄", path: "虛無", elem: "物理", avatar: "", runs: ["3.8上", "3.4上"] },
-            { name: "Archer", path: "巡獵", elem: "火", avatar: "", isCollab: "3.4上", runs: [] },
-            { name: "Saber", path: "毀滅", elem: "風", avatar: "", isCollab: "3.4上", runs: [] },
+            { name: "Archer", path: "巡獵", elem: "火", avatar: "", isCollab: "3.4上", collabDate: "07/11", runs: [] },
+            { name: "Saber", path: "毀滅", elem: "風", avatar: "", isCollab: "3.4上", collabDate: "07/11", runs: [] },
             { name: "賽飛兒", path: "同諧", elem: "量子", avatar: "", runs: ["3.7下", "3.3下"] },
             { name: "風堇", path: "豐饒", elem: "風", avatar: "", runs: ["4.1上", "3.7下", "3.3上"] },
             { name: "那刻夏", path: "毀滅", elem: "火", avatar: "", runs: ["3.6下", "3.2下"] },
@@ -166,14 +166,14 @@
             { name: "藿藿", path: "豐饒", elem: "風", avatar: "", runs: ["3.3上", "2.5下", "2.4上", "1.5上"] },
             { name: "托帕", path: "巡獵", elem: "火", avatar: "", runs: ["3.3下", "3.0上", "2.5下", "2.2上", "1.4下"] },
             { name: "鏡流", path: "毀滅", elem: "冰", avatar: "", runs: ["3.4下", "2.1下", "1.4上"] },
-            { name: "符玄", path: "存護", elem: "量子", avatar: "", runs: ["3.5下", "2.7下", "2.2下", "1.3下"] },
+            { name: "符玄", path: "存護", elem: "Quantum", avatar: "", runs: ["3.5下", "2.7下", "2.2下", "1.3下"] },
             { name: "丹恆·飲月", path: "毀滅", elem: "虛數", avatar: "", runs: ["2.6上", "2.0上", "1.3上"] },
             { name: "卡芙卡", path: "虛無", elem: "雷", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1005.png", runs: ["3.5上", "2.5上", "1.6下", "1.2下"] },
             { name: "刃", path: "毀滅", elem: "風", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1205.png", runs: ["3.0上", "2.4上", "1.6上", "1.2上"] },
             { name: "羅刹", path: "豐饒", elem: "虛數", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1203.png", runs: ["3.4上", "2.5下", "2.1上", "1.1下"] },
             { name: "銀狼", path: "虛無", elem: "量子", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1006.png", runs: ["3.7上", "3.2上", "2.0上", "1.5下", "1.1上"] },
             { name: "景元", path: "智識", elem: "雷", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1204.png", runs: ["2.7上", "2.0下", "1.0下"] },
-            { name: "希兒", path: "巡獵", elem: "量子", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1102.png", runs: ["3.0下", "2.4上", "1.4下", "1.0上"] }
+            { name: "希兒", path: "巡獵", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1102.png", runs: ["3.0下", "2.4上", "1.4下", "1.0上"] }
         ];
 
         function formatHeaderDate(dateStr) {
@@ -237,7 +237,14 @@
                 }
 
                 if (cellStatus === 'COLLAB_START') {
-                    history.push({ status: 'COLLAB', text: '聯動' });
+                    // 僅在聯動開始當格附註日期
+                    const sIdx = patchesList.indexOf(char.isCollab);
+                    const pIdx = patchesList.indexOf(patch);
+                    if (pIdx === sIdx && char.collabDate) {
+                        history.push({ status: 'COLLAB', text: `聯動<br><span style="font-size: 9px; opacity: 0.85;">${char.collabDate}</span>` });
+                    } else {
+                        history.push({ status: 'COLLAB', text: '聯動' });
+                    }
                 } else if (cellStatus === 'COLLAB_EMPTY') {
                     history.push({ status: 'COLLAB_EMPTY', text: '' });
                 } else if (char.runs && char.runs.includes(patch)) {
@@ -258,7 +265,7 @@
                 let cls = '';
                 let text = '';
                 if (cell.status === 'UP') { cls = 'up'; text = 'UP'; }
-                else if (cell.status === 'COLLAB') { cls = 'collab'; text = '聯動'; }
+                else if (cell.status === 'COLLAB') { cls = 'collab'; text = text; }
                 else if (cell.status === 'COLLAB_EMPTY') { cls = 'collab-empty'; text = ''; }
                 else if (cell.status === 'NONE') { cls = 'none'; text = '-'; }
                 else {
@@ -268,7 +275,12 @@
                     else if (cell.gap <= 12) cls = 'w-high';
                     else cls = 'w-crit';
                 }
-                html += `<td class="${cls}">${text}</td>`;
+                // 修正 collab 渲染文字
+                if (cell.status === 'COLLAB') {
+                    html += `<td class="${cls}">${cell.text}</td>`;
+                } else {
+                    html += `<td class="${cls}">${text}</td>`;
+                }
             });
             html += `</tr>`;
         });
