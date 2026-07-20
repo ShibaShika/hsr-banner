@@ -78,3 +78,19 @@ tr:hover td:first-child { filter: none !important; }
 .dropdown-panel label { display: flex; align-items: center; gap: 8px; padding: 4px 6px; cursor: pointer; color: #ccc; border-radius: 3px; }
 .dropdown-panel label:hover { color: #fff; background: #2a2a2a; }
 .dropdown-panel input[type="checkbox"] { cursor: pointer; accent-color: #666; width: 14px; height: 14px; }
+
+/* 🌟 新增：角色名稱搜尋框樣式 */
+.search-input { 
+    background: #1c1c1c; 
+    color: #e0e0e0; 
+    border: 1px solid #444; 
+    padding: 5px 8px; 
+    border-radius: 4px; 
+    font-size: 12px; 
+    outline: none; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
+    width: 90px; 
+    transition: all 0.2s; 
+}
+.search-input:hover { border-color: #666; background: #222; }
+.search-input:focus { border-color: #888; background: #222; width: 110px; }
