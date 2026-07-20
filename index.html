@@ -247,7 +247,7 @@ const RAW_CHARACTERS = [
             [...PATCH_DATA].reverse().forEach(p => {
                 html += `<th>${formatHeaderDate(p.date)}</th>`;
             });
-            html += '</tr><tr><th><div style="text-align:center; padding: 0 4px;">序號 / 角色資訊</div></th>';
+            html += '</tr><tr><th><div style="text-align:center; padding: 0 4px;">版本 ╲ 角色</div></th>';
             [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.patch}</th>`);
             html += '</tr></thead><tbody>';
             
