@@ -2,10 +2,8 @@ import re
 import json
 import requests
 
-# 真實的隱藏 API 網址 (目前為 4.4.51 測試資料，之後官方換版可動態修改)
 DATA_API_URL = "https://static.nanoka.cc/hsr/4.4.51/character.json"
 
-# 建立字典：負責把 API 內的英文屬性與命途，翻譯成網頁使用的中文
 ELEM_MAP = {
     "Fire": "火", "Ice": "冰", "Thunder": "雷", 
     "Wind": "風", "Physical": "物理", "Quantum": "量子", "Imaginary": "虛數"
@@ -17,9 +15,6 @@ PATH_MAP = {
 }
 
 def fetch_latest_banners():
-    """
-    透過真實 API 抓取角色資料，並根據 ID 推斷卡池版本。
-    """
     try:
         response = requests.get(DATA_API_URL)
         response.raise_for_status()
@@ -28,35 +23,32 @@ def fetch_latest_banners():
         print(f"抓取 API 失敗: {e}")
         return {}
 
-    # 🌟 這裡就是您的「推斷邏輯」：只要在這裡設定新 ID 對應的卡池即可
-    # 未來如果有 4.6 的新角色，只需在這裡新增即可
-    target_ids = {
-        "1512": "4.5上", # 知更鳥•晴歌
-        "1513": "4.5下"  # 砂金•戲浪
+    # 🌟 直接在此處明確定義要追蹤的新角色 ID、正確中文名與卡池版本
+    target_chars = {
+        "1512": {"name": "知更鳥•晴歌", "banner": "4.5上"},
+        "1513": {"name": "砂金•戲浪", "banner": "4.5下"}
     }
 
     new_banner_data = {}
     
-    for char_id, char_info in raw_data.items():
-        if char_id in target_ids:
-            # 取得原始資料
-            raw_name = char_info.get("name", "未知角色")
-            raw_elem = char_info.get("damageType", "")
-            raw_path = char_info.get("baseType", "")
-            
-            # 轉換為繁體中文標籤
-            name = raw_name.replace("鸟", "鳥") # 簡單的簡繁轉換，視需求增減
-            elem = ELEM_MAP.get(raw_elem, "未知")
-            path = PATH_MAP.get(raw_path, "未知")
-            banner = target_ids[char_id]
-            
-            # 將整理好的資料存入字典中
-            new_banner_data[name] = {
-                "runs": [banner],
-                "elem": elem,
-                "path": path
-            }
-            print(f"成功解析：{name} ({path}/{elem}) -> 預計卡池: {banner}")
+    for char_id, info in target_chars.items():
+        name = info["name"]
+        banner = info["banner"]
+        
+        # 嘗試從 API 中撈取該 ID 的屬性與命途
+        char_info = raw_data.get(char_id, {})
+        raw_elem = char_info.get("damageType", "")
+        raw_path = char_info.get("baseType", "")
+        
+        elem = ELEM_MAP.get(raw_elem, "未知")
+        path = PATH_MAP.get(raw_path, "未知")
+        
+        new_banner_data[name] = {
+            "runs": [banner],
+            "elem": elem,
+            "path": path
+        }
+        print(f"成功鎖定新角色：{name} ({path}/{elem}) -> 預計卡池: {banner}")
 
     return new_banner_data
 
@@ -81,16 +73,13 @@ def update_js():
             characters = json.loads(clean_json_str)
             existing_names = {char.get('name') for char in characters}
             
-            # 資料比對與合併
             for name, data in new_banner_data.items():
                 if name in existing_names:
-                    # 既有角色新增復刻
                     for char in characters:
                         if char.get('name') == name:
                             updated_runs = set(char.get('runs', []) + data["runs"])
                             char['runs'] = sorted(list(updated_runs), reverse=True)
                 else:
-                    # 修改後的寫法：附加在陣列尾端，網頁才會顯示在最上方
                     print(f"將新角色加入資料庫：{name}")
                     characters.append({
                         "name": name,
