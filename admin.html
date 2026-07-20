@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>崩壞：星穹鐵道 - 資料管理後台</title>
-    <!-- 載入現有資料 -->
+    <!-- 載入所有相關的資料與設定檔 -->
     <script src="js/patches.js"></script>
+    <script src="js/paths.js"></script>
+    <script src="js/elements.js"></script>
     <script src="js/characters.js"></script>
     <style>
         :root { --bg: #121212; --surface: #1e1e1e; --border: #444; --text: #e0e0e0; --primary: #2e436e; }
@@ -112,12 +114,25 @@
     </div>
 
     <script>
-        // 將外部載入的變數存入記憶體中管理
         let charsData = [...RAW_CHARACTERS];
         let patchesData = [...PATCH_DATA];
 
-        const paths = ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
-        const elems = ["火", "冰", "雷", "風", "物理", "量子", "虛數"];
+        // 🌟 動態整合命途與屬性選項（結合全域設定檔與現有角色資料，未來新增不需改前端）
+        function getDynamicOptions(type) {
+            let baseList = [];
+            if (type === 'path') {
+                baseList = typeof PATH_ORDER !== 'undefined' ? PATH_ORDER : ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
+            } else {
+                baseList = typeof ELEM_ORDER !== 'undefined' ? ELEM_ORDER : ["火", "冰", "雷", "風", "物理", "量子", "虛數"];
+            }
+            
+            // 確保資料中若有任何自訂或新出現的項目也不會漏掉
+            const set = new Set(baseList);
+            charsData.forEach(char => {
+                if (char[type]) set.add(char[type]);
+            });
+            return Array.from(set);
+        }
 
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -130,18 +145,22 @@
         function renderChars() {
             const tbody = document.getElementById('chars-tbody');
             tbody.innerHTML = '';
+            
+            const availablePaths = getDynamicOptions('path');
+            const availableElems = getDynamicOptions('elem');
+
             charsData.forEach((char, index) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><input type="text" value="${char.name}" onchange="updateChar(${index}, 'name', this.value)"></td>
                     <td>
                         <select onchange="updateChar(${index}, 'path', this.value)">
-                            ${paths.map(p => `<option value="${p}" ${char.path === p ? 'selected' : ''}>${p}</option>`).join('')}
+                            ${availablePaths.map(p => `<option value="${p}" ${char.path === p ? 'selected' : ''}>${p}</option>`).join('')}
                         </select>
                     </td>
                     <td>
                         <select onchange="updateChar(${index}, 'elem', this.value)">
-                            ${elems.map(e => `<option value="${e}" ${char.elem === e ? 'selected' : ''}>${e}</option>`).join('')}
+                            ${availableElems.map(e => `<option value="${e}" ${char.elem === e ? 'selected' : ''}>${e}</option>`).join('')}
                         </select>
                     </td>
                     <td><input type="text" value="${(char.runs || []).join(', ')}" onchange="updateCharRuns(${index}, this.value)"></td>
@@ -192,7 +211,6 @@
         // --- 核心：匯出程式碼 ---
         function generateJSString(varName, data) {
             let json = JSON.stringify(data, null, 4);
-            // 替換雙引號的 key，讓它變成乾淨的 JS 物件格式 (例如 "name": 變成 name:)
             let jsString = json.replace(/"([^"]+)":/g, '$1:');
             return `const ${varName} = ${jsString};\n`;
         }
