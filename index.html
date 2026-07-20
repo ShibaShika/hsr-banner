@@ -57,9 +57,9 @@
         .img-cell { background-color: #1e1e1e; padding: 2px; }
         .collab-empty { color: transparent; } 
         .term-pool { background-color: #2e436e; color: #a5c8ff; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
-        .term-pool-empty { background-color: #1a2233; color: transparent; }
+        .term-pool-empty { background-color: #161616; color: transparent; }
         .term-shop { background-color: #6e4e2e; color: #ffdbb0; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
-        .term-shop-empty { background-color: #33261a; color: transparent; }
+        .term-shop-empty { background-color: #161616; color: transparent; }
         .none { background-color: #161616; color: #333; }
         .w-low { background-color: #242424; color: #888; }
         .w-med { background-color: #3b2818; color: #ccc; }
@@ -67,6 +67,7 @@
         .w-crit { background-color: #7f1212; color: #fff; font-weight: bold; }
         
         tr:hover td:not(.img-cell):not(.collab-empty):not(.term-pool-empty):not(.term-shop-empty):not(:first-child) { filter: brightness(1.4); transition: all 0.2s; }
+        tr:hover td:first-child { filter: brightness(0.95); }
         .update-date { position: absolute; right: 15px; top: 15px; font-size: 13px; color: #888; }
     
         /* 十字高亮效果 */
