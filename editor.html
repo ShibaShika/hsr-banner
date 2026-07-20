@@ -255,17 +255,19 @@
                     tr.innerHTML = `
                         <td><input type="text" value="${char.name || ''}" onchange="updateChar(${index}, 'name', this.value)" style="width: 100%;"></td>
                         <td>
-                            <select onchange="updateChar(${index}, 'path', this.value)" style="width: 100%;">
+                            <!-- 命途選單置中 -->
+                            <select onchange="updateChar(${index}, 'path', this.value)" style="width: 100%; text-align: center; text-align-last: center;">
                                 ${availablePaths.map(p => `<option value="${p}" ${char.path === p ? 'selected' : ''}>${p}</option>`).join('')}
                             </select>
                         </td>
                         <td>
-                            <select onchange="updateChar(${index}, 'elem', this.value)" style="width: 100%;">
+                            <!-- 屬性選單置中 -->
+                            <select onchange="updateChar(${index}, 'elem', this.value)" style="width: 100%; text-align: center; text-align-last: center;">
                                 ${availableElems.map(e => `<option value="${e}" ${char.elem === e ? 'selected' : ''}>${e}</option>`).join('')}
                             </select>
                         </td>
                         <td>
-                            <!-- 使用 CSS Grid 嚴格對齊所有欄位，消除參差不齊感 -->
+                            <!-- 使用 CSS Grid 嚴格對齊所有欄位 -->
                             <div style="display: grid; grid-template-columns: 115px 105px 1fr; align-items: center; gap: 8px;">
                                 <!-- 欄位 1: 下拉選單 -->
                                 <select onchange="onTypeChange(${index}, this.value)" style="width: 100%; font-size: 12px; font-weight: bold; background: #222;">
@@ -275,10 +277,10 @@
                                     <option value="collab" ${currentType === 'collab' ? 'selected' : ''}>長期聯動</option>
                                 </select>
 
-                                <!-- 欄位 2: 條件式第二輸入框 (固定寬度佔位，確保後方歷史版本完美對齊) -->
+                                <!-- 欄位 2: 條件式第二輸入框 -->
                                 <div>
                                     ${(currentType === 'pool' || currentType === 'shop') ? `
-                                        <input type="text" value="${termPatch}" placeholder="起始版本" onchange="updateTermPatch(${index}, this.value)" style="width: 100%; font-size: 12px;">
+                                        <input type="text" value="${termPatch}" placeholder="起始版本" onchange="updateTermPatch(${index}, this.value)" style="width: 100%; font-size: 12px; text-align: center;">
                                     ` : ''}
                                     ${currentType === 'collab' ? `
                                         <input type="date" value="${dateInputValue}" onchange="updateCollabDate(${index}, this.value)" style="width: 100%; font-size: 12px;" title="聯動日期">
