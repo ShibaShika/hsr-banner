@@ -151,8 +151,8 @@
     </div>
 
     <script>
-        let charsData = [...RAW_CHARACTERS];
-        let patchesData = [...PATCH_DATA];
+        let charsData = typeof RAW_CHARACTERS !== 'undefined' ? [...RAW_CHARACTERS] : [];
+        let patchesData = typeof PATCH_DATA !== 'undefined' ? [...PATCH_DATA] : [];
 
         // 動態整合命途與屬性選項
         function getDynamicOptions(type) {
@@ -177,106 +177,113 @@
             event.target.classList.add('active');
         }
 
-        // 根據選擇的日期自動尋找對應的版本
         function findPatchByDate(dateStr) {
-            if (!dateStr) return "3.4上";
-            const targetTime = new Date(dateStr).getTime();
-            
-            let patchesWithTime = patchesData.map(p => {
-                const parts = p.date.split('/');
-                const fullYear = '20' + parts[0];
-                const isoStr = `${fullYear}-${parts[1]}-${parts[2]}`;
-                return { patch: p.patch, time: new Date(isoStr).getTime() };
-            });
-            
-            patchesWithTime.sort((a, b) => a.time - b.time);
-            
-            let matchedPatch = patchesWithTime[0].patch;
-            for (let i = 0; i < patchesWithTime.length; i++) {
-                if (patchesWithTime[i].time <= targetTime) {
-                    matchedPatch = patchesWithTime[i].patch;
-                } else {
-                    break;
+            if (!dateStr || patchesData.length === 0) return "3.4上";
+            try {
+                const targetTime = new Date(dateStr).getTime();
+                let patchesWithTime = patchesData.map(p => {
+                    const parts = (p.date || "").split('/');
+                    if (parts.length === 3) {
+                        const fullYear = '20' + parts[0];
+                        const isoStr = `${fullYear}-${parts[1]}-${parts[2]}`;
+                        return { patch: p.patch, time: new Date(isoStr).getTime() };
+                    }
+                    return { patch: p.patch, time: 0 };
+                });
+                
+                patchesWithTime.sort((a, b) => a.time - b.time);
+                let matchedPatch = patchesWithTime[0].patch;
+                for (let i = 0; i < patchesWithTime.length; i++) {
+                    if (patchesWithTime[i].time <= targetTime) {
+                        matchedPatch = patchesWithTime[i].patch;
+                    } else {
+                        break;
+                    }
                 }
+                return matchedPatch;
+            } catch (e) {
+                return "3.4上";
             }
-            return matchedPatch;
         }
 
         // --- 渲染與操作：角色 ---
         function renderChars() {
             const tbody = document.getElementById('chars-tbody');
+            if (!tbody) return;
             tbody.innerHTML = '';
             
             const availablePaths = getDynamicOptions('path');
             const availableElems = getDynamicOptions('elem');
 
             charsData.forEach((char, index) => {
-                const isCollab = char.isCollab !== undefined;
-                const termType = char.term ? char.term.type : 'none'; // 'none' | 'pool' | 'shop'
-                const termPatch = char.term ? char.term.patch : '';
-                
-                // 決定下拉選單目前的值：'normal' | 'pool' | 'shop' | 'collab'
-                let currentType = 'normal';
-                if (isCollab) currentType = 'collab';
-                else if (termType === 'pool') currentType = 'pool';
-                else if (termType === 'shop') currentType = 'shop';
+                try {
+                    const isCollab = char.isCollab !== undefined;
+                    const termType = char.term ? char.term.type : 'none'; 
+                    const termPatch = char.term ? char.term.patch : '';
+                    
+                    let currentType = 'normal';
+                    if (isCollab) currentType = 'collab';
+                    else if (termType === 'pool') currentType = 'pool';
+                    else if (termType === 'shop') currentType = 'shop';
 
-                // 將 2025/07/11 轉為 2025-07-11 供 date input 使用
-                let dateInputValue = "";
-                if (isCollab && char.collabDate) {
-                    dateInputValue = char.collabDate.replace(/\//g, '-');
+                    let dateInputValue = "";
+                    if (isCollab && char.collabDate) {
+                        dateInputValue = char.collabDate.replace(/\//g, '-');
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><input type="text" value="${char.name || ''}" onchange="updateChar(${index}, 'name', this.value)"></td>
+                        <td>
+                            <select onchange="updateChar(${index}, 'path', this.value)">
+                                ${availablePaths.map(p => `<option value="${p}" ${char.path === p ? 'selected' : ''}>${p}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td>
+                            <select onchange="updateChar(${index}, 'elem', this.value)">
+                                ${availableElems.map(e => `<option value="${e}" ${char.elem === e ? 'selected' : ''}>${e}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <!-- 三合一互斥選單 -->
+                                <div style="display: flex; gap: 6px; align-items: center;">
+                                    <select onchange="onTypeChange(${index}, this.value)" style="font-size: 13px; font-weight: bold; background: #222;">
+                                        <option value="normal" ${currentType === 'normal' ? 'selected' : ''}>一般角色 (僅卡池歷史)</option>
+                                        <option value="pool" ${currentType === 'pool' ? 'selected' : ''}>星緣相邀 (常駐機制)</option>
+                                        <option value="shop" ${currentType === 'shop' ? 'selected' : ''}>聚靈鑄星 (商店機制)</option>
+                                        <option value="collab" ${currentType === 'collab' ? 'selected' : ''}>長期開放聯動</option>
+                                    </select>
+                                </div>
+
+                                <!-- 卡池歷史 (常駐角色如銀狼、羅剎也可填寫) -->
+                                <div style="display: ${currentType === 'collab' ? 'none' : 'block'};">
+                                    <label style="font-size: 11px; color: #aaa; display: block; margin-bottom: 2px;">卡池歷史 (逗號分隔)</label>
+                                    <input type="text" value="${(char.runs || []).join(', ')}" placeholder="例如: 1.0上, 1.4下" onchange="updateCharRuns(${index}, this.value)">
+                                </div>
+
+                                <!-- 星緣 / 聚靈：填寫起始版本 -->
+                                <div style="display: ${(currentType === 'pool' || currentType === 'shop') ? 'block' : 'none'};">
+                                    <label style="font-size: 11px; color: #aaa; display: block; margin-bottom: 2px;">常駐開放起始版本</label>
+                                    <input type="text" value="${termPatch}" placeholder="例如: 3.2上" onchange="updateTermPatch(${index}, this.value)">
+                                </div>
+
+                                <!-- 聯動角色：僅填寫日期 -->
+                                <div style="display: ${currentType === 'collab' ? 'block' : 'none'}; background: #161616; padding: 6px; border-radius: 4px; border: 1px dashed #555;">
+                                    <label style="font-size: 11px; color: #8ef9f3; display: block; margin-bottom: 2px; font-weight: bold;">聯動開放日期 (選擇日期自動對應版本)</label>
+                                    <input type="date" value="${dateInputValue}" onchange="updateCollabDate(${index}, this.value)">
+                                    <div style="font-size: 11px; color: #888; margin-top: 4px;">對應版本：<span style="color: #fff; font-weight: bold;">${char.isCollab || '未定'}</span></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="btn btn-danger" onclick="deleteChar(${index})">刪除</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                } catch (err) {
+                    console.error("渲染角色出錯: ", err);
                 }
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><input type="text" value="${char.name}" onchange="updateChar(${index}, 'name', this.value)"></td>
-                    <td>
-                        <select onchange="updateChar(${index}, 'path', this.value)">
-                            ${availablePaths.map(p => `<option value="${p}" ${char.path === p ? 'selected' : ''}>${p}</option>`).join('')}
-                        </select>
-                    </td>
-                    <td>
-                        <select onchange="updateChar(${index}, 'elem', this.value)">
-                            ${availableElems.map(e => `<option value="${e}" ${char.elem === e ? 'selected' : ''}>${e}</option>`).join('')}
-                        </select>
-                    </td>
-                    <td>
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <!-- 互斥選項下拉選單 -->
-                            <div style="display: flex; gap: 6px; align-items: center;">
-                                <select onchange="onTypeChange(${index}, this.value)" style="font-size: 13px; font-weight: bold; background: #222;">
-                                    <option value="normal" ${currentType === 'normal' ? 'selected' : ''}>一般角色 (僅卡池歷史)</option>
-                                    <option value="pool" ${currentType === 'pool' ? 'selected' : ''}>星緣相邀 (常駐機制)</option>
-                                    <option value="shop" ${currentType === 'shop' ? 'selected' : ''}>聚靈鑄星 (商店機制)</option>
-                                    <option value="collab" ${currentType === 'collab' ? 'selected' : ''}>長期開放聯動</option>
-                                </select>
-                            </div>
-
-                            <!-- 1. 一般 / 星緣 / 聚靈：顯示卡池歷史 -->
-                            <div style="display: ${currentType === 'collab' ? 'none' : 'block'};">
-                                <label style="font-size: 11px; color: #aaa; display: block; margin-bottom: 2px;">卡池歷史 (逗號分隔)</label>
-                                <input type="text" value="${(char.runs || []).join(', ')}" placeholder="例如: 1.0上, 1.4下" onchange="updateCharRuns(${index}, this.value)">
-                            </div>
-
-                            <!-- 2. 星緣 / 聚靈：額外顯示起始版本 -->
-                            <div style="display: ${(currentType === 'pool' || currentType === 'shop') ? 'block' : 'none'};">
-                                <label style="font-size: 11px; color: #aaa; display: block; margin-bottom: 2px;">常駐開放起始版本</label>
-                                <input type="text" value="${termPatch}" placeholder="例如: 3.2上" onchange="updateTermPatch(${index}, this.value)">
-                            </div>
-
-                            <!-- 3. 聯動角色：顯示日期選擇器 (自動對應版本) -->
-                            <div style="display: ${currentType === 'collab' ? 'block' : 'none'}; background: #161616; padding: 6px; border-radius: 4px; border: 1px dashed #555;">
-                                <label style="font-size: 11px; color: #8ef9f3; display: block; margin-bottom: 2px; font-weight: bold;">聯動開放日期 (選擇日期自動對應版本)</label>
-                                <input type="date" value="${dateInputValue}" onchange="updateCollabDate(${index}, this.value)">
-                                <div style="font-size: 11px; color: #888; margin-top: 4px;">對應版本：<span style="color: #fff; font-weight: bold;">${collabPatch || '未定'}</span></div>
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <button class="btn btn-danger" onclick="deleteChar(${index})">刪除</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
             });
         }
 
@@ -286,15 +293,18 @@
             charsData[index].runs = value.split(',').map(s => s.trim()).filter(s => s !== "");
         }
 
-        // 切換互斥下拉選單
         function onTypeChange(index, type) {
-            delete charsData[index].isCollab;
-            delete charsData[index].collabDate;
-            delete charsData[index].term;
-
-            if (type === 'pool' || type === 'shop') {
-                charsData[index].term = { type: type, patch: "3.2上" };
+            if (type === 'normal') {
+                delete charsData[index].isCollab;
+                delete charsData[index].collabDate;
+                delete charsData[index].term;
+            } else if (type === 'pool' || type === 'shop') {
+                delete charsData[index].isCollab;
+                delete charsData[index].collabDate;
+                const currentPatch = charsData[index].term ? charsData[index].term.patch : "3.2上";
+                charsData[index].term = { type: type, patch: currentPatch };
             } else if (type === 'collab') {
+                delete charsData[index].term;
                 charsData[index].runs = [];
                 charsData[index].isCollab = "4.4上";
                 charsData[index].collabDate = "2026/07/24";
@@ -310,10 +320,8 @@
 
         function updateCollabDate(index, dateStr) {
             if (!dateStr) return;
-            // 轉換為 YYYY/MM/DD 格式儲存
             const formattedDate = dateStr.replace(/-/g, '/');
             charsData[index].collabDate = formattedDate;
-            // 自動計算對應的版本
             const matchedPatch = findPatchByDate(dateStr);
             charsData[index].isCollab = matchedPatch;
             charsData[index].runs = [];
@@ -335,12 +343,13 @@
         // --- 渲染與操作：版本 ---
         function renderPatches() {
             const tbody = document.getElementById('patches-tbody');
+            if (!tbody) return;
             tbody.innerHTML = '';
             patchesData.forEach((p, index) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><input type="text" value="${p.patch}" onchange="updatePatch(${index}, 'patch', this.value)"></td>
-                    <td><input type="text" value="${p.date}" onchange="updatePatch(${index}, 'date', this.value)"></td>
+                    <td><input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)"></td>
+                    <td><input type="text" value="${p.date || ''}" onchange="updatePatch(${index}, 'date', this.value)"></td>
                     <td><button class="btn btn-danger" onclick="deletePatch(${index})">刪除</button></td>
                 `;
                 tbody.appendChild(tr);
@@ -381,12 +390,14 @@
             }
 
             const textarea = document.getElementById(textareaId);
-            textarea.value = code;
+            if (textarea) textarea.value = code;
 
             navigator.clipboard.writeText(code).then(() => {
                 const msg = document.getElementById('copy-msg');
-                msg.style.display = 'inline-block';
-                setTimeout(() => msg.style.display = 'none', 3000);
+                if (msg) {
+                    msg.style.display = 'inline-block';
+                    setTimeout(() => msg.style.display = 'none', 3000);
+                }
             });
         }
 
