@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>崩壞：星穹鐵道 - 限定躍遷一覽表</title>
-    <!-- 載入 css 資料夾中的樣式表 -->
+    <!-- 載入外部獨立樣式表 -->
     <link rel="stylesheet" href="css/style.css">
 
-    <!-- 載入 js 資料夾中的獨立資料與配置文檔 -->
+    <!-- 載入獨立的資料與配置文檔 -->
     <script src="js/patches.js"></script>
     <script src="js/paths.js"></script>
     <script src="js/elements.js"></script>
@@ -32,6 +32,8 @@
                     <div id="elem-items-container"></div>
                 </div>
             </div>
+            <!-- 🌟 新增：角色名稱搜尋框 -->
+            <input type="text" id="char-search-input" class="search-input" placeholder="搜尋角色...">
         </div>
 
         <div class="header-center">
@@ -122,7 +124,8 @@
                 const pathIconUrl = PATH_ICONS[char.path] || "";
                 const seqNum = totalChars - index;
                 
-                html += `<tr data-path="${char.path}" data-elem="${char.elem}">
+                // 🌟 加上 data-name 屬性以供搜尋過濾使用
+                html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-name="${char.name}">
                     <td class="bg-${char.elem}">
                         <div class="char-info-cell">
                             <span class="char-seq">${seqNum}</span>
@@ -226,6 +229,7 @@
             const pathItems = pathPanel.querySelectorAll('.path-item');
             const elemAll = document.getElementById('elem-all');
             const elemItems = elemPanel.querySelectorAll('.elem-item');
+            const searchInput = document.getElementById('char-search-input'); // 🌟 取得搜尋框元素
 
             pathBox.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -250,6 +254,7 @@
             function applyFilters() {
                 const selectedPaths = Array.from(pathItems).filter(i => i.checked).map(i => i.value);
                 const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
+                const keyword = searchInput.value.trim().toLowerCase(); // 🌟 取得搜尋關鍵字
 
                 pathBox.textContent = selectedPaths.length === pathItems.length ? '全部命途' : (selectedPaths.length === 0 ? '未選命途' : `命途 (${selectedPaths.length})`);
                 elemBox.textContent = selectedElems.length === elemItems.length ? '全部屬性' : (selectedElems.length === 0 ? '未選屬性' : `屬性 (${selectedElems.length})`);
@@ -259,10 +264,13 @@
                 rows.forEach(row => {
                     const rowPath = row.getAttribute('data-path');
                     const rowElem = row.getAttribute('data-elem');
+                    const rowName = row.getAttribute('data-name').toLowerCase(); // 🌟 角色名稱
+
                     const matchPath = selectedPaths.includes(rowPath);
                     const matchElem = selectedElems.includes(rowElem);
+                    const matchName = keyword === '' || rowName.includes(keyword); // 🌟 名稱比對
 
-                    if (matchPath && matchElem) {
+                    if (matchPath && matchElem && matchName) {
                         row.style.display = '';
                         visibleCount++;
                     } else {
@@ -316,6 +324,9 @@
                     applyFilters();
                 });
             });
+
+            // 🌟 綁定搜尋框輸入事件
+            searchInput.addEventListener('input', applyFilters);
 
             const trackerTable = document.getElementById('tracker');
             trackerTable.addEventListener('mouseover', (e) => {
