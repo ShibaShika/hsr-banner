@@ -55,8 +55,8 @@
 
         /* 狀態顏色 */
         .up { background-color: var(--up); color: #000; font-weight: 800; font-size: 14px; }
-        .collab { background-color: #86efac; color: #000; font-weight: 800; font-size: 13px; } /* 聯動綠底字體 */
-        .collab-empty { background-color: #86efac; color: transparent; } /* 聯動經過的中間版本：維持綠底但不顯示字 */
+        .collab { background-color: #86efac; color: #000; font-weight: 800; font-size: 13px; } 
+        .collab-empty { background-color: #86efac; color: transparent; } 
         .none { background-color: #161616; color: #333; }
         .w-low { background-color: #242424; color: #888; }
         .w-med { background-color: #3b2818; color: #ccc; }
@@ -103,14 +103,6 @@
             {"patch": "4.2上", "date": "26/04/08"}, {"patch": "4.2下", "date": "26/04/22"}, {"patch": "4.3上", "date": "26/05/13"}, {"patch": "4.3下", "date": "26/06/01"},
             {"patch": "4.4上", "date": "26/06/22"}
         ];
-        
-        // 聯動角色獨立開池日期對照
-        const COLLAB_DATES = {
-            "Saber": "25/07/11 (聯動)",
-            "Archer": "25/07/11 (聯動)",
-            "遠坂凜": "26/07/11 (聯動)",
-            "吉爾伽美什": "26/07/11 (聯動)"
-        };
 
         const CHARACTERS = [
             { name: "吉爾伽美什", path: "智識", elem: "Imaginary", avatar: "", isCollab: "4.4上", runs: [] },
@@ -176,13 +168,7 @@
         
         let html = '<thead><tr><th></th>';
         [...PATCH_DATA].reverse().forEach(p => {
-            let dateStr = p.date;
-            CHARACTERS.forEach(c => {
-                if (c.isCollab === p.patch && COLLAB_DATES[c.name]) {
-                    dateStr = COLLAB_DATES[c.name];
-                }
-            });
-            html += `<th>${dateStr}</th>`;
+            html += `<th>${p.date}</th>`;
         });
         html += '</tr><tr><th><div style="text-align:center; padding: 0 10px;">序號 / 角色資訊</div></th>';
         [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.patch}</th>`);
@@ -215,13 +201,13 @@
                     const collabStart = char.isCollab;
                     const sIdx = patchesList.indexOf(collabStart);
                     const pIdx = patchesList.indexOf(patch);
-                    const lIdx = patchesList.length - 1; // 最新版本索引 (4.4上)
+                    const lIdx = patchesList.length - 1; 
 
                     if (pIdx >= sIdx) {
                         if (pIdx === sIdx || pIdx === lIdx) {
-                            cellStatus = 'COLLAB_START'; // 於開池格與現在最新格顯示「聯動」
+                            cellStatus = 'COLLAB_START'; 
                         } else {
-                            cellStatus = 'COLLAB_EMPTY'; // 中間經過的版本維持綠底但不填字
+                            cellStatus = 'COLLAB_EMPTY'; 
                         }
                     }
                 }
