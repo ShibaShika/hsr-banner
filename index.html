@@ -55,7 +55,7 @@
 
         /* 狀態顏色 */
         .img-cell { background-color: #1e1e1e; padding: 2px; }
-        .collab-empty { background-color: #86efac; color: transparent; } 
+        .collab-empty { color: transparent; } 
         .none { background-color: #161616; color: #333; }
         .w-low { background-color: #242424; color: #888; }
         .w-med { background-color: #3b2818; color: #ccc; }
@@ -269,7 +269,7 @@
                     cls = 'img-cell';
                     content = `<img src="${avatarUrl}" class="grid-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">`;
                 } else if (cell.status === 'COLLAB_EMPTY') {
-                    cls = 'collab-empty';
+                    cls = `collab-empty bg-${char.elem}`;
                     content = '';
                 } else if (cell.status === 'NONE') {
                     cls = 'none';
@@ -286,6 +286,7 @@
             html += `</tr>`;
         });
         html += '</tbody>';
+        
         table.innerHTML = html;
 
         // 十字高亮互動效果
