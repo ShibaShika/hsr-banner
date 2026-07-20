@@ -162,7 +162,7 @@
             
             const PATH_ORDER = ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
             const uniquePaths = PATH_ORDER.filter(p => RAW_CHARACTERS.some(c => c.path === p));
-            const uniqueElems = [...new Set(RAW_CHARACTERS.map(c => c.elem))];
+            const uniqueElems = ELEM_ORDER.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
 
             document.getElementById('path-items-container').innerHTML = uniquePaths.map(p => 
                 `<label><input type="checkbox" class="path-item" value="${p}" checked> ${p}</label>`
