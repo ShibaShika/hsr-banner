@@ -293,10 +293,7 @@ const RAW_CHARACTERS = [
                         const pIdx = patchesList.indexOf(patch);
                         const lIdx = patchesList.length - 1; 
 
-                        if (pIdx === sIdx + 1) {
-                            // 聯動角色登場版本的右邊那一格
-                            cellStatus = 'COLLAB_NOTE';
-                        } else if (pIdx >= sIdx) {
+                        if (pIdx >= sIdx) {
                             if (pIdx === sIdx || pIdx === lIdx) {
                                 cellStatus = 'COLLAB_START'; 
                             } else {
@@ -323,7 +320,7 @@ const RAW_CHARACTERS = [
                     }
                 });
 
-history.reverse().forEach(cell => {
+                history.reverse().forEach(cell => {
                     let cls = '';
                     let content = '';
                     if (cell.status === 'UP' || cell.status === 'COLLAB') {
@@ -332,12 +329,6 @@ history.reverse().forEach(cell => {
                     } else if (cell.status === 'COLLAB_EMPTY') {
                         cls = `collab-empty bg-${char.elem}`;
                         content = '';
-                    } else if (cell.status === 'COLLAB_NOTE') {
-                        cls = 'w-low';
-                        let noteText = (char.name === '遠坂凜' || char.name === '吉爾伽美什') 
-                            ? '←2026/7/24後長期開放' 
-                            : '←2025/7/11後長期開放';
-                        content = `<span style="font-size: 11px; color: #aaa; white-space: nowrap; padding: 0 4px;">${noteText}</span>`;
                     } else if (cell.status === 'TERM_START') {
                         cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
                         content = cell.type === 'pool' ? '星緣' : '聚靈';
@@ -355,7 +346,7 @@ history.reverse().forEach(cell => {
                         else cls = 'w-crit';
                     }
                     html += `<td class="${cls}">${content}</td>`;
-                });                });
+                });
                 html += `</tr>`;
             });
             html += '</tbody>';
