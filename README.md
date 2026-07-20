@@ -2,7 +2,8 @@
 
 這是一個用來追蹤《崩壞：星穹鐵道》角色限定躍遷（卡池）歷史與復刻間隔的互動式表格網頁。
 
-🔗 **線上即時預覽**：[崩壞：星穹鐵道 - 限定躍遷一覽表](https://shibashika.github.io/hsr-banner/)
+🔗 **線上即時預覽**：https://shibashika.github.io/hsr-banner/
+
 ---
 
 ## 📂 專案資料夾結構
