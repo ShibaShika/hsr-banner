@@ -56,18 +56,22 @@
         /* 狀態顏色 */
         .img-cell { background-color: #1e1e1e; padding: 2px; }
         .collab-empty { color: transparent; } 
+        .term-pool { background-color: #2e436e; color: #a5c8ff; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
+        .term-pool-empty { background-color: #1a2233; color: transparent; }
+        .term-shop { background-color: #6e4e2e; color: #ffdbb0; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
+        .term-shop-empty { background-color: #33261a; color: transparent; }
         .none { background-color: #161616; color: #333; }
         .w-low { background-color: #242424; color: #888; }
         .w-med { background-color: #3b2818; color: #ccc; }
         .w-high { background-color: #571a1a; color: #eee; }
         .w-crit { background-color: #7f1212; color: #fff; font-weight: bold; }
         
-        tr:hover td:not(.img-cell):not(.collab-empty):not(:first-child) { filter: brightness(1.4); transition: all 0.2s; }
-        tr:hover td:first-child { filter: brightness(0.95); }
+        tr:hover td:not(.img-cell):not(.collab-empty):not(.term-pool-empty):not(.term-shop-empty):not(:first-child) { filter: brightness(1.4); transition: all 0.2s; }
         .update-date { position: absolute; right: 15px; top: 15px; font-size: 13px; color: #888; }
-
+    
         /* 十字高亮效果 */
         .col-highlight { filter: brightness(1.3); transition: filter 0.15s; }
+
     </style>
 </head>
 <body>
@@ -124,29 +128,29 @@
 
         // 資料庫維持「舊到新」排列（希兒在最上面，最新角色在最下面）
         const RAW_CHARACTERS = [
-            { name: "希兒", path: "巡獵", elem: "量子", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1102.png", runs: ["3.0下", "2.4上", "1.4下", "1.0上"] },
+            { name: "希兒", path: "巡獵", elem: "量子", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1102.png", runs: ["3.0下", "2.4上", "1.4下", "1.0上"], term: { type: "pool", patch: "3.2上" } },
             { name: "景元", path: "智識", elem: "雷", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1204.png", runs: ["2.7上", "2.0下", "1.0下"] },
-            { name: "銀狼", path: "虛無", elem: "量子", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1006.png", runs: ["3.7上", "3.2上", "2.0上", "1.5下", "1.1上"] },
-            { name: "羅刹", path: "豐饒", elem: "虛數", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1203.png", runs: ["3.4上", "2.5下", "2.1上", "1.1下"] },
-            { name: "刃", path: "毀滅", elem: "風", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1205.png", runs: ["3.0上", "2.4上", "1.6上", "1.2上"] },
+            { name: "銀狼", path: "虛無", elem: "量子", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1006.png", runs: ["3.7上", "3.2上", "2.0上", "1.5下", "1.1上"], term: { type: "pool", patch: "4.2上" } },
+            { name: "羅刹", path: "豐饒", elem: "虛數", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1203.png", runs: ["3.4上", "2.5下", "2.1上", "1.1下"], term: { type: "shop", patch: "3.2上" } },
+            { name: "刃", path: "毀滅", elem: "風", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1205.png", runs: ["3.0上", "2.4上", "1.6上", "1.2上"], term: { type: "pool", patch: "3.2上" } },
             { name: "卡芙卡", path: "虛無", elem: "雷", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1005.png", runs: ["3.5上", "2.5上", "1.6下", "1.2下"] },
             { name: "丹恆•飲月", path: "毀滅", elem: "虛數", avatar: "", runs: ["2.6上", "2.0上", "1.3上"] },
-            { name: "符玄", path: "存護", elem: "量子", avatar: "", runs: ["3.5下", "2.7下", "2.2下", "1.3下"] },
+            { name: "符玄", path: "存護", elem: "量子", avatar: "", runs: ["3.5下", "2.7下", "2.2下", "1.3下"], term: { type: "pool", patch: "3.2上" } },
             { name: "鏡流", path: "毀滅", elem: "冰", avatar: "", runs: ["3.4下", "2.1下", "1.4上"] },
-            { name: "托帕", path: "巡獵", elem: "火", avatar: "", runs: ["3.3下", "3.0上", "2.5下", "2.2上", "1.4下"] },
-            { name: "藿藿", path: "豐饒", elem: "風", avatar: "", runs: ["3.3上", "2.5下", "2.4上", "1.5上"] },
-            { name: "銀枝", path: "智識", elem: "物理", avatar: "", runs: ["2.5上", "2.3下", "1.5下"] },
-            { name: "阮•梅", path: "同諧", elem: "冰", avatar: "", runs: ["3.6上", "3.2上", "2.3上", "1.6上"] },
+            { name: "托帕", path: "巡獵", elem: "火", avatar: "", runs: ["3.3下", "3.0上", "2.5下", "2.2上", "1.4下"], term: { type: "shop", patch: "3.7上" } },
+            { name: "藿藿", path: "豐饒", elem: "風", avatar: "", runs: ["3.3上", "2.5下", "2.4上", "1.5上"], term: { type: "shop", patch: "4.2上" } },
+            { name: "銀枝", path: "智識", elem: "物理", avatar: "", runs: ["2.5上", "2.3下", "1.5下"], term: { type: "pool", patch: "4.2上" } },
+            { name: "阮•梅", path: "同諧", elem: "冰", avatar: "", runs: ["3.6上", "3.2上", "2.3上", "1.6上"], term: { type: "shop", patch: "3.2上" } },
             { name: "真理醫生", path: "巡獵", elem: "虛數", avatar: "", runs: ["3.2下", "1.6下"] },
             { name: "黑天鵝", path: "虛無", elem: "風", avatar: "", runs: ["4.0上", "2.5上", "2.0上"] },
             { name: "花火", path: "同諧", elem: "量子", avatar: "", runs: ["4.0下", "3.4上", "2.4下", "2.0下"] },
             { name: "黃泉", path: "虛無", elem: "雷", avatar: "", runs: ["3.2上", "2.6下", "2.1上"] },
             { name: "砂金", path: "存護", elem: "虛數", avatar: "", runs: ["2.6下", "2.1下"] },
-            { name: "知更鳥", path: "同諧", elem: "物理", avatar: "", runs: ["3.2上", "2.6下", "2.5上", "2.2上"] },
+            { name: "知更鳥", path: "同諧", elem: "物理", avatar: "", runs: ["3.2上", "2.6下", "2.5上", "2.2上"], term: { type: "shop", patch: "4.2上" } },
             { name: "波提歐", path: "巡獵", elem: "物理", avatar: "", runs: ["4.1下", "3.0下", "2.2下"] },
             { name: "流螢", path: "毀滅", elem: "火", avatar: "", runs: ["4.0下", "3.6下", "3.1下", "2.5上", "2.3上"] },
             { name: "翡翠", path: "智識", elem: "量子", avatar: "", runs: ["3.0上", "2.3下"] },
-            { name: "雲璃", path: "毀滅", elem: "物理", avatar: "", runs: ["3.2下", "2.4上"] },
+            { name: "雲璃", path: "毀滅", elem: "物理", avatar: "", runs: ["3.2下", "2.4上"], term: { type: "pool", patch: "4.2上" } },
             { name: "椒丘", path: "虛無", elem: "火", avatar: "", runs: ["3.2上", "2.4下"] },
             { name: "飛霄", path: "巡獵", elem: "風", avatar: "", runs: ["4.2下", "3.0上", "2.5上"] },
             { name: "靈砂", path: "豐饒", elem: "火", avatar: "", runs: ["3.8中", "3.0上", "2.5下"] },
@@ -229,6 +233,19 @@
             patchesList.forEach(patch => {
                 let cellStatus = 'NONE';
                 
+                if (char.term) {
+                    const termIdx = patchesList.indexOf(char.term.patch);
+                    const pIdx = patchesList.indexOf(patch);
+                    if (pIdx >= termIdx) {
+                        if (pIdx === termIdx) {
+                            history.push({ status: 'TERM_START', type: char.term.type });
+                        } else {
+                            history.push({ status: 'TERM_EMPTY', type: char.term.type });
+                        }
+                        return; // 終止後就不會再有復刻，直接跳過後續判斷
+                    }
+                }
+                
                 if (char.isCollab) {
                     const collabStart = char.isCollab;
                     const sIdx = patchesList.indexOf(collabStart);
@@ -271,6 +288,12 @@
                 } else if (cell.status === 'COLLAB_EMPTY') {
                     cls = `collab-empty bg-${char.elem}`;
                     content = '';
+                } else if (cell.status === 'TERM_START') {
+                    cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
+                    content = cell.type === 'pool' ? '星緣' : '聚靈';
+                } else if (cell.status === 'TERM_EMPTY') {
+                    cls = cell.type === 'pool' ? 'term-pool-empty' : 'term-shop-empty';
+                    content = '';
                 } else if (cell.status === 'NONE') {
                     cls = 'none';
                     content = '-';
@@ -312,6 +335,7 @@
                 if (c) c.classList.remove('col-highlight');
             }
         });
+
     </script>
 </body>
 </html>
