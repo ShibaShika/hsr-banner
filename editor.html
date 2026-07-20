@@ -34,7 +34,7 @@
         .btn:hover { background: #444; }
         .btn-add { background: #2d5a2d; border-color: #4a8a4a; margin-top: 10px; display: inline-block; }
         .btn-add:hover { background: #3a753a; }
-        .btn-danger { background: #7a2222; border-color: #b53838; }
+        .btn-danger { background: #7a2222; border-color: #b53838; padding: 4px 8px; font-size: 12px; }
         .btn-danger:hover { background: #9c2e2e; }
         .btn-export { background: var(--primary); font-size: 16px; padding: 10px 20px; border-color: #5575b5; }
         .btn-export:hover { background: #3b558c; }
@@ -94,10 +94,10 @@
                 <thead>
                     <tr>
                         <th style="width: 14%;">名稱</th>
-                        <th style="width: 11%;">命途</th>
-                        <th style="width: 11%;">屬性</th>
-                        <th style="width: 48%;">取得機制與版本格子設定</th>
-                        <th style="width: 16%;">操作</th>
+                        <th style="width: 8%;">命途</th>
+                        <th style="width: 8%;">屬性</th>
+                        <th style="width: 63%;">取得機制與版本格子設定</th>
+                        <th style="width: 7%; text-align: center;">操作</th>
                     </tr>
                 </thead>
                 <tbody id="chars-tbody"></tbody>
@@ -112,7 +112,7 @@
                     <tr>
                         <th style="width: 40%;">版本名稱 (如: 4.5上)</th>
                         <th style="width: 40%;">日期 (如: 26/03/15)</th>
-                        <th style="width: 20%;">操作</th>
+                        <th style="width: 20%; text-align: center;">操作</th>
                     </tr>
                 </thead>
                 <tbody id="patches-tbody"></tbody>
@@ -250,7 +250,7 @@
                             <div style="display: flex; flex-direction: column; gap: 8px;">
                                 <!-- 上排：縮窄的下拉選單 + 右側的版本或日期輸入 -->
                                 <div style="display: flex; gap: 6px; align-items: center;">
-                                    <select onchange="onTypeChange(${index}, this.value)" style="width: 120px; font-size: 12px; font-weight: bold; background: #222; flex-shrink: 0;">
+                                    <select onchange="onTypeChange(${index}, this.value)" style="width: 130px; font-size: 12px; font-weight: bold; background: #222; flex-shrink: 0;">
                                         <option value="normal" ${currentType === 'normal' ? 'selected' : ''}>一般角色</option>
                                         <option value="pool" ${currentType === 'pool' ? 'selected' : ''}>星緣相邀</option>
                                         <option value="shop" ${currentType === 'shop' ? 'selected' : ''}>聚靈鑄星</option>
@@ -283,7 +283,7 @@
                                 `}
                             </div>
                         </td>
-                        <td>
+                        <td style="text-align: center;">
                             <button class="btn btn-danger" onclick="deleteChar(${index})">刪除</button>
                         </td>
                     `;
@@ -296,20 +296,17 @@
 
         function updateChar(index, key, value) { charsData[index][key] = value; }
 
-        // 單獨更新某個版本格子
         function updateRun(index, rIndex, value) {
             if (!charsData[index].runs) charsData[index].runs = [];
             charsData[index].runs[rIndex] = value.trim();
         }
 
-        // 新增一個版本格子
         function addRun(index) {
             if (!charsData[index].runs) charsData[index].runs = [];
             charsData[index].runs.push("");
             renderChars();
         }
 
-        // 刪除指定的版本格子
         function removeRun(index, rIndex) {
             if (!charsData[index].runs) return;
             charsData[index].runs.splice(rIndex, 1);
@@ -373,7 +370,7 @@
                 tr.innerHTML = `
                     <td><input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)" style="width: 100%;"></td>
                     <td><input type="text" value="${p.date || ''}" onchange="updatePatch(${index}, 'date', this.value)" style="width: 100%;"></td>
-                    <td><button class="btn btn-danger" onclick="deletePatch(${index})">刪除</button></td>
+                    <td style="text-align: center;"><button class="btn btn-danger" onclick="deletePatch(${index})">刪除</button></td>
                 `;
                 tbody.appendChild(tr);
             });
