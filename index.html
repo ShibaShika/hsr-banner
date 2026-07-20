@@ -25,7 +25,6 @@
         body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; position: relative; }
         h1 { text-align: center; color: var(--text); margin: 10px 0 15px 0; font-size: 24px; font-weight: bold; }
         
-        /* 上方工具列樣式 */
         .toolbar { display: flex; gap: 10px; margin-bottom: 10px; padding: 0 2px; align-items: center; max-width: 320px; }
         
         .table-wrap { overflow-x: auto; max-height: calc(100vh - 130px); border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
@@ -56,12 +55,8 @@
         .bg-虛數 { background-color: var(--elem-imaginary); }
         .bg-未知 { background-color: var(--elem-unknown); color: #fff !important; }
 
-        /* 狀態顏色 */
         .img-cell { background-color: #1e1e1e; padding: 2px; }
-        .collab-empty { 
-            color: transparent; 
-            box-shadow: inset 0 0 0 9999px rgba(18, 18, 18, 0.82); 
-        }
+        .collab-empty { color: transparent; box-shadow: inset 0 0 0 9999px rgba(18, 18, 18, 0.82); }
         .term-pool { background-color: #2e436e; color: #a5c8ff; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
         .term-pool-empty { background-color: #161616; color: transparent; }
         .term-shop { background-color: #6e4e2e; color: #ffdbb0; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
@@ -75,11 +70,9 @@
         tr:hover td:not(.img-cell):not(.term-pool-empty):not(.term-shop-empty):not(:first-child) { filter: brightness(1.4); transition: all 0.2s; }
         tr:hover td:first-child { filter: none !important; }
         .update-date { position: absolute; right: 15px; top: 15px; font-size: 13px; color: #888; }
-    
-        /* 十字高亮效果 */
+        
         .col-highlight { filter: brightness(1.3); transition: filter 0.15s; }
 
-        /* 多選篩選器樣式 */
         .multi-select { position: relative; flex: 1; text-align: left; font-size: 12px; }
         .select-box { background: #1c1c1c; color: #e0e0e0; border: 1px solid #444; padding: 5px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
         .select-box:hover { border-color: #666; background: #222; }
@@ -89,12 +82,17 @@
         .dropdown-panel label:hover { color: #fff; background: #2a2a2a; }
         .dropdown-panel input[type="checkbox"] { cursor: pointer; accent-color: #666; width: 14px; height: 14px; }
     </style>
+
+    <!-- 載入獨立的資料與配置文檔 -->
+    <script src="patches.js"></script>
+    <script src="paths.js"></script>
+    <script src="elements.js"></script>
+    <script src="characters.js"></script>
 </head>
 <body>
-    <div class="update-date">更新日期：2026/07/20[cite: 1]</div>
-    <h1>崩壞：星穹鐵道 - 限定躍遷一覽表[cite: 1]</h1>
+    <div class="update-date">更新日期：2026/07/20</div>
+    <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
     
-    <!-- 獨立於表格上方的工具列篩選器 -->
     <div class="toolbar">
         <div class="multi-select" id="path-dropdown">
             <div class="select-box" id="path-select-box">全部命途</div>
@@ -118,111 +116,7 @@
         <table id="tracker"></table>
     </div>
 
-<script>
-        const PATH_ICONS = {
-            "毀滅": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Destruction.png",
-            "巡獵": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Hunt.png",
-            "智識": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Erudition.png",
-            "同諧": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Harmony.png",
-            "虛無": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Nihility.png",
-            "存護": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Preservation.png",
-            "豐饒": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Abundance.png",
-            "記憶": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Remembrance.png",
-            "歡愉": "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/Elation.png"
-        };
-
-        const PATCH_DATA = [
-            {"patch": "1.0上", "date": "23/04/26"}, {"patch": "1.0下", "date": "23/05/17"},
-            {"patch": "1.1上", "date": "23/06/07"}, {"patch": "1.1下", "date": "23/06/28"},
-            {"patch": "1.2上", "date": "23/07/19"}, {"patch": "1.2下", "date": "23/08/09"},
-            {"patch": "1.3上", "date": "23/08/30"}, {"patch": "1.3下", "date": "23/09/20"},
-            {"patch": "1.4上", "date": "23/10/11"}, {"patch": "1.4下", "date": "23/10/27"},
-            {"patch": "1.5上", "date": "23/11/15"}, {"patch": "1.5下", "date": "23/12/06"},
-            {"patch": "1.6上", "date": "23/12/27"}, {"patch": "1.6下", "date": "24/01/17"},
-            {"patch": "2.0上", "date": "24/02/06"}, {"patch": "2.0下", "date": "24/02/29"},
-            {"patch": "2.1上", "date": "24/03/27"}, {"patch": "2.1下", "date": "24/04/17"},
-            {"patch": "2.2上", "date": "24/05/08"}, {"patch": "2.2下", "date": "24/05/29"},
-            {"patch": "2.3上", "date": "24/06/19"}, {"patch": "2.3下", "date": "24/07/10"},
-            {"patch": "2.4上", "date": "24/07/31"}, {"patch": "2.4下", "date": "24/08/21"},
-            {"patch": "2.5上", "date": "24/09/10"}, {"patch": "2.5下", "date": "24/10/02"},
-            {"patch": "2.6上", "date": "24/10/23"}, {"patch": "2.6下", "date": "24/11/13"},
-            {"patch": "2.7上", "date": "24/12/04"}, {"patch": "2.7下", "date": "24/12/25"},
-            {"patch": "3.0上", "date": "25/01/15"}, {"patch": "3.0下", "date": "25/02/05"},
-            {"patch": "3.1上", "date": "25/02/26"}, {"patch": "3.1下", "date": "25/03/19"},
-            {"patch": "3.2上", "date": "25/04/09"}, {"patch": "3.2下", "date": "25/04/30"},
-            {"patch": "3.3上", "date": "25/05/21"}, {"patch": "3.3下", "date": "25/06/11"},
-            {"patch": "3.4上", "date": "25/07/02"}, {"patch": "3.4下", "date": "25/07/23"},
-            {"patch": "3.5上", "date": "25/08/13"}, {"patch": "3.5下", "date": "25/09/02"},
-            {"patch": "3.6上", "date": "25/09/24"}, {"patch": "3.6下", "date": "25/10/15"},
-            {"patch": "3.7上", "date": "25/11/05"}, {"patch": "3.7下", "date": "25/11/26"},
-            {"patch": "3.8上", "date": "25/12/17"}, {"patch": "3.8中", "date": "26/01/07"}, {"patch": "3.8下", "date": "26/01/28"},
-            {"patch": "4.0上", "date": "26/02/13"}, {"patch": "4.0下", "date": "26/03/03"},
-            {"patch": "4.1上", "date": "26/03/25"}, {"patch": "4.1下", "date": "26/04/08"},
-            {"patch": "4.2上", "date": "26/04/22"}, {"patch": "4.2下", "date": "26/05/13"},
-            {"patch": "4.3上", "date": "26/06/01"}, {"patch": "4.3下", "date": "26/06/24"},
-            {"patch": "4.4上", "date": "26/07/15"}, {"patch": "4.4下", "date": "26/08/05"}
-        ];
-
-        // 資料庫維持「舊到新」排列[cite: 1]
-        const RAW_CHARACTERS = [
-            { name: "希兒", path: "巡獵", elem: "量子", avatar: "", runs: ["1.0上", "1.4下"], term: { type: "pool", patch: "3.2上" } },
-            { name: "景元", path: "智識", elem: "雷", avatar: "", runs: ["1.0下", "2.0下", "2.7上"] },
-            { name: "銀狼", path: "虛無", elem: "量子", avatar: "", runs: ["1.1上", "1.5下", "3.0下", "3.5下"], term: { type: "pool", patch: "4.2上" } },
-            { name: "羅剎", path: "豐饒", elem: "虛數", avatar: "", runs: ["1.1下", "2.1上"], term: { type: "shop", patch: "3.2上" } },
-            { name: "刃", path: "毀滅", elem: "風", avatar: "", runs: ["1.2上", "1.6上", "3.4下"], term: { type: "pool", patch: "3.2上" } },
-            { name: "卡芙卡", path: "虛無", elem: "雷", avatar: "", runs: ["1.2下", "1.6下", "2.5上", "3.5上"] },
-            { name: "丹恆•飲月", path: "毀滅", elem: "虛數", avatar: "", runs: ["1.3上", "2.0上", "2.6上"] },
-            { name: "符玄", path: "存護", elem: "量子", avatar: "", runs: ["1.3下", "2.2下"], term: { type: "pool", patch: "3.2上" } },
-            { name: "鏡流", path: "毀滅", elem: "冰", avatar: "", runs: ["1.4上", "2.1下", "3.4下"] },
-            { name: "托帕", path: "巡獵", elem: "火", avatar: "", runs: ["1.4下", "2.2上", "2.5下"], term: { type: "shop", patch: "3.7上" } },
-            { name: "藿藿", path: "豐饒", elem: "風", avatar: "", runs: ["1.5上", "2.4上", "3.1下"], term: { type: "shop", patch: "4.2上" } },
-            { name: "銀枝", path: "智識", elem: "物理", avatar: "", runs: ["1.5下", "2.3下"], term: { type: "pool", patch: "4.2上" } },
-            { name: "阮•梅", path: "同諧", elem: "冰", avatar: "", runs: ["1.6上", "2.3上"], term: { type: "shop", patch: "3.2上" } },
-            { name: "真理醫生", path: "巡獵", elem: "虛數", avatar: "", runs: ["1.6下", "3.2下"] },
-            { name: "黑天鵝", path: "虛無", elem: "風", avatar: "", runs: ["2.0上", "2.5上", "4.0上"] },
-            { name: "花火", path: "同諧", elem: "量子", avatar: "", runs: ["2.0下", "2.4下", "3.4上", "4.0下"] },
-            { name: "黃泉", path: "虛無", elem: "雷", avatar: "", runs: ["2.1上", "2.6下", "3.2上"] },
-            { name: "砂金", path: "存護", elem: "虛數", avatar: "", runs: ["2.1下", "2.6下", "4.4下"] },
-            { name: "知更鳥", path: "同諧", elem: "物理", avatar: "", runs: ["2.2上", "2.5上", "3.0下"], term: { type: "shop", patch: "4.2上" } },
-            { name: "波提歐", path: "巡獵", elem: "物理", avatar: "", runs: ["2.2下", "3.0下", "4.1下"] },
-            { name: "流螢", path: "毀滅", elem: "火", avatar: "", runs: ["2.3上", "2.7下", "3.4下", "3.8上", "4.2上"] },
-            { name: "翡翠", path: "智識", elem: "量子", avatar: "", runs: ["2.3下", "3.0上"] },
-            { name: "雲璃", path: "毀滅", elem: "物理", avatar: "", runs: ["2.4上", "3.1上"], term: { type: "pool", patch: "4.2上" } },
-            { name: "椒丘", path: "虛無", elem: "火", avatar: "", runs: ["2.4下", "3.2上"] },
-            { name: "飛霄", path: "巡獵", elem: "風", avatar: "", runs: ["2.5上", "3.0上", "4.2下"] },
-            { name: "靈砂", path: "豐饒", elem: "火", avatar: "", runs: ["2.5下", "3.0上", "3.8中"] },
-            { name: "亂破", path: "智識", elem: "虛數", avatar: "", runs: ["2.6上", "4.0下"] },
-            { name: "星期日", path: "同諧", elem: "虛數", avatar: "", runs: ["2.7上", "3.4上", "3.8下", "4.2下"] },
-            { name: "忘歸人", path: "虛無", elem: "火", avatar: "", runs: ["2.7下", "3.2上", "3.8中"] },
-            { name: "大黑塔", path: "智識", elem: "冰", avatar: "", runs: ["3.0上", "3.3上", "3.6上"] },
-            { name: "阿格萊雅", path: "記憶", elem: "雷", avatar: "", runs: ["3.0下", "3.3下", "3.8下"] },
-            { name: "緹寶", path: "同諧", elem: "量子", avatar: "", runs: ["3.1上", "3.4上", "3.7上", "4.2下"] },
-            { name: "萬敵", path: "毀滅", elem: "虛數", avatar: "", runs: ["3.1下", "3.7下"] },
-            { name: "遐蝶", path: "記憶", elem: "量子", avatar: "", runs: ["3.2上", "3.7上", "4.2上"] },
-            { name: "那刻夏", path: "智識", elem: "風", avatar: "", runs: ["3.2下", "3.6下", "4.4下"] },
-            { name: "風堇", path: "記憶", elem: "風", avatar: "", runs: ["3.3上", "3.7上", "4.1上"] },
-            { name: "賽飛兒", path: "同諧", elem: "量子", avatar: "", runs: ["3.3下", "3.7下"] },
-            { name: "白厄", path: "毀滅", elem: "物理", avatar: "", runs: ["3.4上", "3.7下", "4.3下"] },
-            { name: "Saber", path: "毀滅", elem: "風", avatar: "", isCollab: "3.4上", runs: [] },
-            { name: "Archer", path: "巡獵", elem: "量子", avatar: "", isCollab: "3.4上", runs: [] },
-            { name: "海瑟音", path: "虛無", elem: "物理", avatar: "", runs: ["3.5上", "4.0上"] },
-            { name: "刻律德菈", path: "同諧", elem: "風", avatar: "", runs: ["3.5下", "4.0下", "4.4下"] },
-            { name: "長夜月", path: "記憶", elem: "冰", avatar: "", runs: ["3.6上", "4.0上", "4.4上"] },
-            { name: "丹恆•騰荒", path: "存護", elem: "物理", avatar: "", runs: ["3.6下", "4.4上"] },
-            { name: "昔漣", path: "記憶", elem: "冰", avatar: "", runs: ["3.7上", "3.7下", "4.3下"] },
-            { name: "大理花", path: "虛無", elem: "火", avatar: "", runs: ["3.8上", "4.2上"] },
-            { name: "爻光", path: "歡愉", elem: "物理", avatar: "", runs: ["4.0上", "4.0下", "4.3上"] },
-            { name: "火花", path: "歡愉", elem: "火", avatar: "", runs: ["4.0下", "4.4上"] },
-            { name: "不死途", path: "巡獵", elem: "雷", avatar: "", runs: ["4.1上", "4.1下"] },
-            { name: "銀狼LV.999", path: "歡愉", elem: "虛數", avatar: "", runs: ["4.2上"] },
-            { name: "緋英", path: "歡愉", elem: "物理", avatar: "", runs: ["4.2下"] },
-            { name: "千冶•刃", path: "虛無", elem: "火", avatar: "", runs: ["4.3上"] },
-            { name: "姬子•啟行", path: "智識", elem: "火", avatar: "", runs: ["4.4上"] },
-            { name: "遠坂凜", path: "智識", elem: "量子", avatar: "", isCollab: "4.4上", runs: [] },
-            { name: "吉爾伽美什", path: "毀滅", elem: "雷", avatar: "", isCollab: "4.4上", runs: [] }
-        ];
-
-        // 格式化表頭日期的輔助函式[cite: 1]
+    <script>
         function formatHeaderDate(dateStr) {
             const parts = dateStr.split('/');
             if (parts.length === 3) {
@@ -233,7 +127,6 @@
             return dateStr;
         }
 
-        // 初始化主程式[cite: 1]
         async function initTracker() {
             try {
                 const res = await fetch('https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/cht/characters.json');
@@ -270,7 +163,6 @@
             const uniquePaths = [...new Set(RAW_CHARACTERS.map(c => c.path))];
             const uniqueElems = [...new Set(RAW_CHARACTERS.map(c => c.elem))];
 
-            // 動態填入篩選器選項
             document.getElementById('path-items-container').innerHTML = uniquePaths.map(p => 
                 `<label><input type="checkbox" class="path-item" value="${p}" checked> ${p}</label>`
             ).join('');
@@ -279,7 +171,6 @@
                 `<label><input type="checkbox" class="elem-item" value="${e}" checked> ${e}</label>`
             ).join('');
 
-            // 構建表頭[cite: 1]
             let html = '<thead><tr><th></th>';
             [...PATCH_DATA].reverse().forEach(p => {
                 html += `<th>${formatHeaderDate(p.date)}</th>`;
@@ -288,7 +179,6 @@
             [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.patch}</th>`);
             html += '</tr></thead><tbody>';
             
-            // 構建表格內容[cite: 1]
             CHARACTERS.forEach((char, index) => {
                 const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(char.name)}&background=random&color=fff&size=56&bold=true`;
                 const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
@@ -390,7 +280,6 @@
             
             table.innerHTML = html;
 
-            // 多選篩選器互動邏輯
             const pathBox = document.getElementById('path-select-box');
             const elemBox = document.getElementById('elem-select-box');
             const pathPanel = document.getElementById('path-panel');
@@ -491,7 +380,6 @@
                 });
             });
 
-            // 重新綁定十字高亮互動效果[cite: 1]
             const trackerTable = document.getElementById('tracker');
             trackerTable.addEventListener('mouseover', (e) => {
                 const cell = e.target.closest('td, th');
