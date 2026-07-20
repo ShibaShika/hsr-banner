@@ -462,7 +462,8 @@ const RAW_CHARACTERS = [
         elem: "風",
         avatar: "",
         isCollab: "3.4上",
-        runs: []
+        runs: [],
+        collabDate: "2025/07/11"
     },
     {
         name: "Archer",
@@ -470,7 +471,8 @@ const RAW_CHARACTERS = [
         elem: "量子",
         avatar: "",
         isCollab: "3.4上",
-        runs: []
+        runs: [],
+        collabDate: "2025/07/11"
     },
     {
         name: "海瑟音",
@@ -608,7 +610,8 @@ const RAW_CHARACTERS = [
         elem: "量子",
         avatar: "",
         isCollab: "4.4上",
-        runs: []
+        runs: [],
+        collabDate: "2026/07/24"
     },
     {
         name: "吉爾伽美什",
@@ -616,6 +619,7 @@ const RAW_CHARACTERS = [
         elem: "雷",
         avatar: "",
         isCollab: "4.4上",
-        runs: []
+        runs: [],
+        collabDate: "2026/07/24"
     }
 ];
