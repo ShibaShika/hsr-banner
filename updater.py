@@ -90,9 +90,9 @@ def update_js():
                             updated_runs = set(char.get('runs', []) + data["runs"])
                             char['runs'] = sorted(list(updated_runs), reverse=True)
                 else:
-                    # 🌟 全新角色自動建檔，並寫入 API 抓到的屬性與命途！
+                    # 修改後的寫法：附加在陣列尾端，網頁才會顯示在最上方
                     print(f"將新角色加入資料庫：{name}")
-                    characters.insert(0, {
+                    characters.append({
                         "name": name,
                         "path": data["path"],
                         "elem": data["elem"],
