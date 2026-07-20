@@ -138,13 +138,33 @@
                 let history = [];
                 let currentGap = 0;
                 let hasReleased = false;
+                let collabSpanAdded = false;
 
-                patchesList.forEach(patch => {
+                patchesList.forEach((patch, pIdx) => {
                     let cellStatus = 'NONE';
+                    
+                    if (char.isCollab) {
+                        const collabStart = char.isCollab;
+                        const sIdx = patchesList.indexOf(collabStart);
+                        
+                        if (pIdx < sIdx) {
+                            if (!collabSpanAdded) {
+                                history.push({ status: 'COLLAB_SPAN', count: sIdx });
+                                collabSpanAdded = true;
+                            }
+                            return;
+                        }
+                        
+                        const lIdx = patchesList.length - 1; 
+                        if (pIdx === sIdx || pIdx === lIdx) {
+                            cellStatus = 'COLLAB_START'; 
+                        } else {
+                            cellStatus = 'COLLAB_EMPTY'; 
+                        }
+                    }
                     
                     if (char.term) {
                         const termIdx = patchesList.indexOf(char.term.patch);
-                        const pIdx = patchesList.indexOf(patch);
                         if (pIdx === termIdx) {
                             history.push({ status: 'TERM_START', type: char.term.type });
                             return;
@@ -153,32 +173,8 @@
                             return;
                         }
                     }
-                    
-                    if (char.isCollab) {
-                        const collabStart = char.isCollab;
-                        const sIdx = patchesList.indexOf(collabStart);
-                        const pIdx = patchesList.indexOf(patch);
-                        const lIdx = patchesList.length - 1; 
-                        
-                    if (pIdx >= sIdx) {
-                        if (pIdx === sIdx || pIdx === lIdx) {
-                            cellStatus = 'COLLAB_START'; 
-                        } else {
-                            cellStatus = 'COLLAB_EMPTY'; 
-                        }
-                    } else {
-                        // 🌟 標記聯動之前的版本，準備合併為文字
-                        cellStatus = 'COLLAB_TEXT'; 
-                    }
-                }
 
-                if (cellStatus === 'COLLAB_START') {
-                    history.push({ status: 'COLLAB' });
-                } else if (cellStatus === 'COLLAB_EMPTY') {
-                    history.push({ status: 'COLLAB_EMPTY' });
-                } else if (cellStatus === 'COLLAB_TEXT') {
-                    history.push({ status: 'COLLAB_TEXT' }); // 🌟 將文字狀態推入陣列
-                } else if (char.runs && char.runs.includes(patch)) {
+                    if (cellStatus === 'COLLAB_START') {
                         history.push({ status: 'COLLAB' });
                     } else if (cellStatus === 'COLLAB_EMPTY') {
                         history.push({ status: 'COLLAB_EMPTY' });
@@ -196,32 +192,20 @@
                     }
                 });
 
-            let collabTextRendered = false; // 🌟 確保合併儲存格只會輸出一次
-
-            history.reverse().forEach(cell => {
-                let cls = '';
-                let content = '';
-                
-                // 🌟 讓文字緊靠在頭像右側（從聯動版本的下一格開始合併剩餘格子）
-                if (cell.status === 'COLLAB_TEXT') {
-                    if (!collabTextRendered) {
-                        const sIdx = patchesList.indexOf(char.isCollab);
-                        // 計算從聯動版本左邊算起，還剩多少個舊格子需要合併
-                        const remainingSpan = patchesList.length - 1 - sIdx;
-                        
+                history.reverse().forEach(cell => {
+                    let cls = '';
+                    let content = '';
+                    
+                    if (cell.status === 'COLLAB_SPAN') {
                         let dateStr = "";
                         if (char.isCollab === "3.4上") dateStr = "2025/07/11";
                         else if (char.isCollab === "4.4上") dateStr = "2026/07/24";
                         
-                        if (remainingSpan > 0) {
-                            html += `<td colspan="${remainingSpan}" class="collab-text" style="text-align: left; padding-left: 8px;">${dateStr} 後長期開放</td>`;
-                        }
-                        collabTextRendered = true;
+                        html += `<td colspan="${cell.count}" class="collab-text" style="text-align: left; padding-left: 8px;">${dateStr} 後長期開放</td>`;
+                        return;
                     }
-                    return; 
-                }
-                
-                if (cell.status === 'UP' || cell.status === 'COLLAB') {
+
+                    if (cell.status === 'UP' || cell.status === 'COLLAB') {
                         cls = 'img-cell';
                         content = `<img src="${avatarUrl}" class="grid-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">`;
                     } else if (cell.status === 'COLLAB_EMPTY') {
