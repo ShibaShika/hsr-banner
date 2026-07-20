@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>崩壞：星穹鐵道 - 資料管理後台</title>
+    <title>崩壞：星穹鐵道 - 資料編輯器 (Editor)</title>
     <!-- 載入所有相關的資料與設定檔 -->
     <script src="js/patches.js"></script>
     <script src="js/paths.js"></script>
@@ -12,7 +12,7 @@
     <style>
         :root { --bg: #121212; --surface: #1e1e1e; --border: #444; --text: #e0e0e0; --primary: #2e436e; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1100px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .container { max-width: 1150px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         h1 { margin-top: 0; font-size: 24px; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         
         /* 頁籤樣式 */
@@ -26,7 +26,7 @@
         table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 14px; }
         th, td { border: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: middle; }
         th { background: #2a2a2a; }
-        input[type="text"], input[type="date"], select { width: 100%; padding: 6px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
+        input[type="text"], input[type="date"], select { padding: 6px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
         /* 按鈕樣式 */
@@ -79,7 +79,7 @@
 <body>
     <div class="container">
         <h1>
-            <span>⚙️ 資料管理後台</span>
+            <span>⚙️ 崩壞：星穹鐵道 - 資料編輯器 (Editor)</span>
             <span style="font-size: 12px; color: #888; font-weight: normal;">直接在網頁修改，修改完點擊下方匯出複製</span>
         </h1>
 
@@ -96,7 +96,7 @@
                         <th style="width: 14%;">名稱</th>
                         <th style="width: 11%;">命途</th>
                         <th style="width: 11%;">屬性</th>
-                        <th style="width: 48%;">卡池歷史與取得機制設定</th>
+                        <th style="width: 48%;">取得機制與版本格子設定</th>
                         <th style="width: 16%;">操作</th>
                     </tr>
                 </thead>
@@ -231,31 +231,32 @@
                         dateInputValue = char.collabDate.replace(/\//g, '-');
                     }
 
+                    const runs = char.runs || [];
+
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td><input type="text" value="${char.name || ''}" onchange="updateChar(${index}, 'name', this.value)"></td>
+                        <td><input type="text" value="${char.name || ''}" onchange="updateChar(${index}, 'name', this.value)" style="width: 100%;"></td>
                         <td>
-                            <select onchange="updateChar(${index}, 'path', this.value)">
+                            <select onchange="updateChar(${index}, 'path', this.value)" style="width: 100%;">
                                 ${availablePaths.map(p => `<option value="${p}" ${char.path === p ? 'selected' : ''}>${p}</option>`).join('')}
                             </select>
                         </td>
                         <td>
-                            <select onchange="updateChar(${index}, 'elem', this.value)">
+                            <select onchange="updateChar(${index}, 'elem', this.value)" style="width: 100%;">
                                 ${availableElems.map(e => `<option value="${e}" ${char.elem === e ? 'selected' : ''}>${e}</option>`).join('')}
                             </select>
                         </td>
                         <td>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <!-- 縮窄的下拉選單與右側輸入框並排 -->
+                                <!-- 上排：縮窄的下拉選單 + 右側的版本或日期輸入 -->
                                 <div style="display: flex; gap: 6px; align-items: center;">
-                                    <select onchange="onTypeChange(${index}, this.value)" style="width: 140px; font-size: 12px; font-weight: bold; background: #222; flex-shrink: 0;">
+                                    <select onchange="onTypeChange(${index}, this.value)" style="width: 120px; font-size: 12px; font-weight: bold; background: #222; flex-shrink: 0;">
                                         <option value="normal" ${currentType === 'normal' ? 'selected' : ''}>一般角色</option>
                                         <option value="pool" ${currentType === 'pool' ? 'selected' : ''}>星緣相邀</option>
                                         <option value="shop" ${currentType === 'shop' ? 'selected' : ''}>聚靈鑄星</option>
                                         <option value="collab" ${currentType === 'collab' ? 'selected' : ''}>長期聯動</option>
                                     </select>
 
-                                    <!-- 右側依機制顯示版本輸入或日期選擇器 -->
                                     ${(currentType === 'pool' || currentType === 'shop') ? `
                                         <input type="text" value="${termPatch}" placeholder="起始版本(如3.2上)" onchange="updateTermPatch(${index}, this.value)" style="flex: 1; font-size: 12px;">
                                     ` : ''}
@@ -265,15 +266,21 @@
                                     ` : ''}
                                 </div>
 
-                                <!-- 卡池歷史 (一般、星緣、聚靈顯示) -->
-                                <div style="display: ${currentType === 'collab' ? 'none' : 'block'};">
-                                    <input type="text" value="${(char.runs || []).join(', ')}" placeholder="卡池歷史 (逗號分隔，如: 1.0上, 1.4下)" onchange="updateCharRuns(${index}, this.value)" style="font-size: 12px;">
-                                </div>
-
-                                <!-- 聯動版本提示 (僅聯動顯示) -->
-                                ${currentType === 'collab' ? `
-                                    <div style="font-size: 11px; color: #8ef9f3;">對應版本：<b>${char.isCollab || '未定'}</b></div>
-                                ` : ''}
+                                <!-- 下排：一格一格的卡池歷史版本方塊 (聯動角色隱藏) -->
+                                ${currentType !== 'collab' ? `
+                                    <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center; background: #161616; padding: 6px; border-radius: 4px; border: 1px solid #333;">
+                                        <span style="font-size: 11px; color: #aaa; width: 100%; margin-bottom: 2px;">卡池歷史版本：</span>
+                                        ${runs.map((run, rIdx) => `
+                                            <div style="display: flex; align-items: center; gap: 2px; background: #222; padding: 2px 4px; border: 1px solid #555; border-radius: 3px;">
+                                                <input type="text" value="${run}" onchange="updateRun(${index}, ${rIdx}, this.value)" style="width: 55px; font-size: 11px; padding: 2px; background: transparent; border: none; color: #fff; text-align: center;">
+                                                <button type="button" onclick="removeRun(${index}, ${rIdx})" style="background: #7a2222; color: #fff; border: none; border-radius: 2px; width: 16px; height: 16px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="刪除此版本">✕</button>
+                                            </div>
+                                        `).join('')}
+                                        <button type="button" class="btn" style="padding: 2px 8px; font-size: 12px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addRun(${index})" title="新增版本格">＋</button>
+                                    </div>
+                                ` : `
+                                    <div style="font-size: 11px; color: #8ef9f3;">聯動對應版本：<b>${char.isCollab || '未定'}</b></div>
+                                `}
                             </div>
                         </td>
                         <td>
@@ -289,8 +296,24 @@
 
         function updateChar(index, key, value) { charsData[index][key] = value; }
 
-        function updateCharRuns(index, value) {
-            charsData[index].runs = value.split(',').map(s => s.trim()).filter(s => s !== "");
+        // 單獨更新某個版本格子
+        function updateRun(index, rIndex, value) {
+            if (!charsData[index].runs) charsData[index].runs = [];
+            charsData[index].runs[rIndex] = value.trim();
+        }
+
+        // 新增一個版本格子
+        function addRun(index) {
+            if (!charsData[index].runs) charsData[index].runs = [];
+            charsData[index].runs.push("");
+            renderChars();
+        }
+
+        // 刪除指定的版本格子
+        function removeRun(index, rIndex) {
+            if (!charsData[index].runs) return;
+            charsData[index].runs.splice(rIndex, 1);
+            renderChars();
         }
 
         function onTypeChange(index, type) {
@@ -348,8 +371,8 @@
             patchesData.forEach((p, index) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)"></td>
-                    <td><input type="text" value="${p.date || ''}" onchange="updatePatch(${index}, 'date', this.value)"></td>
+                    <td><input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)" style="width: 100%;"></td>
+                    <td><input type="text" value="${p.date || ''}" onchange="updatePatch(${index}, 'date', this.value)" style="width: 100%;"></td>
                     <td><button class="btn btn-danger" onclick="deletePatch(${index})">刪除</button></td>
                 `;
                 tbody.appendChild(tr);
