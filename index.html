@@ -22,7 +22,7 @@
             --elem-unknown: #64748b;   
         }
         
-        body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; }
+        body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; position: relative; }
         h1 { text-align: center; color: var(--text); margin: 10px 0 20px 0; font-size: 24px; font-weight: bold; }
         
         .table-wrap { overflow-x: auto; max-height: calc(100vh - 70px); border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
@@ -64,9 +64,11 @@
         
         tr:hover td:not(.img-cell):not(.collab-empty):not(:first-child) { filter: brightness(1.4); transition: all 0.2s; }
         tr:hover td:first-child { filter: brightness(0.95); }
+        .update-date { position: absolute; right: 15px; top: 15px; font-size: 13px; color: #888; }
     </style>
 </head>
 <body>
+    <div class="update-date">更新日期：2026/07/20</div>
     <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
     <div class="table-wrap">
         <table id="tracker"></table>
