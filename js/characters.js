@@ -1,14 +1,5 @@
 const RAW_CHARACTERS = [
     {
-        name: "未知角色",
-        path: "歡愉",
-        elem: "量子",
-        avatar: "",
-        runs: [
-            "4.5下"
-        ]
-    },
-    {
         name: "希兒",
         path: "巡獵",
         elem: "量子",
