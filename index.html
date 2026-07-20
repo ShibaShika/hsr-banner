@@ -76,6 +76,10 @@
         /* 十字高亮效果 */
         .col-highlight { filter: brightness(1.3); transition: filter 0.15s; }
 
+        /* 篩選器樣式 */
+        .filter-container { display: flex; gap: 3px; padding: 1px 3px; align-items: center; justify-content: space-between; }
+        .filter-container select { background: #181818; color: #e0e0e0; border: 1px solid #444; font-size: 10px; padding: 2px; border-radius: 3px; outline: none; cursor: pointer; }
+        .filter-container select:hover { border-color: #666; }
     </style>
 </head>
 <body>
@@ -131,7 +135,7 @@
         ];
 
         // 資料庫維持「舊到新」排列
-const RAW_CHARACTERS = [
+        const RAW_CHARACTERS = [
             { name: "希兒", path: "巡獵", elem: "量子", avatar: "", runs: ["1.0上", "1.4下"], term: { type: "pool", patch: "3.2上" } },
             { name: "景元", path: "智識", elem: "雷", avatar: "", runs: ["1.0下", "2.0下", "2.7上"] },
             { name: "銀狼", path: "虛無", elem: "量子", avatar: "", runs: ["1.1上", "1.5下", "3.0下", "3.5下"], term: { type: "pool", patch: "4.2上" } },
@@ -200,31 +204,24 @@ const RAW_CHARACTERS = [
             return dateStr;
         }
 
-        // 初始化主程式 (改成 async 以便等待 fetch 資料)
+        // 初始化主程式
         async function initTracker() {
-            // 1. 自動從 StarRailRes 撈取頭像字典
             try {
                 const res = await fetch('https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/cht/characters.json');
                 if (res.ok) {
                     const data = await res.json();
-                    
-                    // 防呆正規化：處理各種符號差異 (移除中間點、統一剎/刹等)
                     const normalize = (n) => n.replace(/[•·]/g, '').replace(/刹/g, '剎');
                     const avatarMap = {};
                     
                     for (const id in data) {
                         const officialName = data[id].name;
                         const imgUrl = `https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/${data[id].icon}`;
-                        
                         avatarMap[normalize(officialName)] = imgUrl;
-                        
-                        // 處理特例：托帕&帳帳 -> 托帕
                         if (officialName.includes('&')) {
                             avatarMap[normalize(officialName.split('&')[0])] = imgUrl;
                         }
                     }
 
-                    // 2. 將抓到的頭像網址填入陣列中對應的角色
                     RAW_CHARACTERS.forEach(char => {
                         const searchName = normalize(char.name);
                         if (avatarMap[searchName] && !char.avatar) {
@@ -236,18 +233,35 @@ const RAW_CHARACTERS = [
                 console.warn("頭像庫連線失敗，將使用文字備用頭像：", error);
             }
 
-            // 3. 處理並反轉陣列準備渲染
             const CHARACTERS = [...RAW_CHARACTERS].reverse();
             const table = document.getElementById('tracker');
             const patchesList = PATCH_DATA.map(p => p.patch);
             const totalChars = CHARACTERS.length;
             
+            // 收集所有出現過的命途與屬性供篩選器選項使用
+            const uniquePaths = [...new Set(RAW_CHARACTERS.map(c => c.path))];
+            const uniqueElems = [...new Set(RAW_CHARACTERS.map(c => c.elem))];
+
             // 構建表頭
             let html = '<thead><tr><th></th>';
             [...PATCH_DATA].reverse().forEach(p => {
                 html += `<th>${formatHeaderDate(p.date)}</th>`;
             });
-            html += '</tr><tr><th><div style="text-align:center; padding: 0 4px;">&nbsp;</div></th>';
+            
+            // 在左上角第二行插入篩選器
+            html += `</tr><tr><th>
+                <div class="filter-container">
+                    <select id="path-filter">
+                        <option value="">全部命途</option>
+                        ${uniquePaths.map(p => `<option value="${p}">${p}</option>`).join('')}
+                    </select>
+                    <select id="elem-filter">
+                        <option value="">全部屬性</option>
+                        ${uniqueElems.map(e => `<option value="${e}">${e}</option>`).join('')}
+                    </select>
+                </div>
+            </th>`;
+            
             [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.patch}</th>`);
             html += '</tr></thead><tbody>';
             
@@ -258,7 +272,7 @@ const RAW_CHARACTERS = [
                 const pathIconUrl = PATH_ICONS[char.path] || "";
                 const seqNum = totalChars - index;
                 
-                html += `<tr>
+                html += `<tr data-path="${char.path}" data-elem="${char.elem}">
                     <td class="bg-${char.elem}">
                         <div class="char-info-cell">
                             <span class="char-seq">${seqNum}</span>
@@ -353,13 +367,39 @@ const RAW_CHARACTERS = [
             
             table.innerHTML = html;
 
+            // 綁定篩選器聯動事件
+            const pathFilter = document.getElementById('path-filter');
+            const elemFilter = document.getElementById('elem-filter');
+
+            function applyFilters() {
+                const selectedPath = pathFilter.value;
+                const selectedElem = elemFilter.value;
+                const rows = table.querySelectorAll('tbody tr');
+
+                rows.forEach(row => {
+                    const rowPath = row.getAttribute('data-path');
+                    const rowElem = row.getAttribute('data-elem');
+                    const matchPath = !selectedPath || rowPath === selectedPath;
+                    const matchElem = !selectedElem || rowElem === selectedElem;
+
+                    if (matchPath && matchElem) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+
+            pathFilter.addEventListener('change', applyFilters);
+            elemFilter.addEventListener('change', applyFilters);
+
             // 重新綁定十字高亮互動效果
             const trackerTable = document.getElementById('tracker');
             trackerTable.addEventListener('mouseover', (e) => {
                 const cell = e.target.closest('td, th');
                 if (!cell) return;
                 const colIndex = cell.cellIndex;
-                if (colIndex === 0) return; // 略過第一欄
+                if (colIndex === 0) return;
 
                 const rows = trackerTable.rows;
                 for (let i = 0; i < rows.length; i++) {
@@ -372,7 +412,7 @@ const RAW_CHARACTERS = [
                 const cell = e.target.closest('td, th');
                 if (!cell) return;
                 const colIndex = cell.cellIndex;
-                if (colIndex === 0) return; // 略過第一欄
+                if (colIndex === 0) return;
 
                 const rows = trackerTable.rows;
                 for (let i = 0; i < rows.length; i++) {
@@ -380,9 +420,8 @@ const RAW_CHARACTERS = [
                     if (c) c.classList.remove('col-highlight');
                 }
             });
-            }
+        }
 
-        // 啟動渲染
         initTracker();
     </script>
 </body>
