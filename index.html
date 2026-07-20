@@ -34,15 +34,20 @@
         thead tr:nth-child(1) th { top: 0; font-size: 10px; color: #aaa; border-bottom: none; padding-bottom: 1px; padding-top: 4px; }
         thead tr:nth-child(2) th { top: 25px; border-top: none; padding-top: 2px; font-size: 11px; }
         
-        th:first-child, td:first-child { position: sticky; left: 0; z-index: 11; text-align: left; box-shadow: 2px 0 5px rgba(0,0,0,0.4); padding: 0; }
-        thead tr:nth-child(1) th:first-child { z-index: 12; top: 0; background: var(--th-bg); }
-        thead tr:nth-child(2) th:first-child { z-index: 12; top: 25px; background: var(--th-bg); }
+        /* 獨立固定左側欄位（國際慣例多欄冰凍） */
+        .sticky-col-1 { position: sticky; left: 0; z-index: 11; width: 34px; min-width: 34px; max-width: 34px; }
+        .sticky-col-2 { position: sticky; left: 34px; z-index: 11; width: 34px; min-width: 34px; max-width: 34px; }
+        .sticky-col-3 { position: sticky; left: 68px; z-index: 11; width: 38px; min-width: 38px; max-width: 38px; }
+        .sticky-col-4 { position: sticky; left: 106px; z-index: 11; width: 90px; min-width: 90px; max-width: 90px; box-shadow: 2px 0 5px rgba(0,0,0,0.4); }
 
-        .char-info-cell { display: flex; align-items: center; padding: 3px 6px; color: #000; font-weight: 600; }
-        .char-seq { width: 22px; text-align: center; font-size: 13px; opacity: 0.8; }
-        .char-path-icon { width: 20px; height: 20px; margin-right: 4px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); }
-        .char-avatar { width: 26px; height: 26px; border-radius: 4px; object-fit: cover; border: 1px solid rgba(0,0,0,0.2); margin-right: 6px; background: #222; }
-        .char-name { font-size: 13px; min-width: 75px; }
+        /* 表頭交叉處的固定層級與背景 */
+        thead th.sticky-col-1 { top: 0; z-index: 13; background: var(--th-bg); }
+        thead th.sticky-col-2 { top: 0; z-index: 13; background: var(--th-bg); }
+        thead th.sticky-col-3 { top: 0; z-index: 13; background: var(--th-bg); }
+        thead th.sticky-col-4 { top: 0; z-index: 13; background: var(--th-bg); box-shadow: 2px 0 5px rgba(0,0,0,0.4); }
+
+        .char-path-icon { width: 20px; height: 20px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); vertical-align: middle; }
+        .char-avatar { width: 26px; height: 26px; border-radius: 4px; object-fit: cover; border: 1px solid rgba(0,0,0,0.2); vertical-align: middle; background: #222; }
 
         .bg-火 { background-color: var(--elem-fire); }
         .bg-冰 { background-color: var(--elem-ice); }
@@ -63,8 +68,7 @@
         .w-high { background-color: #571a1a; color: #eee; }
         .w-crit { background-color: #7f1212; color: #fff; font-weight: bold; }
         
-        tr:hover td:not(.up):not(.collab):not(.collab-empty):not(:first-child) { filter: brightness(1.4); transition: all 0.2s; }
-        tr:hover td:first-child { filter: brightness(0.95); }
+        tr:hover td:not(.up):not(.collab):not(.collab-empty) { filter: brightness(1.4); transition: all 0.2s; }
     </style>
 </head>
 <body>
@@ -173,7 +177,7 @@
             { name: "羅刹", path: "豐饒", elem: "虛數", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1203.png", runs: ["3.4上", "2.5下", "2.1上", "1.1下"] },
             { name: "銀狼", path: "虛無", elem: "量子", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1006.png", runs: ["3.7上", "3.2上", "2.0上", "1.5下", "1.1上"] },
             { name: "景元", path: "智識", elem: "雷", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1204.png", runs: ["2.7上", "2.0下", "1.0下"] },
-            { name: "希兒", path: "巡獵", elem: "量子", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1102.png", runs: ["3.0下", "2.4上", "1.4下", "1.0上"] }
+            { name: "希兒", path: "巡獵", elem: "Quantum", avatar: "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/avatar/1102.png", runs: ["3.0下", "2.4上", "1.4下", "1.0上"] }
         ];
 
         function formatHeaderDate(dateStr) {
@@ -190,12 +194,23 @@
         const patchesList = PATCH_DATA.map(p => p.patch);
         const totalChars = CHARACTERS.length;
         
-        let html = '<thead><tr><th></th>';
+        let html = '<thead><tr>';
+        // 左上角 4 個欄位跨 2 行表頭
+        html += '<th rowspan="2" class="sticky-col-1">序號</th>';
+        html += '<th rowspan="2" class="sticky-col-2">命途</th>';
+        html += '<th rowspan="2" class="sticky-col-3">頭像</th>';
+        html += '<th rowspan="2" class="sticky-col-4" style="text-align: left; padding-left: 6px;">角色名稱</th>';
+
+        // 第一列：日期
         [...PATCH_DATA].reverse().forEach(p => {
             html += `<th>${formatHeaderDate(p.date)}</th>`;
         });
-        html += '</tr><tr><th><div style="text-align:center; padding: 0 4px;">序號 / 角色資訊</div></th>';
-        [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.patch}</th>`);
+        html += '</tr><tr>';
+
+        // 第二列：版本（前 4 欄已透過 rowspan="2" 跨行，故此處從時間軸版本開始）
+        [...PATCH_DATA].reverse().forEach(p => {
+            html += `<th>${p.patch}</th>`;
+        });
         html += '</tr></thead><tbody>';
         
         CHARACTERS.forEach((char, index) => {
@@ -204,15 +219,15 @@
             const pathIconUrl = PATH_ICONS[char.path] || "";
             const seqNum = totalChars - index;
             
-            html += `<tr>
-                <td class="bg-${char.elem}">
-                    <div class="char-info-cell">
-                        <span class="char-seq">${seqNum}</span>
-                        ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${char.path}">` : '<div class="char-path-icon"></div>'}
-                        <img src="${avatarUrl}" class="char-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
-                        <span class="char-name">${char.name}</span>
-                    </div>
-                </td>`;
+            html += `<tr>`;
+            // 獨立欄位 1：序號
+            html += `<td class="bg-${char.elem} sticky-col-1" style="text-align: center; font-weight: 600; opacity: 0.9;">${seqNum}</td>`;
+            // 獨立欄位 2：命途
+            html += `<td class="bg-${char.elem} sticky-col-2" style="text-align: center;">${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${char.path}">` : ''}</td>`;
+            // 獨立欄位 3：頭像
+            html += `<td class="bg-${char.elem} sticky-col-3" style="text-align: center;"><img src="${avatarUrl}" class="char-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';"></td>`;
+            // 獨立欄位 4：角色名稱
+            html += `<td class="bg-${char.elem} sticky-col-4" style="text-align: left; font-weight: 600; padding-left: 6px;">${char.name}</td>`;
             
             let history = [];
             let currentGap = 0;
