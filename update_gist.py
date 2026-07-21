@@ -11,16 +11,24 @@ GITHUB_TOKEN = os.environ.get('GIST_TOKEN')
 def build_translation_map():
     print("正在建立英中角色名稱對照表...")
     try:
-        en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index/en/characters.json"
-        zh_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index/zh/characters.json"
-        en_data = requests.get(en_url).json()
-        zh_data = requests.get(zh_url).json()
+        # 修正：將 master 改為 main
+        en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/main/index/en/characters.json"
+        zh_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/main/index/zh/characters.json"
+        
+        en_res = requests.get(en_url)
+        zh_res = requests.get(zh_url)
+        
+        if en_res.status_code != 200 or zh_res.status_code != 200:
+            print(f"對照表下載失敗: EN HTTP {en_res.status_code}, ZH HTTP {zh_res.status_code}")
+            return {}
+            
+        en_data = en_res.json()
+        zh_data = zh_res.json()
         
         mapping = {}
         for cid, cinfo in en_data.items():
             en_name = cinfo.get("name")
             if cid in zh_data:
-                # 建立英文到中文的精確映射
                 mapping[en_name] = zh_data[cid].get("name")
         return mapping
     except Exception as e:
@@ -47,18 +55,15 @@ def fetch_prydwen_schedules():
             if not name_tag: continue
             en_name = name_tag.text.strip()
             
-            # 抓取版本與階段資訊 (例如 "Patch 4.4 Phase 1")
+            # 抓取版本與階段資訊
             meta_div = card.find(class_="banner-phase-meta")
             phase_str = meta_div.find("span").text.strip() if meta_div and meta_div.find("span") else ""
             
-            # 使用正規表達式精準萃取版本號
             version_match = re.search(r"Patch ([\d\.X]+)", phase_str)
             if not version_match: 
-                continue # 忽略未定檔期或特殊聯動 (如 Fate Collab)
+                continue 
                 
             version = version_match.group(1)
-            
-            # 判斷上下半場
             phase = 2 if "Phase 2" in phase_str else 1
             
             schedules.append({
@@ -76,7 +81,6 @@ def fetch_prydwen_schedules():
 def fetch_latest_data():
     print("正在檢查遠端與公開資料源...")
     
-    # 1. 讀取現有的 Gist 資料
     existing_data = {"new_patches": [], "new_characters": []}
     try:
         gist_url = f"https://api.github.com/gists/{GIST_ID}"
@@ -91,37 +95,41 @@ def fetch_latest_data():
     updated_chars = existing_data.get('new_characters', [])
     existing_char_names = {c['name'] for c in updated_chars}
 
-    # 2. 自動偵測與新增 StarRailRes 的全新角色
+    # 自動偵測與新增 StarRailRes 的全新角色
     try:
-        zh_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index/zh/characters.json"
-        zh_data = requests.get(zh_url).json()
-        for char_id, char_info in zh_data.items():
-            name = char_info.get('name')
-            if name and name not in existing_char_names and not name.startswith("開拓者"):
-                path = char_info.get('path', {}).get('name', '毀滅')
-                elem = char_info.get('element', '火')
-                updated_chars.append({
-                    "name": name,
-                    "path": path,
-                    "elem": elem,
-                    "runs": []
-                })
-                existing_char_names.add(name)
-                print(f"✨ 發現並納入新角色: {name}")
+        # 修正：將 master 改為 main
+        zh_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/main/index/zh/characters.json"
+        zh_res = requests.get(zh_url)
+        
+        if zh_res.status_code == 200:
+            zh_data = zh_res.json()
+            for char_id, char_info in zh_data.items():
+                name = char_info.get('name')
+                if name and name not in existing_char_names and not name.startswith("開拓者"):
+                    path = char_info.get('path', {}).get('name', '毀滅')
+                    elem = char_info.get('element', '火')
+                    updated_chars.append({
+                        "name": name,
+                        "path": path,
+                        "elem": elem,
+                        "runs": []
+                    })
+                    existing_char_names.add(name)
+                    print(f"✨ 發現並納入新角色: {name}")
+        else:
+            print(f"抓取新角色資料失敗: HTTP {zh_res.status_code}")
     except Exception as e:
         print(f"抓取新角色資料發生錯誤: {e}")
 
-    # 3. 取得翻譯對照表與 Prydwen 排程，並執行自動指派
+    # 取得翻譯對照表與 Prydwen 排程，並執行自動指派
     name_map = build_translation_map()
     schedules = fetch_prydwen_schedules()
     
     for sched in schedules:
-        # 嘗試將 Prydwen 的英文名翻譯為中文，若未實裝則保留英文原名
         target_name = name_map.get(sched['en_name'], sched['en_name'])
         
         for char in updated_chars:
             if char['name'] == target_name:
-                # 檢查這個版本排程是否已經存在，避免重複加入
                 run_exists = any(r.get('version') == sched['version'] and r.get('phase') == sched['phase'] for r in char.get('runs', []))
                 
                 if not run_exists:
