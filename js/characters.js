@@ -1,4 +1,5 @@
 // 更新日期: 2026/07/21
+
 const RAW_CHARACTERS = [
     {
         name: "希兒",
@@ -603,6 +604,46 @@ const RAW_CHARACTERS = [
         avatar: "",
         runs: [
             "4.4上"
+        ]
+    },
+    {
+        cid: "1509",
+        name: "吉爾伽美什",
+        path: "毀滅",
+        elem: "雷",
+        avatar: "",
+        runs: [],
+        isCollab: "4.4上",
+        collabDate: "2026/07/24"
+    },
+    {
+        cid: "1508",
+        name: "遠坂凜",
+        path: "智識",
+        elem: "量子",
+        avatar: "",
+        runs: [],
+        isCollab: "4.4上",
+        collabDate: "2026/07/24"
+    },
+    {
+        cid: null,
+        name: "Aventurine Waveflair",
+        path: "歡愉",
+        elem: "量子",
+        avatar: "",
+        runs: [
+            "4.X上"
+        ]
+    },
+    {
+        cid: null,
+        name: "Robin Summeretto",
+        path: "記憶",
+        elem: "風",
+        avatar: "",
+        runs: [
+            "4.X上"
         ]
     }
 ];
