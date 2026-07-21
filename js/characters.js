@@ -633,7 +633,7 @@ const RAW_CHARACTERS = [
         elem: "量子",
         avatar: "",
         runs: [
-            "4.X上"
+            "4.5下"
         ]
     },
     {
@@ -643,7 +643,7 @@ const RAW_CHARACTERS = [
         elem: "風",
         avatar: "",
         runs: [
-            "4.X上"
+            "4.5上"
         ]
     }
 ];
