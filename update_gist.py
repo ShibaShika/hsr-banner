@@ -26,7 +26,6 @@ def build_translation_map():
         
         mapping = {}
         for cid, en_info in en_data.items():
-            # 相容字串或字典格式
             en_name = en_info.get("name") if isinstance(en_info, dict) else en_info
             zh_info = zh_data.get(cid)
             zh_name = zh_info.get("name") if isinstance(zh_info, dict) else zh_info
@@ -103,10 +102,10 @@ def fetch_latest_data():
         if zh_res.status_code == 200:
             zh_data = zh_res.json()
             for char_id, char_info in zh_data.items():
-                # 相容新版 index_new 的字串或字典結構
                 name = char_info.get('name') if isinstance(char_info, dict) else char_info
                 
-                if name and name not in existing_char_names and not name.startswith("開拓者"):
+                # 過濾掉無效名稱、開拓者、以及含有 {NICKNAME} 的系統內定角色
+                if name and "{NICKNAME}" not in name and not name.startswith("開拓者") and name not in existing_char_names:
                     updated_chars.append({
                         "name": name,
                         "path": "未知",
