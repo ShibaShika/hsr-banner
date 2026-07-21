@@ -201,8 +201,15 @@
                     let content = '';
                     
                     if (cell.status === 'COLLAB_SPAN') {
-                        const dateStr = char.collabDate || char.isCollab;
-                        html += `<td colspan="${cell.count}" class="collab-text">${dateStr} 後長期開放</td>`;
+                        let rawDate = char.collabDate || char.isCollab;
+                        // 自動解析並只取 mm/dd（支援 YYYY/MM/DD 或 YYYY-MM-DD 格式）
+                        const parts = rawDate.split(/[\/\-]/);
+                        let dateStr = rawDate;
+                        if (parts.length === 3) {
+                            dateStr = `${parts[1]}/${parts[2]}`;
+                        }
+                        // 加上向左的箭頭與文字
+                        html += `<td colspan="${cell.count}" class="collab-text">← ${dateStr} 後長期開放</td>`;
                         return;
                     }
 
@@ -373,7 +380,6 @@
             const scaleSlider = document.getElementById('ui-scale-slider');
             const scaleText = document.getElementById('ui-scale-text');
 
-            // 🌟 修正：改用標準的 transform: scale 以全面支援 Firefox 瀏覽器
             scaleSlider.addEventListener('input', (e) => {
                 const scaleValue = e.target.value;
                 table.style.transform = `scale(${scaleValue})`;
