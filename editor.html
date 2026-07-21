@@ -772,7 +772,6 @@
                             minor += 1;
                             nextPatchName = `${major}.${minor}上`;
                         } else {
-                            // 若無上下標記，預設接上
                             nextPatchName = `${major}.${minor}下`;
                         }
                     }
@@ -811,7 +810,15 @@
         function generateJSString(varName, data) {
             let json = JSON.stringify(data, null, 4);
             let jsString = json.replace(/"([^"]+)":/g, '$1:');
-            return `const ${varName} = ${jsString};\n`;
+            
+            // 取得當前更新日期
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const dateStr = `${yyyy}/${mm}/${dd}`;
+
+            return `// 更新日期: ${dateStr}\nconst ${varName} = ${jsString};\n`;
         }
 
         function exportData(type) {
