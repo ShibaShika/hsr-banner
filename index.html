@@ -40,13 +40,13 @@
             <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
         </div>
 
-        <div class="header-right" style="display: flex; gap: 10px; align-items: center;">
+        <div class="header-right" style="display: flex; gap: 10px; align- items: center;">
             <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #ccc; background: #1c1c1c; border: 1px solid #444; padding: 4px 8px; border-radius: 4px;">
                 <span>介面大小：</span>
                 <input type="range" id="ui-scale-slider" min="0.7" max="1.4" step="0.05" value="1" style="cursor: pointer; width: 90px; accent-color: #666;">
                 <span id="ui-scale-text" style="min-width: 35px; text-align: right;">100%</span>
             </div>
-            <!-- 在這裡加上 span ID 來動態填入日期 -->
+            <!-- 動態填入更新日期 -->
             <div style="font-size: 12px; color: #888; white-space: nowrap;">更新日期：<span id="update-date-text">載入中...</span></div>
         </div>
     </div>
@@ -68,7 +68,7 @@
 
         // 自動對照 PATCH_DATA 與今日日期，找出當前進行中的卡池版本名稱
         function getCurrentPatchName() {
-            if (!typeof PATCH_DATA !== 'undefined' || PATCH_DATA.length === 0) return "";
+            if (typeof PATCH_DATA === 'undefined' || !PATCH_DATA || PATCH_DATA.length === 0) return "";
             const today = new Date();
             const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
             let currentPatch = PATCH_DATA[0].patch;
