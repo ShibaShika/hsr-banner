@@ -607,20 +607,20 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: "1509",
-        name: "吉爾伽美什",
-        path: "毀滅",
-        elem: "雷",
+        cid: "1508",
+        name: "遠坂凜",
+        path: "智識",
+        elem: "量子",
         avatar: "",
         runs: [],
         isCollab: "4.4上",
         collabDate: "2026/07/24"
     },
     {
-        cid: "1508",
-        name: "遠坂凜",
-        path: "智識",
-        elem: "量子",
+        cid: "1509",
+        name: "吉爾伽美什",
+        path: "毀滅",
+        elem: "雷",
         avatar: "",
         runs: [],
         isCollab: "4.4上",
