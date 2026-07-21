@@ -604,41 +604,5 @@ const RAW_CHARACTERS = [
         runs: [
             "4.4上"
         ]
-    },
-    {
-        name: "遠坂凜",
-        path: "智識",
-        elem: "量子",
-        avatar: "",
-        isCollab: "4.4上",
-        runs: [],
-        collabDate: "2026/07/24"
-    },
-    {
-        name: "吉爾伽美什",
-        path: "毀滅",
-        elem: "雷",
-        avatar: "",
-        isCollab: "4.4上",
-        runs: [],
-        collabDate: "2026/07/24"
-    },
-    {
-        name: "知更鳥•晴歌",
-        path: "記憶",
-        elem: "風",
-        avatar: "",
-        runs: [
-            "4.5上"
-        ]
-    },
-    {
-        name: "砂金•戲浪",
-        path: "歡愉",
-        elem: "量子",
-        avatar: "",
-        runs: [
-            "4.5下"
-        ]
     }
 ];
