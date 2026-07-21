@@ -112,9 +112,9 @@
             <button class="btn btn-add" onclick="addCharRow()">+ 新增角色</button>
         </div>
 
-        <!-- 版本管理區塊 (年度分區網格化) -->
+        <!-- 版本管理區塊 (年度分區網格化 + 可摺疊) -->
         <div id="tab-patches" class="tab-content">
-            <div style="margin-bottom: 5px; color: #aaa; font-size: 13px;">📌 系統會以每年 <b>04/26</b> (若大版本內有任何一天跨越該日期) 自動進行年度分區，保持畫面整潔。</div>
+            <div style="margin-bottom: 5px; color: #aaa; font-size: 13px;">📌 點擊年度標題可展開或摺疊舊版本。系統會以每年 <b>04/26</b> 自動進行年度分區。</div>
             <div id="patches-container"></div>
             <button class="btn btn-add" onclick="addPatchRow()">+ 新增版本</button>
         </div>
@@ -394,7 +394,7 @@
             }
         }
 
-        // --- 渲染與操作：版本 (動態 04/26 年度分區演算) ---
+        // --- 渲染與操作：版本 (動態 04/26 年度分區 + 摺疊功能) ---
         function renderPatches() {
             const container = document.getElementById('patches-container');
             if (!container) return;
@@ -417,13 +417,12 @@
             // 2. 依照大版本計算所屬年度
             const years = [];
             let currentYear = 1;
-            let nextAnniversaryYear = 2024; // 星鐵從 2023 開始，第一個跨越點是 2024-04-26
+            let nextAnniversaryYear = 2024;
             let currentYearPatches = [];
 
             groupOrder.forEach(baseName => {
                 const group = baseGroups[baseName];
                 
-                // 找出該大版本群組內的最晚日期（通常是下版日期）
                 let maxTime = 0;
                 group.forEach(p => {
                     const parts = (p.date || "").split('/');
@@ -433,17 +432,14 @@
                     }
                 });
                 
-                // 將最晚日期 +21 天 (一個半版的長度) 視為該大版本的結束時間
                 const endOfPatchTime = maxTime + (21 * 24 * 60 * 60 * 1000); 
-                const anniversaryTime = new Date(nextAnniversaryYear, 3, 26).getTime(); // 3 代表四月 (0-indexed)
+                const anniversaryTime = new Date(nextAnniversaryYear, 3, 26).getTime();
                 
-                // 若大版本的結束時間跨過了今年的 04/26，則將此大版本推入新的一年！
                 if (endOfPatchTime >= anniversaryTime && maxTime > 0) {
                     if (currentYearPatches.length > 0) {
                         years.push({ yearNum: currentYear, patches: currentYearPatches });
                         currentYearPatches = [];
                     }
-                    // 推進年度閾值
                     while (endOfPatchTime >= new Date(nextAnniversaryYear, 3, 26).getTime()) {
                         currentYear++;
                         nextAnniversaryYear++;
@@ -457,15 +453,22 @@
                 years.push({ yearNum: currentYear, patches: currentYearPatches });
             }
 
-            // 3. 渲染年度區塊與網格
-            years.forEach(yearData => {
+            // 3. 渲染年度區塊、網格與摺疊邏輯
+            years.forEach((yearData, yIdx) => {
+                const isLatest = (yIdx === years.length - 1); // 判斷是否為最新一年
+                
                 const header = document.createElement('h3');
-                header.style.cssText = 'color: #a5c8ff; border-bottom: 1px solid #444; padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px; font-size: 18px; display: flex; align-items: center; gap: 10px;';
+                header.style.cssText = 'color: #a5c8ff; border-bottom: 1px solid #444; padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px; font-size: 18px; display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;';
+                header.title = "點擊以展開 / 摺疊";
                 
                 const firstPatch = yearData.patches[0].patch;
                 const lastPatch = yearData.patches[yearData.patches.length - 1].patch;
                 
+                // 預設最新一年展開(true)，其餘舊年份摺疊(false)
+                let isExpanded = isLatest;
+
                 header.innerHTML = `
+                    <span class="collapse-icon" style="font-size: 14px; width: 16px; text-align: center;">${isExpanded ? '▼' : '▶'}</span>
                     <span>🌟 第 ${yearData.yearNum} 年</span>
                     <span style="color: #888; font-size: 14px; font-weight: normal;">(${firstPatch} ~ ${lastPatch})</span>
                 `;
@@ -473,7 +476,15 @@
 
                 const grid = document.createElement('div');
                 grid.className = 'patches-grid';
-                
+                grid.style.display = isExpanded ? 'grid' : 'none';
+
+                // 點擊標題切換摺疊狀態
+                header.addEventListener('click', () => {
+                    isExpanded = !isExpanded;
+                    grid.style.display = isExpanded ? 'grid' : 'none';
+                    header.querySelector('.collapse-icon').textContent = isExpanded ? '▼' : '▶';
+                });
+
                 yearData.patches.forEach(p => {
                     const index = p.originalIndex;
                     const inputDateVal = formatPatchDateForInput(p.date);
@@ -494,12 +505,12 @@
 
         function updatePatch(index, key, value) { 
             patchesData[index][key] = value; 
-            if (key === 'patch') renderPatches(); // 若改動名稱可能影響大版本群組，觸發重繪
+            if (key === 'patch') renderPatches(); 
         }
 
         function updatePatchDate(index, value) {
             patchesData[index].date = parsePatchDateFromInput(value);
-            renderPatches(); // 改動日期可能影響年度分界，觸發重繪
+            renderPatches(); 
         }
         
         function addPatchRow() {
