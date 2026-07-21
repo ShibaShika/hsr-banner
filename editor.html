@@ -752,7 +752,26 @@
         }
         
         function addPatchRow() {
-            patchesData.push({ patch: "新版本", date: "26/07/21" });
+            let newDateStr = "26/07/21";
+            if (patchesData.length > 0) {
+                const lastPatch = patchesData[patchesData.length - 1];
+                if (lastPatch && lastPatch.date) {
+                    const parts = lastPatch.date.split('/');
+                    if (parts.length === 3) {
+                        const year = 2000 + parseInt(parts[0]);
+                        const month = parseInt(parts[1]) - 1;
+                        const day = parseInt(parts[2]);
+                        const d = new Date(year, month, day);
+                        d.setDate(d.getDate() + 21);
+                        
+                        const yy = String(d.getFullYear()).slice(2);
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        newDateStr = `${yy}/${mm}/${dd}`;
+                    }
+                }
+            }
+            patchesData.push({ patch: "新版本", date: newDateStr });
             renderPatches();
         }
 
