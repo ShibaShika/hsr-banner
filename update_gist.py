@@ -30,38 +30,27 @@ ELEM_MAP = {
     "Imaginary": "虛數"
 }
 
-def build_name_mapping():
-    print("正在建立精確的英中角色名稱對照表...")
-    try:
-        en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/en/characters.json"
-        zh_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/cht/characters.json"
-        
-        en_res = requests.get(en_url)
-        zh_res = requests.get(zh_url)
-        
-        if en_res.status_code != 200 or zh_res.status_code != 200:
-            return {}
-            
-        en_data = en_res.json()
-        zh_data = zh_res.json()
-        
-        mapping = {}
-        for cid, en_info in en_data.items():
-            en_name = en_info.get("name") if isinstance(en_info, dict) else en_info
-            zh_info = zh_data.get(cid)
-            zh_name = zh_info.get("name") if isinstance(zh_info, dict) else zh_info
-            
-            if en_name and zh_name:
-                mapping[en_name] = zh_name
-                # 同時建立小寫對應以防萬一
-                mapping[en_name.lower()] = zh_name
-        return mapping
-    except Exception as e:
-        print(f"建立對照表發生錯誤: {e}")
-        return {}
+def sanitize_name(name):
+    """去除空格與所有非英數字元，並轉為小寫"""
+    if not name:
+        return ""
+    return re.sub(r'[^a-zA-Z0-9]', '', name).lower()
 
-def fetch_prydwen_schedules(name_map):
-    print("正在從 Prydwen 抓取 5 星角色卡池排程...")
+def fetch_starrailres_data():
+    print("正在從 StarRailRes 抓取完整角色資料庫...")
+    en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index/en/characters.json"
+    cht_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index/cht/characters.json"
+    
+    en_res = requests.get(en_url)
+    cht_res = requests.get(cht_url)
+    
+    en_data = en_res.json() if en_res.status_code == 200 else {}
+    cht_data = cht_res.json() if cht_res.status_code == 200 else {}
+    
+    return en_data, cht_data
+
+def fetch_prydwen_schedules():
+    print("正在從 Prydwen 抓取卡池資訊...")
     url = "https://www.prydwen.gg/star-rail/banners/"
     try:
         res = cffi_requests.get(url, impersonate="chrome110")
@@ -78,10 +67,7 @@ def fetch_prydwen_schedules(name_map):
             if not name_tag: continue
             en_name = name_tag.text.strip()
             
-            # 優先使用對照表轉成中文，若無則保留英文
-            zh_name = name_map.get(en_name, name_map.get(en_name.lower(), en_name))
-            
-            # 解析命途與屬性
+            # 解析備用中文命途與屬性
             path_span = card.find(class_=re.compile(r"path\s+"))
             en_path = path_span.find("strong").text.strip() if path_span and path_span.find("strong") else ""
             zh_path = PATH_MAP.get(en_path, "未知")
@@ -101,17 +87,15 @@ def fetch_prydwen_schedules(name_map):
             version = version_match.group(1)
             phase_num = 2 if "Phase 2" in phase_str else 1
             half_str = "上" if phase_num == 1 else "下"
-            
-            # 轉換成編輯器標準字串格式 (例如 "4.4上")
             run_str = f"{version}{half_str}"
             
             schedules.append({
-                "name": zh_name,
-                "path": zh_path,
-                "elem": zh_elem,
+                "en_name": en_name,
+                "fallback_path": zh_path,
+                "fallback_elem": zh_elem,
                 "run": run_str
             })
-            print(f"解析 5 星角色: {zh_name} ({en_name}) | {zh_path} | {zh_elem} -> {run_str}")
+            print(f"解析卡池角色: {en_name} -> {run_str}")
             
         return schedules
     except Exception as e:
@@ -133,23 +117,72 @@ def fetch_latest_data():
         print(f"讀取現有 Gist 失敗: {e}")
 
     updated_chars = existing_data.get('new_characters', [])
+    
+    # 清洗舊格式 runs
+    for char in updated_chars:
+        clean_runs = []
+        if 'runs' in char and isinstance(char['runs'], list):
+            for r in char['runs']:
+                if isinstance(r, str):
+                    clean_runs.append(r)
+                elif isinstance(r, dict) and 'version' in r and 'phase' in r:
+                    half = "上" if r['phase'] == 1 else "下"
+                    clean_runs.append(f"{r['version']}{half}")
+        char['runs'] = clean_runs
+
     existing_char_map = {c['name']: c for c in updated_chars}
 
-    name_map = build_name_mapping()
-    schedules = fetch_prydwen_schedules(name_map)
-    
+    # 1. 取得資料庫並建立「英文去符號對照表 -> ID」
+    en_data, cht_data = fetch_starrailres_data()
+    en_sanitized_map = {}
+    for cid, info in en_data.items():
+        name = info.get("name", "") if isinstance(info, dict) else str(info)
+        sanitized = sanitize_name(name)
+        if sanitized:
+            en_sanitized_map[sanitized] = cid
+
+    # 2. 爬取 Prydwen 卡池排程
+    schedules = fetch_prydwen_schedules()
+
     for sched in schedules:
-        target_name = sched['name']
+        en_name = sched['en_name']
+        sanitized_query = sanitize_name(en_name)
         
+        target_name = None
+        path = sched['fallback_path']
+        elem = sched['fallback_elem']
+        
+        # 3. 透過英文去符號比對資料庫 ID 並取得中文資料
+        if sanitized_query in en_sanitized_map:
+            cid = en_sanitized_map[sanitized_query]
+            cht_info = cht_data.get(cid, {})
+            
+            if isinstance(cht_info, dict):
+                target_name = cht_info.get("name", en_name)
+                
+                db_path = cht_info.get("path")
+                if isinstance(db_path, dict):
+                    path = db_path.get("name", path)
+                elif isinstance(db_path, str):
+                    path = db_path
+                    
+                db_elem = cht_info.get("element")
+                if isinstance(db_elem, str):
+                    elem = db_elem
+        else:
+            target_name = en_name
+            print(f"⚠️ 資料庫查無此英文名稱 ({en_name})，將採用原始名稱。")
+
+        if not target_name:
+            continue
+
         if target_name in existing_char_map:
             char_obj = existing_char_map[target_name]
-            
-            if char_obj.get('path') in ["未知", ""] and sched['path'] != "未知":
-                char_obj['path'] = sched['path']
-            if char_obj.get('elem') in ["未知", ""] and sched['elem'] != "未知":
-                char_obj['elem'] = sched['elem']
+            if char_obj.get('path') in ["未知", ""] and path != "未知":
+                char_obj['path'] = path
+            if char_obj.get('elem') in ["未知", ""] and elem != "未知":
+                char_obj['elem'] = elem
                 
-            # 確保 runs 是純字串陣列，並避免重複
             if 'runs' not in char_obj or not isinstance(char_obj['runs'], list):
                 char_obj['runs'] = []
                 
@@ -159,13 +192,13 @@ def fetch_latest_data():
         else:
             new_char = {
                 "name": target_name,
-                "path": sched['path'],
-                "elem": sched['elem'],
+                "path": path,
+                "elem": elem,
                 "runs": [sched['run']]
             }
             updated_chars.append(new_char)
             existing_char_map[target_name] = new_char
-            print(f"✨ 發現並納入新 5 星角色: {target_name} ({sched['path']} / {sched['elem']})")
+            print(f"✨ 發現並納入新角色: {target_name} ({path} / {elem})")
 
     return {
         "new_patches": existing_data.get('new_patches', []),
