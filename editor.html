@@ -196,8 +196,8 @@
                         <th style="width: 10%;">名稱</th>
                         <th style="width: 6%;">命途</th>
                         <th style="width: 6%;">屬性</th>
-                        <th style="width: 64%;">取得機制與版本設定</th>
-                        <th style="width: 9%; text-align: center;">操作</th>
+                        <th style="width: 66%;">取得機制與版本設定</th>
+                        <th style="width: 7%; text-align: center;">操作</th>
                     </tr>
                 </thead>
                 <tbody id="chars-tbody"></tbody>
@@ -568,10 +568,9 @@
                             </div>
                         </td>
                         <td style="text-align: center; white-space: nowrap;">
-                            <div style="display: flex; gap: 3px; justify-content: center; align-items: center;">
-                                <button class="btn" style="padding: 3px 6px; font-size: 11px;" onclick="moveChar(${index}, -1)" ${index === 0 ? 'disabled style="opacity: 0.3; cursor: not-allowed; padding: 3px 6px; font-size: 11px;"' : ''} title="往上一行">⬆</button>
-                                <button class="btn" style="padding: 3px 6px; font-size: 11px;" onclick="moveChar(${index}, 1)" ${index === charsData.length - 1 ? 'disabled style="opacity: 0.3; cursor: not-allowed; padding: 3px 6px; font-size: 11px;"' : ''} title="往下一行">⬇</button>
-                                <button class="btn btn-danger" style="padding: 3px 6px; font-size: 11px;" onclick="deleteChar(${index})" title="刪除">✕</button>
+                            <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
+                                <button class="btn" style="padding: 3px 8px; font-size: 11px;" onclick="moveChar(${index}, 1)" ${index === charsData.length - 1 ? 'disabled style="opacity: 0.3; cursor: not-allowed; padding: 3px 8px; font-size: 11px;"' : ''} title="與下一行互換">⬇</button>
+                                <button class="btn btn-danger" style="padding: 3px 8px; font-size: 11px;" onclick="deleteChar(${index})" title="刪除">✕</button>
                             </div>
                         </td>
                     `;
@@ -606,7 +605,7 @@
             renderChars();
         }
 
-        // 上下順位對調函式
+        // 下移互換順位函式
         function moveChar(index, direction) {
             const targetIndex = index + direction;
             if (targetIndex < 0 || targetIndex >= charsData.length) return;
