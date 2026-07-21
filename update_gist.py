@@ -8,7 +8,6 @@ from bs4 import BeautifulSoup
 GIST_ID = '53c5bb324cd140fb8751c9812bd5df68'
 GITHUB_TOKEN = os.environ.get('GIST_TOKEN')
 
-# 完整對照表：支援標準英文名稱與 index_new 的內部代號 (Mage, Knight, Memory...)
 PATH_MAP = {
     "Destruction": "毀滅", "Warrior": "毀滅",
     "Hunt": "巡獵", "Rogue": "巡獵",
@@ -117,6 +116,7 @@ def fetch_latest_data():
 
     updated_chars = existing_data.get('new_characters', [])
     
+    # 清洗舊格式 runs
     for char in updated_chars:
         clean_runs = []
         if 'runs' in char and isinstance(char['runs'], list):
@@ -128,8 +128,7 @@ def fetch_latest_data():
                     clean_runs.append(f"{r['version']}{half}")
         char['runs'] = clean_runs
 
-    existing_char_map = {c['name']: c for c in updated_chars}
-
+    # 1. 取得資料庫並建立映射
     en_data, cht_data = fetch_starrailres_data()
     en_sanitized_map = {}
     for cid, info in en_data.items():
@@ -140,22 +139,27 @@ def fetch_latest_data():
 
     schedules = fetch_prydwen_schedules()
 
+    # 建立現有角色的快速查找對照 (優先用 cid，其次用 name)
+    existing_char_map_by_cid = {c['cid']: c for c in updated_chars if c.get('cid')}
+    existing_char_map_by_name = {c['name']: c for c in updated_chars}
+
     for sched in schedules:
         en_name = sched['en_name']
         sanitized_query = sanitize_name(en_name)
         
-        target_name = None
+        target_cid = None
+        target_name = en_name
         path = sched['fallback_path']
         elem = sched['fallback_elem']
         
+        # 透過英文去符號比對資料庫尋找 cid 與詳細中文資料
         if sanitized_query in en_sanitized_map:
-            cid = en_sanitized_map[sanitized_query]
-            cht_info = cht_data.get(cid, {})
+            target_cid = en_sanitized_map[sanitized_query]
+            cht_info = cht_data.get(target_cid, {})
             
             if isinstance(cht_info, dict):
                 target_name = cht_info.get("name", en_name)
                 
-                # 取得資料庫中的原始代號並透過字典轉成中文
                 db_path = cht_info.get("path")
                 if isinstance(db_path, dict):
                     raw_path = db_path.get("name", path)
@@ -176,36 +180,53 @@ def fetch_latest_data():
                 
             elif isinstance(cht_info, str):
                 target_name = cht_info
+
+        # 尋找是否已存在於 Gist 中 (優先透過 cid 匹配，其次透過名稱或英文模糊匹配)
+        matched_char = None
+        if target_cid and target_cid in existing_char_map_by_cid:
+            matched_char = existing_char_map_by_cid[target_cid]
+        elif target_name in existing_char_map_by_name:
+            matched_char = existing_char_map_by_name[target_name]
         else:
-            target_name = en_name
-            print(f"⚠️ 資料庫查無此英文名稱 ({en_name})，將採用原始名稱。")
+            for char in updated_chars:
+                if sanitize_name(char['name']) == sanitized_query:
+                    matched_char = char
+                    break
 
-        if not target_name:
-            continue
+        if matched_char:
+            # 自動補全或更新 cid
+            if target_cid and not matched_char.get('cid'):
+                matched_char['cid'] = target_cid
 
-        if target_name in existing_char_map:
-            char_obj = existing_char_map[target_name]
-            if char_obj.get('path') in ["未知", ""] and path != "未知":
-                char_obj['path'] = path
-            if char_obj.get('elem') in ["未知", ""] and elem != "未知":
-                char_obj['elem'] = elem
+            # 自動升級英文名為正式中文名
+            if matched_char['name'] != target_name and target_name != en_name:
+                print(f"🔄 自動將名稱升級為正式中文: {matched_char['name']} -> {target_name}")
+                matched_char['name'] = target_name
+
+            if matched_char.get('path') in ["未知", ""] and path != "未知":
+                matched_char['path'] = path
+            if matched_char.get('elem') in ["未知", ""] and elem != "未知":
+                matched_char['elem'] = elem
                 
-            if 'runs' not in char_obj or not isinstance(char_obj['runs'], list):
-                char_obj['runs'] = []
+            if 'runs' not in matched_char or not isinstance(matched_char['runs'], list):
+                matched_char['runs'] = []
                 
-            if sched['run'] not in char_obj['runs']:
-                char_obj['runs'].append(sched['run'])
-                print(f"📅 自動排程成功: 將 {target_name} 安排至 {sched['run']}")
+            if sched['run'] not in matched_char['runs']:
+                matched_char['runs'].append(sched['run'])
+                print(f"📅 自動排程成功: 將 {matched_char['name']} 安排至 {sched['run']}")
         else:
             new_char = {
+                "cid": target_cid,
                 "name": target_name,
                 "path": path,
                 "elem": elem,
                 "runs": [sched['run']]
             }
             updated_chars.append(new_char)
-            existing_char_map[target_name] = new_char
-            print(f"✨ 發現並納入新角色: {target_name} ({path} / {elem})")
+            if target_cid:
+                existing_char_map_by_cid[target_cid] = new_char
+            existing_char_map_by_name[target_name] = new_char
+            print(f"✨ 發現並納入新角色: {target_name} (CID: {target_cid}) ({path} / {elem})")
 
     return {
         "new_patches": existing_data.get('new_patches', []),
