@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>崩壞：星穹鐵道 - 資料編輯器 (Editor)</title>
+    <title>崩壞：星穹鐵道 - 限定躍遷資料編輯器 (HSR Banner Tracker Editor)</title>
     <!-- 載入所有相關的資料與設定檔 -->
     <script src="js/patches.js"></script>
     <script src="js/paths.js"></script>
@@ -79,7 +79,7 @@
 <body>
     <div class="container">
         <h1>
-            <span>⚙️ 崩壞：星穹鐵道 - 資料編輯器 (Editor)</span>
+            <span>⚙️ 崩壞：星穹鐵道 - 限定躍遷資料編輯器 (HSR Banner Tracker Editor)</span>
             <span style="font-size: 12px; color: #888; font-weight: normal;">直接在網頁修改，修改完點擊下方匯出複製</span>
         </h1>
 
@@ -93,10 +93,10 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 14%;">名稱</th>
-                        <th style="width: 8%;">命途</th>
-                        <th style="width: 8%;">屬性</th>
-                        <th style="width: 63%;">取得機制與版本設定</th>
+                        <th style="width: 11%;">名稱</th>
+                        <th style="width: 6%;">命途</th>
+                        <th style="width: 6%;">屬性</th>
+                        <th style="width: 70%;">取得機制與版本設定</th>
                         <th style="width: 7%;">操作</th>
                     </tr>
                 </thead>
@@ -265,9 +265,7 @@
                             </select>
                         </td>
                         <td>
-                            <!-- 嚴格對齊的 CSS Grid，將下拉選單寬度縮窄至僅包覆文字大小 (max-content) -->
                             <div style="display: grid; grid-template-columns: max-content 105px 1fr; align-items: center; gap: 8px;">
-                                <!-- 欄位 1: 下拉選單 (自適應文字寬度) -->
                                 <select onchange="onTypeChange(${index}, this.value)" style="font-size: 12px; font-weight: bold; background: #222; padding-right: 20px;">
                                     <option value="normal" ${currentType === 'normal' ? 'selected' : ''}>一般角色</option>
                                     <option value="pool" ${currentType === 'pool' ? 'selected' : ''}>星緣相邀</option>
@@ -275,7 +273,6 @@
                                     <option value="collab" ${currentType === 'collab' ? 'selected' : ''}>長期聯動</option>
                                 </select>
 
-                                <!-- 欄位 2: 條件式第二輸入框 -->
                                 <div>
                                     ${(currentType === 'pool' || currentType === 'shop') ? `
                                         <input type="text" value="${termPatch}" placeholder="起始版本" onchange="updateTermPatch(${index}, this.value)" style="width: 100%; font-size: 12px; text-align: center;">
@@ -285,7 +282,6 @@
                                     ` : ''}
                                 </div>
 
-                                <!-- 欄位 3: 歷史版本方塊或聯動版本提示 -->
                                 <div>
                                     ${currentType !== 'collab' ? `
                                         <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
