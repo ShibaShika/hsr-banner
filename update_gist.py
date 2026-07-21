@@ -8,7 +8,6 @@ from bs4 import BeautifulSoup
 GIST_ID = '53c5bb324cd140fb8751c9812bd5df68'
 GITHUB_TOKEN = os.environ.get('GIST_TOKEN')
 
-# 對應您的 paths.js 與 elements.js 規範
 PATH_MAP = {
     "Destruction": "毀滅",
     "Hunt": "巡獵",
@@ -31,8 +30,8 @@ ELEM_MAP = {
     "Imaginary": "虛數"
 }
 
-def build_translation_map():
-    print("正在建立英中角色名稱對照表...")
+def build_name_mapping():
+    print("正在建立精確的英中角色名稱對照表...")
     try:
         en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/en/characters.json"
         zh_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/cht/characters.json"
@@ -41,7 +40,6 @@ def build_translation_map():
         zh_res = requests.get(zh_url)
         
         if en_res.status_code != 200 or zh_res.status_code != 200:
-            print(f"對照表下載失敗: EN HTTP {en_res.status_code}, ZH HTTP {zh_res.status_code}")
             return {}
             
         en_data = en_res.json()
@@ -55,13 +53,15 @@ def build_translation_map():
             
             if en_name and zh_name:
                 mapping[en_name] = zh_name
+                # 同時建立小寫對應以防萬一
+                mapping[en_name.lower()] = zh_name
         return mapping
     except Exception as e:
-        print(f"對照表建立失敗: {e}")
+        print(f"建立對照表發生錯誤: {e}")
         return {}
 
-def fetch_prydwen_schedules():
-    print("正在從 Prydwen 抓取 5 星角色卡池排程、命途與屬性...")
+def fetch_prydwen_schedules(name_map):
+    print("正在從 Prydwen 抓取 5 星角色卡池排程...")
     url = "https://www.prydwen.gg/star-rail/banners/"
     try:
         res = cffi_requests.get(url, impersonate="chrome110")
@@ -72,19 +72,20 @@ def fetch_prydwen_schedules():
         soup = BeautifulSoup(res.text, "html.parser")
         schedules = []
         
-        # 抓取所有角色卡片（Prydwen 僅列出 5 星，自動排除 4 星）
         cards = soup.find_all("article", class_="character-banner-card")
         for card in cards:
             name_tag = card.find(class_="banner-name")
             if not name_tag: continue
             en_name = name_tag.text.strip()
             
-            # 解析英文命途並轉換為中文
+            # 優先使用對照表轉成中文，若無則保留英文
+            zh_name = name_map.get(en_name, name_map.get(en_name.lower(), en_name))
+            
+            # 解析命途與屬性
             path_span = card.find(class_=re.compile(r"path\s+"))
             en_path = path_span.find("strong").text.strip() if path_span and path_span.find("strong") else ""
             zh_path = PATH_MAP.get(en_path, "未知")
             
-            # 解析英文屬性並轉換為中文
             elem_span = card.find(class_=re.compile(r"element\s+"))
             en_elem = elem_span.find("strong").text.strip() if elem_span and elem_span.find("strong") else ""
             zh_elem = ELEM_MAP.get(en_elem, "未知")
@@ -98,16 +99,19 @@ def fetch_prydwen_schedules():
                 continue 
                 
             version = version_match.group(1)
-            phase = 2 if "Phase 2" in phase_str else 1
+            phase_num = 2 if "Phase 2" in phase_str else 1
+            half_str = "上" if phase_num == 1 else "下"
+            
+            # 轉換成編輯器標準字串格式 (例如 "4.4上")
+            run_str = f"{version}{half_str}"
             
             schedules.append({
-                "en_name": en_name,
-                "version": version,
-                "phase": phase,
+                "name": zh_name,
                 "path": zh_path,
-                "elem": zh_elem
+                "elem": zh_elem,
+                "run": run_str
             })
-            print(f"解析 5 星角色: {en_name} | 命途: {zh_path} | 屬性: {zh_elem} -> {version} Phase {phase}")
+            print(f"解析 5 星角色: {zh_name} ({en_name}) | {zh_path} | {zh_elem} -> {run_str}")
             
         return schedules
     except Exception as e:
@@ -131,42 +135,33 @@ def fetch_latest_data():
     updated_chars = existing_data.get('new_characters', [])
     existing_char_map = {c['name']: c for c in updated_chars}
 
-    # 建立中英文名稱對照表
-    name_map = build_translation_map()
-    
-    # 取得 Prydwen 的 5 星卡池排程與詳細屬性
-    schedules = fetch_prydwen_schedules()
+    name_map = build_name_mapping()
+    schedules = fetch_prydwen_schedules(name_map)
     
     for sched in schedules:
-        en_name = sched['en_name']
-        target_name = name_map.get(en_name, en_name)
+        target_name = sched['name']
         
         if target_name in existing_char_map:
             char_obj = existing_char_map[target_name]
             
-            # 若原本為未知，自動補上正確的命途與屬性
             if char_obj.get('path') in ["未知", ""] and sched['path'] != "未知":
                 char_obj['path'] = sched['path']
             if char_obj.get('elem') in ["未知", ""] and sched['elem'] != "未知":
                 char_obj['elem'] = sched['elem']
                 
-            run_exists = any(r.get('version') == sched['version'] and r.get('phase') == sched['phase'] for r in char_obj.get('runs', []))
-            if not run_exists:
-                char_obj.setdefault('runs', []).append({
-                    "version": sched['version'],
-                    "phase": sched['phase']
-                })
-                print(f"📅 自動排程成功: 將 {target_name} 安排至 {sched['version']} 上/下半 {sched['phase']}")
+            # 確保 runs 是純字串陣列，並避免重複
+            if 'runs' not in char_obj or not isinstance(char_obj['runs'], list):
+                char_obj['runs'] = []
+                
+            if sched['run'] not in char_obj['runs']:
+                char_obj['runs'].append(sched['run'])
+                print(f"📅 自動排程成功: 將 {target_name} 安排至 {sched['run']}")
         else:
-            # 發現全新 5 星角色
             new_char = {
                 "name": target_name,
                 "path": sched['path'],
                 "elem": sched['elem'],
-                "runs": [{
-                    "version": sched['version'],
-                    "phase": sched['phase']
-                }]
+                "runs": [sched['run']]
             }
             updated_chars.append(new_char)
             existing_char_map[target_name] = new_char
