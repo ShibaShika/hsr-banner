@@ -8,15 +8,16 @@ from bs4 import BeautifulSoup
 GIST_ID = '53c5bb324cd140fb8751c9812bd5df68'
 GITHUB_TOKEN = os.environ.get('GIST_TOKEN')
 
+# 完整對照表：支援標準英文名稱與 index_new 的內部代號 (Mage, Knight, Memory...)
 PATH_MAP = {
-    "Destruction": "毀滅",
-    "Hunt": "巡獵",
-    "Erudition": "智識",
-    "Harmony": "同諧",
-    "Nihility": "虛無",
-    "Preservation": "存護",
-    "Abundance": "豐饒",
-    "Remembrance": "記憶",
+    "Destruction": "毀滅", "Warrior": "毀滅",
+    "Hunt": "巡獵", "Rogue": "巡獵",
+    "Erudition": "智識", "Mage": "智識",
+    "Harmony": "同諧", "Shaman": "同諧",
+    "Nihility": "虛無", "Warlock": "虛無",
+    "Preservation": "存護", "Knight": "存護",
+    "Abundance": "豐饒", "Priest": "豐饒",
+    "Remembrance": "記憶", "Memory": "記憶",
     "Elation": "歡愉"
 }
 
@@ -24,7 +25,7 @@ ELEM_MAP = {
     "Physical": "物理",
     "Fire": "火",
     "Ice": "冰",
-    "Lightning": "雷",
+    "Lightning": "雷", "Thunder": "雷",
     "Wind": "風",
     "Quantum": "量子",
     "Imaginary": "虛數"
@@ -38,7 +39,6 @@ def sanitize_name(name):
 
 def fetch_starrailres_data():
     print("正在從 StarRailRes (index_new) 抓取完整角色資料庫...")
-    # 修正：改用 index_new 才能抓到最新的解包未來角色
     en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/en/characters.json"
     cht_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/cht/characters.json"
     
@@ -130,7 +130,6 @@ def fetch_latest_data():
 
     existing_char_map = {c['name']: c for c in updated_chars}
 
-    # 1. 取得 index_new 資料庫並建立「英文去符號對照表 -> ID」
     en_data, cht_data = fetch_starrailres_data()
     en_sanitized_map = {}
     for cid, info in en_data.items():
@@ -139,7 +138,6 @@ def fetch_latest_data():
         if sanitized:
             en_sanitized_map[sanitized] = cid
 
-    # 2. 爬取 Prydwen 卡池排程
     schedules = fetch_prydwen_schedules()
 
     for sched in schedules:
@@ -150,7 +148,6 @@ def fetch_latest_data():
         path = sched['fallback_path']
         elem = sched['fallback_elem']
         
-        # 3. 透過英文去符號比對資料庫 ID 並取得中文資料
         if sanitized_query in en_sanitized_map:
             cid = en_sanitized_map[sanitized_query]
             cht_info = cht_data.get(cid, {})
@@ -158,15 +155,25 @@ def fetch_latest_data():
             if isinstance(cht_info, dict):
                 target_name = cht_info.get("name", en_name)
                 
+                # 取得資料庫中的原始代號並透過字典轉成中文
                 db_path = cht_info.get("path")
                 if isinstance(db_path, dict):
-                    path = db_path.get("name", path)
+                    raw_path = db_path.get("name", path)
                 elif isinstance(db_path, str):
-                    path = db_path
-                    
+                    raw_path = db_path
+                else:
+                    raw_path = path
+                path = PATH_MAP.get(raw_path, raw_path)
+                
                 db_elem = cht_info.get("element")
-                if isinstance(db_elem, str):
-                    elem = db_elem
+                if isinstance(db_elem, dict):
+                    raw_elem = db_elem.get("name", elem)
+                elif isinstance(db_elem, str):
+                    raw_elem = db_elem
+                else:
+                    raw_elem = elem
+                elem = ELEM_MAP.get(raw_elem, raw_elem)
+                
             elif isinstance(cht_info, str):
                 target_name = cht_info
         else:
