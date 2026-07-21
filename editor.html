@@ -170,7 +170,10 @@
     <div class="container">
         <h1>
             <span>⚙️ 崩壞：星穹鐵道 - 限定躍遷資料編輯器 (HSR Banner Tracker Editor)</span>
-            <span style="font-size: 12px; color: #888; font-weight: normal;">直接在網頁修改，修改完點擊下方匯出複製</span>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn" style="background: #2e436e; border-color: #5575b5;" onclick="syncFromRemote(this)">🔄 從遠端同步最新資料</button>
+                <span style="font-size: 12px; color: #888; font-weight: normal;">直接在網頁修改，修改完點擊下方匯出複製</span>
+            </div>
         </h1>
 
         <div class="tabs">
@@ -877,6 +880,73 @@
                 }
             });
         }
+
+        // ======= 遠端同步功能開始 =======
+        const REMOTE_DATA_URL = 'https://gist.githubusercontent.com/ShibaShika/53c5bb324cd140fb8751c9812bd5df68/raw/bb3ef379b59f13befabc70f356c6dd13469be0ef/hsr_latest_banner.json'; 
+
+        async function syncFromRemote(btnEl) {
+            try {
+                const originalText = btnEl.textContent;
+                btnEl.textContent = '⏳ 同步中...';
+                btnEl.disabled = true;
+
+                const response = await fetch(REMOTE_DATA_URL);
+                if (!response.ok) throw new Error('無法取得遠端資料');
+                const data = await response.json();
+
+                let patchAdded = 0;
+                let charAdded = 0;
+
+                // 處理新版本
+                if (data.new_patches && data.new_patches.length > 0) {
+                    data.new_patches.forEach(newPatch => {
+                        const exists = patchesData.some(p => p.patch === newPatch.patch);
+                        if (!exists) {
+                            patchesData.push(newPatch);
+                            patchAdded++;
+                        }
+                    });
+                }
+
+                // 處理新角色
+                if (data.new_characters && data.new_characters.length > 0) {
+                    data.new_characters.forEach(newChar => {
+                        const exists = charsData.some(c => c.name === newChar.name);
+                        if (!exists) {
+                            charsData.push({
+                                name: newChar.name || "新角色",
+                                path: newChar.path || "毀滅",
+                                elem: newChar.elem || "火",
+                                avatar: newChar.avatar || "",
+                                isCollab: newChar.isCollab,
+                                collabDate: newChar.collabDate,
+                                term: newChar.term,
+                                runs: newChar.runs || []
+                            });
+                            charAdded++;
+                        }
+                    });
+                }
+
+                if (patchAdded > 0 || charAdded > 0) {
+                    renderPatches();
+                    renderChars();
+                    alert(`✅ 同步完成！\n新增了 ${patchAdded} 個版本、${charAdded} 位角色。\n請檢查無誤後點擊下方匯出。`);
+                } else {
+                    alert(`✨ 目前已經是最新的資料，沒有新增任何項目。`);
+                }
+
+                btnEl.textContent = originalText;
+                btnEl.disabled = false;
+
+            } catch (error) {
+                console.error("同步失敗:", error);
+                alert("❌ 同步失敗，請檢查遠端資料來源網址或網路連線。");
+                btnEl.textContent = '🔄 從遠端同步最新資料';
+                btnEl.disabled = false;
+            }
+        }
+        // ======= 遠端同步功能結束 =======
 
         renderChars();
         renderPatches();
