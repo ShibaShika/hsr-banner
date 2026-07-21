@@ -131,48 +131,27 @@ tr:hover td:first-child { filter: none !important; }
     user-select: none;
 }
 
-/* ===== 方案二：科技風呼吸燈 + 深藍聚光高亮 (零撐寬版) ===== */
+/* ===== 紫羅蘭霓虹高亮 (確保 Sticky 捲動不消失、零撐寬) ===== */
 
-/* 1. 呼吸燈小圓點擴散動畫 */
-@keyframes pulse-dot {
-    0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.8); }
-    70% { transform: scale(1.1); box-shadow: 0 0 0 5px rgba(56, 189, 248, 0); }
-    100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
-}
-
-/* 2. 當前版本表頭 (第一行日期)：深寶藍背景 + 亮天藍文字 + 頂部光條 */
+/* 1. 當前版本表頭 (第一行日期)：深紫底色 + 亮紫文字 + 頂部螢光強光條 */
 thead tr:nth-child(1) th.current-patch-col {
-    position: relative;
-    background-color: #0f2744 !important;
-    color: #7dd3fc !important;
-    border-top: 3px solid #38bdf8 !important;
+    background-color: #2e1065 !important;
+    color: #f3e8ff !important;
+    border-top: 3px solid #c084fc !important;
 }
 
-/* 使用 ::after 絕對定位放置呼吸燈圓點，完全不佔用版面寬度 */
-thead tr:nth-child(1) th.current-patch-col::after {
-    content: '';
-    position: absolute;
-    top: 3px;
-    right: 3px;
-    width: 6px;
-    height: 6px;
-    background-color: #38bdf8;
-    border-radius: 50%;
-    animation: pulse-dot 1.8s infinite;
-}
-
-/* 當前版本表頭 (第二行版本號) */
+/* 2. 當前版本表頭 (第二行版本號)：紫羅蘭霓虹發光字體 */
 thead tr:nth-child(2) th.current-patch-col {
-    background-color: #0f2744 !important;
-    color: #38bdf8 !important;
+    background-color: #2e1065 !important;
+    color: #c084fc !important;
     font-weight: bold;
-    text-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+    text-shadow: 0 0 8px rgba(192, 132, 252, 0.8);
 }
 
-/* 3. 當前版本整欄內文：科技藍微光底色與清晰左右分界線 */
+/* 3. 當前版本整欄內文：紫羅蘭微光底色與清晰側邊界 */
 #tracker th.current-patch-col,
 #tracker td.current-patch-col {
-    box-shadow: inset 0 0 0 9999px rgba(56, 189, 248, 0.08) !important;
-    border-left: 1px solid rgba(56, 189, 248, 0.45) !important;
-    border-right: 1px solid rgba(56, 189, 248, 0.45) !important;
+    box-shadow: inset 0 0 0 9999px rgba(168, 85, 247, 0.12) !important;
+    border-left: 1px solid rgba(192, 132, 252, 0.5) !important;
+    border-right: 1px solid rgba(192, 132, 252, 0.5) !important;
 }
