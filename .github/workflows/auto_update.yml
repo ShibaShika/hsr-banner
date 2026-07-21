@@ -1,11 +1,8 @@
 name: Auto Update HSR Banner Data
 
-# 設定觸發條件
 on:
   schedule:
-    # 每天台灣時間早上 8 點執行一次 (UTC 0點)
     - cron: '0 0 * * *'
-  # 允許手動點擊按鈕執行 (方便我們測試)
   workflow_dispatch:
 
 jobs:
@@ -14,10 +11,10 @@ jobs:
     
     steps:
       - name: 下載專案程式碼
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # 建議從 v3 升級到 v4
 
       - name: 設定 Python 環境
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5  # 建議從 v4 升級到 v5
         with:
           python-version: '3.10'
 
@@ -28,6 +25,5 @@ jobs:
 
       - name: 執行更新腳本
         env:
-          # 將我們在第二關設定的 Secret 拿出來給 Python 用
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: python update_gist.py
