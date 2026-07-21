@@ -26,12 +26,12 @@
         input[type="text"], input[type="date"], select { padding: 5px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
-        /* 彈出式版本選單與 4欄緊湊網格 */
+        /* 彈出式版本選單與自適應緊湊按鈕 */
         .picker-trigger {
             background: #161616;
             border: 1px solid #555;
             color: #fff;
-            padding: 4px 8px;
+            padding: 4px 6px;
             border-radius: 3px;
             cursor: pointer;
             font-size: 11px;
@@ -39,8 +39,8 @@
             display: inline-flex;
             align-items: center;
             justify-content: space-between;
-            gap: 6px;
-            min-width: 65px;
+            gap: 4px;
+            width: auto; /* 改為自適應寬度，不再過寬 */
             user-select: none;
         }
         .picker-trigger:hover { border-color: #888; background: #222; }
@@ -297,7 +297,7 @@
             return "";
         }
 
-        // --- 全域版本挑選器邏輯 (智慧防溢出與修正捲動定位) ---
+        // --- 全域版本挑選器邏輯 ---
         let activePickerCallback = null;
         let pickerSelectedMajor = null;
         let activeCharIndex = null;
@@ -329,7 +329,6 @@
 
             renderPickerContent(currentValue);
 
-            // 先顯示以計算正確的高寬
             popup.style.top = '0px';
             popup.style.left = '0px';
             popup.classList.add('show');
@@ -341,11 +340,9 @@
             let top = rect.bottom + 4;
             let left = rect.left;
 
-            // 智慧防溢出：如果下方空間不足，自動改往上方彈出
             if (top + popupHeight > window.innerHeight) {
                 top = rect.top - popupHeight - 4;
             }
-            // 如果右方超出視窗，向左內縮
             if (left + popupWidth > window.innerWidth) {
                 left = window.innerWidth - popupWidth - 10;
             }
