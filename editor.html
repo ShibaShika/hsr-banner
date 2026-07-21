@@ -26,7 +26,7 @@
         input[type="text"], input[type="date"], select { padding: 5px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
-        /* 修改後的特殊紅底標示 */
+        /* 特殊紅底標示 */
         .modified-highlight {
             background-color: #6b2121 !important;
             border-color: #ef4444 !important;
@@ -939,7 +939,7 @@
             });
         }
 
-        // ======= 遠端同步功能開始 =======
+        // ======= 遠端同步功能（修復連鎖改名 Bug 版） =======
         const REMOTE_DATA_URL = 'https://gist.githubusercontent.com/ShibaShika/53c5bb324cd140fb8751c9812bd5df68/raw/hsr_latest_banner.json'; 
 
         async function syncFromRemote(btnEl) {
@@ -956,7 +956,7 @@
                 let addedCharsList = [];
                 let updatedCharsList = [];
 
-                // 處理新版本
+                // 1. 處理新版本
                 if (data.new_patches && data.new_patches.length > 0) {
                     data.new_patches.forEach(newPatch => {
                         const exists = patchesData.some(p => p.patch === newPatch.patch);
@@ -967,45 +967,77 @@
                     });
                 }
 
-                // 處理新角色與自動升級中文名 (支援 cid 或英文模糊比對)
+                // 2. 處理新角色與自動升級中文名 (防止迴圈即時修改導致錯亂，先做快照映射)
                 if (data.new_characters && data.new_characters.length > 0) {
-                    data.new_characters.forEach(newChar => {
-                        const newSanitized = sanitizeName(newChar.name);
-                        
-                        let existingChar = charsData.find(c => 
-                            (newChar.cid && c.cid === newChar.cid) || 
-                            c.name === newChar.name || 
-                            (c.name && sanitizeName(c.name) === newSanitized)
-                        );
 
-                        if (existingChar) {
-                            // 自動將舊英文名原地升級為正式中文名
-                            if (existingChar.name !== newChar.name && !newChar.name.match(/^[a-zA-Z\s•]+$/)) {
-                                updatedCharsList.push(`${existingChar.name} ➡️ ${newChar.name}`);
-                                existingChar.name = newChar.name;
+                    // 建立本地角色的舊名稱/CID 映射地圖
+                    const localCharSnapshot = charsData.map(c => ({
+                        ref: c, // 直接指向原始物件
+                        originalCid: c.cid ? String(c.cid) : null,
+                        originalName: c.name,
+                        originalSanitized: sanitizeName(c.name)
+                    }));
+
+                    data.new_characters.forEach(newChar => {
+                        const remoteCid = newChar.cid ? String(newChar.cid) : null;
+                        const remoteName = newChar.name;
+                        const remoteSanitized = sanitizeName(remoteName);
+
+                        // 2a. 優先透過 CID 精準對應
+                        let matchedItem = null;
+                        if (remoteCid) {
+                            matchedItem = localCharSnapshot.find(item => item.originalCid === remoteCid);
+                        }
+
+                        // 2b. 若沒有 CID 或沒找著，透過「快照的原始名稱」對應
+                        if (!matchedItem && remoteName) {
+                            matchedItem = localCharSnapshot.find(item => 
+                                item.originalName === remoteName || 
+                                (item.originalSanitized && item.originalSanitized === remoteSanitized)
+                            );
+                        }
+
+                        if (matchedItem) {
+                            const existingChar = matchedItem.ref;
+
+                            // 自動將舊英文名/暫譯名原地升級為正式中文名
+                            if (existingChar.name !== remoteName && !remoteName.match(/^[a-zA-Z\s•]+$/)) {
+                                updatedCharsList.push(`${existingChar.name} ➡️ ${remoteName}`);
+                                existingChar.name = remoteName;
                             }
-                            if (newChar.cid && !existingChar.cid) {
-                                existingChar.cid = newChar.cid;
+                            if (remoteCid && !existingChar.cid) {
+                                existingChar.cid = remoteCid;
                             }
                             if (newChar.path && (existingChar.path === "未知" || !existingChar.path)) existingChar.path = newChar.path;
                             if (newChar.elem && (existingChar.elem === "未知" || !existingChar.elem)) existingChar.elem = newChar.elem;
 
                             // 同步版本 runs
-                            if (newChar.runs) {
+                            if (newChar.runs && Array.isArray(newChar.runs)) {
                                 if (!existingChar.runs) existingChar.runs = [];
                                 newChar.runs.forEach(r => {
                                     if (!existingChar.runs.includes(r)) existingChar.runs.push(r);
                                 });
                             }
                         } else {
-                            charsData.push({
+                            // 真的找不到對應角色時，才新增角色
+                            const newObj = {
                                 cid: newChar.cid || null,
                                 name: newChar.name || "新角色",
                                 path: newChar.path || "毀滅",
                                 elem: newChar.elem || "火",
                                 avatar: newChar.avatar || "",
                                 runs: newChar.runs || []
+                            };
+                            charsData.push(newObj);
+
+                            // 將新增的角色也寫入快照，防止後續相同角色的重複新增
+                            localCharSnapshot.push({
+                                ref: newObj,
+                                originalCid: newObj.cid ? String(newObj.cid) : null,
+                                originalName: newObj.name,
+                                originalSanitized: sanitizeName(newObj.name)
                             });
+
                             addedCharsList.push(`${newChar.name} (${newChar.path}/${newChar.elem}) [${(newChar.runs || []).join(', ')}]`);
                         }
                     });
