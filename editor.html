@@ -607,10 +607,12 @@
 
         function addCharRow() {
             let nextRun = "";
-            if (charsData.length > 0) {
-                const lastChar = charsData[charsData.length - 1];
-                if (lastChar && lastChar.runs && lastChar.runs.length > 0) {
-                    const lastRun = lastChar.runs[lastChar.runs.length - 1];
+            
+            // 從後往前尋找第一個「一般角色」（即擁有 runs 欄位且不為空的正常角色），藉此取得正確的版本順序
+            for (let i = charsData.length - 1; i >= 0; i--) {
+                const targetChar = charsData[i];
+                if (targetChar.runs && targetChar.runs.length > 0) {
+                    const lastRun = targetChar.runs[targetChar.runs.length - 1];
                     const match = lastRun.match(/^(\d+)\.(\d+)(上|下)?$/);
                     if (match) {
                         let major = parseInt(match[1]);
@@ -626,8 +628,10 @@
                             nextRun = `${major}.${minor}下`;
                         }
                     }
+                    break;
                 }
             }
+
             if (!nextRun && patchesData.length > 0) {
                 nextRun = patchesData[patchesData.length - 1].patch;
             }
@@ -830,7 +834,7 @@
         }
 
         function deletePatch(index) {
-            if(confirm('確定要刪除這個版本嗎？')) {
+            if(confirm('確定要刪除這個版本號嗎？')) {
                 patchesData.splice(index, 1);
                 renderPatches();
                 renderChars();
