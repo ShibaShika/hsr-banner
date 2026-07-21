@@ -26,7 +26,7 @@
         input[type="text"], input[type="date"], select { padding: 5px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
-        /* 類似日期選擇器的彈出式按鈕與面板 */
+        /* 彈出式版本選單與方格含刪除鈕 */
         .picker-trigger {
             background: #161616;
             border: 1px solid #555;
@@ -54,16 +54,46 @@
             box-shadow: 0 6px 20px rgba(0,0,0,0.7);
             padding: 12px;
             z-index: 9999;
-            width: 260px;
+            width: 280px;
         }
         .picker-popup.show { display: block; }
         .picker-major-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; border-bottom: 1px solid #444; padding-bottom: 6px; }
         .major-tab { background: #222; color: #aaa; border: 1px solid #444; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .major-tab.active { background: var(--primary); color: #fff; border-color: #5575b5; }
-        .picker-options-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-height: 150px; overflow-y: auto; }
-        .picker-option { background: #222; border: 1px solid #444; color: #ddd; padding: 6px; text-align: center; border-radius: 3px; cursor: pointer; font-size: 11px; }
-        .picker-option:hover { background: #333; border-color: #777; color: #fff; }
-        .picker-option.selected { background: var(--primary); border-color: #5575b5; color: #fff; font-weight: bold; }
+        .picker-options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; max-height: 180px; overflow-y: auto; }
+        
+        .picker-option-card {
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 6px;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .picker-option-card:hover { background: #2a2a2a; border-color: #777; }
+        .picker-option-card.selected { background: var(--primary); border-color: #5575b5; }
+        .picker-option-text { font-size: 11px; color: #ddd; flex: 1; text-align: left; }
+        .picker-option-card.selected .picker-option-text { color: #fff; font-weight: bold; }
+        
+        .picker-delete-btn {
+            background: #7a2222;
+            color: #fff;
+            border: none;
+            border-radius: 2px;
+            width: 16px;
+            height: 16px;
+            font-size: 9px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.7;
+            transition: 0.1s;
+        }
+        .picker-delete-btn:hover { opacity: 1; background: #9c2e2e; }
 
         .patches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 15px; }
         .patch-card { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px; display: flex; align-items: center; gap: 8px; justify-content: space-between; transition: 0.2s; }
@@ -144,7 +174,7 @@
         </div>
 
         <div id="tab-patches" class="tab-content">
-            <div style="margin-bottom: 5px; color: #aaa; font-size: 13px;">📌 點擊年度標題可展開或摺疊舊版本。請優先在此維護版本，角色管理將會直接讀取這裡的選擇器。</div>
+            <div style="margin-bottom: 5px; color: #aaa; font-size: 13px;">📌 點擊年度標題可展開或摺疊舊版本。</div>
             <div id="patches-container"></div>
             <button class="btn btn-add" onclick="addPatchRow()">+ 新增版本</button>
         </div>
@@ -172,7 +202,7 @@
         </div>
     </div>
 
-    <!-- 共用的雙層點擊跳出式選單容器 -->
+    <!-- 彈出式版本選單容器 (內建刪除按鈕) -->
     <div id="custom-patch-picker" class="picker-popup">
         <div class="picker-major-tabs" id="picker-majors"></div>
         <div class="picker-options-grid" id="picker-options"></div>
@@ -267,9 +297,10 @@
             return "";
         }
 
-        // --- 全域版本挑選器邏輯 (類似日期選擇器彈窗) ---
+        // --- 全域版本挑選器邏輯 (支援選單內直接刪除版本) ---
         let activePickerCallback = null;
         let pickerSelectedMajor = null;
+        let activePickerTriggerEl = null;
 
         function getPatchHierarchy() {
             const groups = {};
@@ -288,21 +319,19 @@
         function openPatchPicker(currentValue, buttonEl, callback) {
             const popup = document.getElementById('custom-patch-picker');
             activePickerCallback = callback;
+            activePickerTriggerEl = buttonEl;
 
-            // 定位彈窗在按鈕下方
             const rect = buttonEl.getBoundingClientRect();
             popup.style.top = `${rect.bottom + window.scrollY + 4}px`;
             popup.style.left = `${rect.left + window.scrollX}px`;
             popup.classList.add('show');
 
-            // 自動決定預設顯示的大版本
             const cleanBase = currentValue.replace(/[^0-9.]/g, '');
             const defaultMajor = cleanBase.split('.')[0] ? cleanBase.split('.')[0] + '.X' : Object.keys(getPatchHierarchy())[0];
             pickerSelectedMajor = defaultMajor;
 
             renderPickerContent(currentValue);
 
-            // 點擊外部關閉
             setTimeout(() => {
                 document.addEventListener('click', closePickerOnClickOutside);
             }, 10);
@@ -331,7 +360,7 @@
 
             const majors = Object.keys(hierarchy);
             if (majors.length === 0) {
-                optionsContainer.innerHTML = '<div style="grid-column: span 3; color: #888; text-align: center; font-size: 11px;">尚無版本資料</div>';
+                optionsContainer.innerHTML = '<div style="grid-column: span 2; color: #888; text-align: center; font-size: 11px;">尚無版本資料</div>';
                 return;
             }
 
@@ -339,7 +368,6 @@
                 pickerSelectedMajor = majors[0];
             }
 
-            // 渲染第一層：大版本 Tab
             majors.forEach(major => {
                 const tab = document.createElement('div');
                 tab.className = `major-tab ${major === pickerSelectedMajor ? 'active' : ''}`;
@@ -352,22 +380,52 @@
                 majorsContainer.appendChild(tab);
             });
 
-            // 渲染第二層：該大版本底下的所有具體版本方格
             let allOptions = [];
             for (let base in hierarchy[pickerSelectedMajor]) {
                 allOptions = allOptions.concat(hierarchy[pickerSelectedMajor][base]);
             }
 
             allOptions.forEach(opt => {
-                const cell = document.createElement('div');
-                cell.className = `picker-option ${opt === currentValue ? 'selected' : ''}`;
-                cell.textContent = opt;
-                cell.onclick = (e) => {
+                const card = document.createElement('div');
+                card.className = `picker-option-card ${opt === currentValue ? 'selected' : ''}`;
+                
+                // 點擊文字區塊套用版本
+                const textSpan = document.createElement('span');
+                textSpan.className = 'picker-option-text';
+                textSpan.textContent = opt;
+                textSpan.onclick = (e) => {
                     e.stopPropagation();
                     if (activePickerCallback) activePickerCallback(opt);
                     closePicker();
                 };
-                optionsContainer.appendChild(cell);
+
+                // 點擊刪除按鈕直接刪除該版本
+                const delBtn = document.createElement('button');
+                delBtn.className = 'picker-delete-btn';
+                delBtn.textContent = '✕';
+                delBtn.title = '刪除此版本';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (confirm(`確定要刪除版本「${opt}」嗎？`)) {
+                        const targetIdx = patchesData.findIndex(p => p.patch === opt);
+                        if (targetIdx !== -1) {
+                            patchesData.splice(targetIdx, 1);
+                            renderPatches();
+                            renderChars();
+                            // 若選單還有其他選項則重新整理選單內容，否則關閉選單
+                            const updatedHierarchy = getPatchHierarchy();
+                            if (Object.keys(updatedHierarchy).length > 0) {
+                                renderPickerContent(currentValue);
+                            } else {
+                                closePicker();
+                            }
+                        }
+                    }
+                };
+
+                card.appendChild(textSpan);
+                card.appendChild(delBtn);
+                optionsContainer.appendChild(card);
             });
         }
 
@@ -448,7 +506,7 @@
                                                     <div class="picker-trigger" onclick="openPatchPicker('${run}', this, (val) => { updateRun(${index}, ${rIdx}, val); renderChars(); })">
                                                         <span>${run || '選擇'}</span> <span>▼</span>
                                                     </div>
-                                                    <button type="button" onclick="removeRun(${index}, ${rIdx})" style="background: #7a2222; color: #fff; border: none; border-radius: 2px; width: 14px; height: 14px; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="刪除">✕</button>
+                                                    <button type="button" onclick="removeRun(${index}, ${rIdx})" style="background: #7a2222; color: #fff; border: none; border-radius: 2px; width: 14px; height: 14px; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="移除此格">✕</button>
                                                 </div>
                                             `).join('')}
                                             <button type="button" class="btn" style="padding: 2px 6px; font-size: 11px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addRun(${index})" title="新增版本格">＋</button>
@@ -660,7 +718,10 @@
 
         function updatePatch(index, key, value) { 
             patchesData[index][key] = value; 
-            if (key === 'patch') renderPatches(); 
+            if (key === 'patch') {
+                renderPatches();
+                renderChars();
+            }
         }
 
         function updatePatchDate(index, value) {
@@ -677,6 +738,7 @@
             if(confirm('確定要刪除這個版本嗎？')) {
                 patchesData.splice(index, 1);
                 renderPatches();
+                renderChars();
             }
         }
 
