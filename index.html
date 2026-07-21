@@ -277,8 +277,26 @@
                 const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
                 const keyword = searchInput.value.trim().toLowerCase();
 
-                pathBox.textContent = selectedPaths.length === pathItems.length ? '全部命途' : (selectedPaths.length === 0 ? '未選命途' : `命途 (${selectedPaths.length})`);
-                elemBox.textContent = selectedElems.length === elemItems.length ? '全部屬性' : (selectedElems.length === 0 ? '未選屬性' : `屬性 (${selectedElems.length})`);
+                // 動態更新下拉選單按鈕文字：顯示實際選擇的內容
+                if (selectedPaths.length === pathItems.length) {
+                    pathBox.textContent = '全部命途';
+                } else if (selectedPaths.length === 0) {
+                    pathBox.textContent = '未選命途';
+                } else if (selectedPaths.length <= 2) {
+                    pathBox.textContent = selectedPaths.join(', ');
+                } else {
+                    pathBox.textContent = `${selectedPaths[0]} 等 ${selectedPaths.length} 個`;
+                }
+
+                if (selectedElems.length === elemItems.length) {
+                    elemBox.textContent = '全部屬性';
+                } else if (selectedElems.length === 0) {
+                    elemBox.textContent = '未選屬性';
+                } else if (selectedElems.length <= 2) {
+                    elemBox.textContent = selectedElems.join(', ');
+                } else {
+                    elemBox.textContent = `${selectedElems[0]} 等 ${selectedElems.length} 個`;
+                }
 
                 const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
                 let visibleCount = 0;
@@ -380,7 +398,7 @@
 
             scaleSlider.addEventListener('input', (e) => {
                 const scaleValue = e.target.value;
-                table.style.zoom = scaleValue; // 改用 zoom 屬性以完美支援 sticky 定位與排版
+                table.style.zoom = scaleValue;
                 scaleText.textContent = Math.round(scaleValue * 100) + '%';
             });
         }
