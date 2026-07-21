@@ -40,7 +40,7 @@
             <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
         </div>
 
-        <div class="header-right" style="display: flex; gap: 10px; align- items: center;">
+        <div class="header-right" style="display: flex; gap: 10px; align-items: center;">
             <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #ccc; background: #1c1c1c; border: 1px solid #444; padding: 4px 8px; border-radius: 4px;">
                 <span>介面大小：</span>
                 <input type="range" id="ui-scale-slider" min="0.7" max="1.4" step="0.05" value="1" style="cursor: pointer; width: 90px; accent-color: #666;">
@@ -157,13 +157,12 @@
                 `<label><input type="checkbox" class="elem-item" value="${e}" checked> ${e}</label>`
             ).join('');
 
-            // 構建表頭 1 (日期 + 徽章)
+            // 構建表頭 1 (日期) - 移除寬度擠壓源
             let html = '<thead><tr><th></th>';
             reversedPatches.forEach(p => {
                 const isCurrent = (p.patch === activePatchName);
-                const badge = isCurrent ? '<span class="current-patch-badge">📍 當前</span><br>' : '';
                 const colClass = isCurrent ? ' class="current-patch-col"' : '';
-                html += `<th${colClass}>${badge}${formatHeaderDate(p.date)}</th>`;
+                html += `<th${colClass}>${formatHeaderDate(p.date)}</th>`;
             });
 
             // 構建表頭 2 (版本號)
