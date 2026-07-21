@@ -48,21 +48,13 @@ def sanitize_name(name):
 
 
 def fetch_upcoming_wiki_char_map():
-    """自動連線 Fandom Wiki 的 Category:Upcoming_Characters API，
-    提取所有新角色的 Wikitext 繁體中文譯名 (|zh_tw = 或 |zh =)
+    """使用 cffi_requests 繞過 Cloudflare 防護，
+    自動連線 Fandom Wiki Category:Upcoming_Characters API 提取新角色的繁體中文譯名
     """
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        )
-    }
+    print("正在從 Fandom Wiki (Upcoming_Characters 分類) 抓取新角色中文譯名...")
     wiki_map = {}
     try:
         api_url = "https://honkai-star-rail.fandom.com/api.php"
-
-        # 1. 取得 Category:Upcoming_Characters 的所有頁面清單
         cat_params = {
             "action": "query",
             "list": "categorymembers",
@@ -70,16 +62,28 @@ def fetch_upcoming_wiki_char_map():
             "cmlimit": "500",
             "format": "json",
         }
-        res = requests.get(
-            api_url, params=cat_params, headers=headers, timeout=5
-        ).json()
-        members = res.get("query", {}).get("categorymembers", [])
 
-        page_titles = [m["title"] for m in members if "title" in m]
-        if not page_titles:
+        # 使用 cffi_requests 模擬 Chrome 110 繞過 Cloudflare
+        res_obj = cffi_requests.get(
+            api_url, params=cat_params, impersonate="chrome110", timeout=10
+        )
+        if res_obj.status_code != 200:
+            print(f"⚠️ Fandom API 存取失敗: HTTP {res_obj.status_code}")
             return wiki_map
 
-        # 2. 批次查詢這些頁面的內容，提取中文譯名
+        res = res_obj.json()
+        members = res.get("query", {}).get("categorymembers", [])
+        page_titles = [m["title"] for m in members if "title" in m]
+
+        if not page_titles:
+            print("⚠️ Wiki 上未找到 Upcoming_Characters 頁面清單")
+            return wiki_map
+
+        print(
+            f"🔍 於 Wiki 成功找到 {len(page_titles)} 位新角色頁面，準備提取繁中譯名..."
+        )
+
+        # 批次查詢頁面內文
         pages_params = {
             "action": "query",
             "prop": "revisions",
@@ -87,10 +91,10 @@ def fetch_upcoming_wiki_char_map():
             "rvprop": "content",
             "format": "json",
         }
-        pages_res = requests.get(
-            api_url, params=pages_params, headers=headers, timeout=5
-        ).json()
-        pages = pages_res.get("query", {}).get("pages", {})
+        pages_res_obj = cffi_requests.get(
+            api_url, params=pages_params, impersonate="chrome110", timeout=10
+        )
+        pages = pages_res_obj.json().get("query", {}).get("pages", {})
 
         for p_id, p_info in pages.items():
             if p_id == "-1":
@@ -116,13 +120,12 @@ def fetch_upcoming_wiki_char_map():
                     cht_name = match_zh.group(1).strip().replace("·", "•")
 
             if cht_name:
-                # 將 "Aventurine • Waveflair" 簡化為 "aventurinewaveflair" 作為 Key
                 sanitized_key = sanitize_name(title)
                 wiki_map[sanitized_key] = cht_name
-                print(f"📖 Wiki 分類庫載入角色: {title} ➡️ {cht_name}")
+                print(f"📖 Wiki 對照成功載入: {title} ➡️ {cht_name}")
 
     except Exception as e:
-        print(f"⚠️ 抓取 Wiki Category:Upcoming_Characters 失敗: {e}")
+        print(f"⚠️ 抓取 Wiki Category:Upcoming_Characters 發生錯誤: {e}")
 
     return wiki_map
 
