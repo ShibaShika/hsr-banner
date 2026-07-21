@@ -2,7 +2,7 @@ import os
 import json
 import requests
 
-GIST_ID = '53c5bb324cd140fb8751c9812bd5df68'
+GIST_ID = '請在這裡填入您的_GIST_ID'
 GITHUB_TOKEN = os.environ.get('GIST_TOKEN')
 
 def fetch_latest_data():
@@ -33,7 +33,6 @@ def fetch_latest_data():
             # 檢查每一位角色，如果名字不在我們現有的清單中，就自動納入
             for char_id, char_info in chars_map.items():
                 name = char_info.get('name')
-                # 過濾掉開拓者等特殊或不需要的角色，或直接比對是否為全新角色
                 if name and name not in existing_char_names and not name.startswith("開拓者"):
                     path = char_info.get('path', {}).get('name', '毀滅')
                     elem = char_info.get('element', '火')
@@ -42,13 +41,13 @@ def fetch_latest_data():
                         "name": name,
                         "path": path,
                         "elem": elem,
-                        "runs": [] # 預設空卡池，等您在編輯器內一鍵同步後再安排版本
+                        "runs": []
                     })
-                    print(發現新角色: {name} ({path}/{elem}))
+                    print(f"發現新角色: {name} ({path}/{elem})")
     except Exception as e:
         print(f"抓取外部角色資料發生錯誤: {e}")
 
-    # 3. 合併資料（保留原本的版本與舊角色，並追加新發現的角色）
+    # 3. 合併資料
     updated_patches = existing_data.get('new_patches', [])
     updated_chars = existing_data.get('new_characters', []) + new_chars_to_add
 
