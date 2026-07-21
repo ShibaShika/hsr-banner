@@ -492,7 +492,7 @@
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="text-align: center; color: #888; font-weight: bold; font-size: 13px;">${index + 1}</td>
-                        <td><input type="text" value="${char.name || ''}" onchange="updateChar(${index}, 'name', this.value)" style="width: 100%;"></td>
+                        <td><input type="text" value="${char.name || ''}" placeholder="新角色" onchange="updateChar(${index}, 'name', this.value)" style="width: 100%;"></td>
                         <td>
                             <select onchange="updateChar(${index}, 'path', this.value)" style="width: 100%; text-align: center; text-align-last: center;">
                                 ${availablePaths.map(p => `<option value="${p}" ${char.path === p ? 'selected' : ''}>${p}</option>`).join('')}
@@ -606,7 +606,39 @@
         }
 
         function addCharRow() {
-            charsData.push({ name: "新角色", path: "毀滅", elem: "火", avatar: "", runs: [] });
+            let nextRun = "";
+            if (charsData.length > 0) {
+                const lastChar = charsData[charsData.length - 1];
+                if (lastChar && lastChar.runs && lastChar.runs.length > 0) {
+                    const lastRun = lastChar.runs[lastChar.runs.length - 1];
+                    const match = lastRun.match(/^(\d+)\.(\d+)(上|下)?$/);
+                    if (match) {
+                        let major = parseInt(match[1]);
+                        let minor = parseInt(match[2]);
+                        let half = match[3];
+
+                        if (half === "上") {
+                            nextRun = `${major}.${minor}下`;
+                        } else if (half === "下") {
+                            minor += 1;
+                            nextRun = `${major}.${minor}上`;
+                        } else {
+                            nextRun = `${major}.${minor}下`;
+                        }
+                    }
+                }
+            }
+            if (!nextRun && patchesData.length > 0) {
+                nextRun = patchesData[patchesData.length - 1].patch;
+            }
+
+            charsData.push({ 
+                name: "", 
+                path: "毀滅", 
+                elem: "火", 
+                avatar: "", 
+                runs: nextRun ? [nextRun] : [] 
+            });
             renderChars();
         }
 
@@ -758,7 +790,6 @@
             if (patchesData.length > 0) {
                 const lastPatch = patchesData[patchesData.length - 1];
                 
-                // 自動推斷下一版名稱 (例如 4.4下 -> 4.5上, 4.5上 -> 4.5下)
                 if (lastPatch && lastPatch.patch) {
                     const match = lastPatch.patch.match(/^(\d+)\.(\d+)(上|下)?$/);
                     if (match) {
@@ -777,7 +808,6 @@
                     }
                 }
 
-                // 自動計算前一格日期 + 21 天
                 if (lastPatch && lastPatch.date) {
                     const parts = lastPatch.date.split('/');
                     if (parts.length === 3) {
@@ -811,7 +841,6 @@
             let json = JSON.stringify(data, null, 4);
             let jsString = json.replace(/"([^"]+)":/g, '$1:');
             
-            // 取得當前更新日期
             const now = new Date();
             const yyyy = now.getFullYear();
             const mm = String(now.getMonth() + 1).padStart(2, '0');
