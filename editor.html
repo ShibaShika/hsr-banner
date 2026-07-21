@@ -26,6 +26,13 @@
         input[type="text"], input[type="date"], select { padding: 5px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
+        /* 修改後的特殊紅底標示 */
+        .modified-highlight {
+            background-color: #6b2121 !important;
+            border-color: #ef4444 !important;
+            color: #fff !important;
+        }
+        
         /* 彈出式版本選單與緊湊按鈕 */
         .picker-trigger {
             background: #161616;
@@ -242,8 +249,12 @@
     </div>
 
     <script>
-        let charsData = typeof RAW_CHARACTERS !== 'undefined' ? [...RAW_CHARACTERS] : [];
-        let patchesData = typeof PATCH_DATA !== 'undefined' ? [...PATCH_DATA] : [];
+        // 初始備份用來比對修改狀態
+        let initialCharsJson = JSON.stringify(typeof RAW_CHARACTERS !== 'undefined' ? RAW_CHARACTERS : []);
+        let initialPatchesJson = JSON.stringify(typeof PATCH_DATA !== 'undefined' ? PATCH_DATA : []);
+
+        let charsData = typeof RAW_CHARACTERS !== 'undefined' ? JSON.parse(initialCharsJson) : [];
+        let patchesData = typeof PATCH_DATA !== 'undefined' ? JSON.parse(initialPatchesJson) : [];
 
         function getDynamicOptions(type) {
             let baseList = [];
@@ -466,8 +477,18 @@
             const availablePaths = getDynamicOptions('path');
             const availableElems = getDynamicOptions('elem');
 
+            // 原始資料對照用來判斷變更
+            const originalChars = JSON.parse(initialCharsJson);
+
             charsData.forEach((char, index) => {
                 try {
+                    const origChar = originalChars[index] || {};
+                    const isNameModified = char.name !== origChar.name;
+                    const isPathModified = char.path !== origChar.path;
+                    const isElemModified = char.elem !== origChar.elem;
+                    const isRunsModified = JSON.stringify(char.runs) !== JSON.stringify(origChar.runs);
+                    const isRowNew = !originalChars.some(o => o.name === char.name && char.name !== "");
+
                     const isCollab = char.isCollab !== undefined;
                     const termType = char.term ? char.term.type : 'none'; 
                     const termPatch = char.term ? char.term.patch : '';
@@ -493,16 +514,20 @@
                     const runs = char.runs || [];
 
                     const tr = document.createElement('tr');
+                    if (isRowNew) {
+                        tr.style.backgroundColor = "#451a1a"; // 新增整行紅底
+                    }
+
                     tr.innerHTML = `
                         <td style="text-align: center; color: #888; font-weight: bold; font-size: 13px;">${index + 1}</td>
-                        <td><input type="text" value="${char.name || ''}" placeholder="新角色" onchange="updateChar(${index}, 'name', this.value)" style="width: 100%;"></td>
+                        <td><input type="text" value="${char.name || ''}" placeholder="新角色" onchange="updateChar(${index}, 'name', this.value)" class="${isNameModified ? 'modified-highlight' : ''}" style="width: 100%;"></td>
                         <td>
-                            <select onchange="updateChar(${index}, 'path', this.value)" style="width: 100%; text-align: center; text-align-last: center;">
+                            <select onchange="updateChar(${index}, 'path', this.value)" class="${isPathModified ? 'modified-highlight' : ''}" style="width: 100%; text-align: center; text-align-last: center;">
                                 ${availablePaths.map(p => `<option value="${p}" ${char.path === p ? 'selected' : ''}>${p}</option>`).join('')}
                             </select>
                         </td>
                         <td>
-                            <select onchange="updateChar(${index}, 'elem', this.value)" style="width: 100%; text-align: center; text-align-last: center;">
+                            <select onchange="updateChar(${index}, 'elem', this.value)" class="${isElemModified ? 'modified-highlight' : ''}" style="width: 100%; text-align: center; text-align-last: center;">
                                 ${availableElems.map(e => `<option value="${e}" ${char.elem === e ? 'selected' : ''}>${e}</option>`).join('')}
                             </select>
                         </td>
@@ -530,7 +555,7 @@
                                     ${currentType !== 'collab' ? `
                                         <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
                                             ${runs.map((run, rIdx) => `
-                                                <div class="picker-trigger" onclick="openPatchPicker('${run}', this, ${index}, ${rIdx}, (val) => { updateRun(${index}, ${rIdx}, val); renderChars(); })">
+                                                <div class="picker-trigger ${isRunsModified ? 'modified-highlight' : ''}" onclick="openPatchPicker('${run}', this, ${index}, ${rIdx}, (val) => { updateRun(${index}, ${rIdx}, val); renderChars(); })">
                                                     <span>${run || '選擇'}</span> <span>▼</span>
                                                 </div>
                                             `).join('')}
@@ -553,11 +578,15 @@
             });
         }
 
-        function updateChar(index, key, value) { charsData[index][key] = value; }
+        function updateChar(index, key, value) { 
+            charsData[index][key] = value; 
+            renderChars();
+        }
 
         function updateRun(index, rIndex, value) {
             if (!charsData[index].runs) charsData[index].runs = [];
             charsData[index].runs[rIndex] = value.trim();
+            renderChars();
         }
 
         function addRun(index) {
@@ -663,6 +692,8 @@
             
             if (patchesData.length === 0) return;
 
+            const originalPatches = JSON.parse(initialPatchesJson);
+
             const baseGroups = {};
             const groupOrder = []; 
             patchesData.forEach((p, index) => {
@@ -760,13 +791,22 @@
 
                 yearData.patches.forEach(p => {
                     const index = p.originalIndex;
+                    const origP = originalPatches[index] || {};
+                    const isPatchModified = p.patch !== origP.patch;
+                    const isDateModified = p.date !== origP.date;
+                    const isPatchNew = !originalPatches.some(o => o.patch === p.patch);
+
                     const inputDateVal = formatPatchDateForInput(p.date);
                     const card = document.createElement('div');
                     card.className = 'patch-card';
+                    if (isPatchNew) {
+                        card.style.backgroundColor = "#451a1a";
+                    }
+
                     card.innerHTML = `
                         <div class="input-group">
-                            <input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)" placeholder="新版本">
-                            <input type="date" value="${inputDateVal}" onchange="updatePatchDate(${index}, this.value)" title="版本日期">
+                            <input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)" class="${isPatchModified ? 'modified-highlight' : ''}" placeholder="新版本">
+                            <input type="date" value="${inputDateVal}" onchange="updatePatchDate(${index}, this.value)" class="${isDateModified ? 'modified-highlight' : ''}" title="版本日期">
                         </div>
                         <button class="btn btn-danger" onclick="deletePatch(${index})" title="刪除">✕</button>
                     `;
@@ -778,10 +818,8 @@
 
         function updatePatch(index, key, value) { 
             patchesData[index][key] = value; 
-            if (key === 'patch') {
-                renderPatches();
-                renderChars();
-            }
+            renderPatches();
+            renderChars();
         }
 
         function updatePatchDate(index, value) {
@@ -853,7 +891,6 @@
             const dd = String(now.getDate()).padStart(2, '0');
             const dateStr = `${yyyy}/${mm}/${dd}`;
 
-            // 第 1 行: 更新日期，第 2 行: 空行，第 3 行開始: 資料
             return `// 更新日期: ${dateStr}\n\nconst ${varName} = ${jsString};\n`;
         }
 
@@ -894,8 +931,8 @@
                 if (!response.ok) throw new Error('無法取得遠端資料');
                 const data = await response.json();
 
-                let patchAdded = 0;
-                let charAdded = 0;
+                let addedPatchesList = [];
+                let addedCharsList = [];
 
                 // 處理新版本
                 if (data.new_patches && data.new_patches.length > 0) {
@@ -903,7 +940,7 @@
                         const exists = patchesData.some(p => p.patch === newPatch.patch);
                         if (!exists) {
                             patchesData.push(newPatch);
-                            patchAdded++;
+                            addedPatchesList.push(newPatch.patch);
                         }
                     });
                 }
@@ -914,24 +951,31 @@
                         const exists = charsData.some(c => c.name === newChar.name);
                         if (!exists) {
                             charsData.push({
+                                cid: newChar.cid || null,
                                 name: newChar.name || "新角色",
                                 path: newChar.path || "毀滅",
                                 elem: newChar.elem || "火",
                                 avatar: newChar.avatar || "",
-                                isCollab: newChar.isCollab,
-                                collabDate: newChar.collabDate,
-                                term: newChar.term,
                                 runs: newChar.runs || []
                             });
-                            charAdded++;
+                            addedCharsList.push(`${newChar.name} (${newChar.path}/${newChar.elem}) [${(newChar.runs || []).join(', ')}]`);
                         }
                     });
                 }
 
-                if (patchAdded > 0 || charAdded > 0) {
+                if (addedPatchesList.length > 0 || addedCharsList.length > 0) {
                     renderPatches();
                     renderChars();
-                    alert(`✅ 同步完成！\n新增了 ${patchAdded} 個版本、${charAdded} 位角色。\n請檢查無誤後點擊下方匯出。`);
+
+                    let msg = `✅ 同步完成！以下為本次新增的項目：\n\n`;
+                    if (addedPatchesList.length > 0) {
+                        msg += `【新增版本 (${addedPatchesList.length} 個)】\n- ${addedPatchesList.join(', ')}\n\n`;
+                    }
+                    if (addedCharsList.length > 0) {
+                        msg += `【新增角色 (${addedCharsList.length} 位)】\n`;
+                        addedCharsList.forEach(c => msg += `• ${c}\n`);
+                    }
+                    alert(msg);
                 } else {
                     alert(`✨ 目前已經是最新的資料，沒有新增任何項目。`);
                 }
