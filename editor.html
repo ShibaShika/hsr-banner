@@ -54,7 +54,7 @@
             box-shadow: 0 6px 20px rgba(0,0,0,0.7);
             padding: 12px;
             z-index: 9999;
-            width: 380px; /* 調整寬度以容納 4 欄 */
+            width: 380px;
         }
         .picker-popup.show { display: block; }
         
@@ -199,7 +199,7 @@
         </div>
     </div>
 
-    <!-- 彈出式版本選單容器 (改為 4 欄緊湊排版) -->
+    <!-- 彈出式版本選單容器 -->
     <div id="custom-patch-picker" class="picker-popup">
         <div class="picker-header">
             <div class="picker-major-tabs" id="picker-majors"></div>
@@ -297,7 +297,7 @@
             return "";
         }
 
-        // --- 全域版本挑選器邏輯 (支援 4 欄顯示) ---
+        // --- 全域版本挑選器邏輯 (智慧防溢出與修正捲動定位) ---
         let activePickerCallback = null;
         let pickerSelectedMajor = null;
         let activeCharIndex = null;
@@ -308,7 +308,7 @@
             patchesData.forEach(p => {
                 const raw = p.patch || "";
                 const base = raw.replace(/[^0-9.]/g, '') || "其他";
-                const major = base.split('.')[0] ? base.split('.')[0] + '.X' : '其他';
+                const major = base.split('.')[0] ? base.split('.')[0] + '.X' : 'other';
                 
                 if (!groups[major]) groups[major] = {};
                 if (!groups[major][base]) groups[major][base] = [];
@@ -323,10 +323,36 @@
             activeCharIndex = charIdx;
             activeRunIndex = runIdx;
 
-            const rect = buttonEl.getBoundingClientRect();
-            popup.style.top = `${rect.bottom + window.scrollY + 4}px`;
-            popup.style.left = `${rect.left + window.scrollX}px`;
+            const cleanBase = currentValue.replace(/[^0-9.]/g, '');
+            const defaultMajor = cleanBase.split('.')[0] ? cleanBase.split('.')[0] + '.X' : Object.keys(getPatchHierarchy())[0];
+            pickerSelectedMajor = defaultMajor;
+
+            renderPickerContent(currentValue);
+
+            // 先顯示以計算正確的高寬
+            popup.style.top = '0px';
+            popup.style.left = '0px';
             popup.classList.add('show');
+
+            const rect = buttonEl.getBoundingClientRect();
+            const popupHeight = popup.offsetHeight || 260;
+            const popupWidth = popup.offsetWidth || 380;
+
+            let top = rect.bottom + 4;
+            let left = rect.left;
+
+            // 智慧防溢出：如果下方空間不足，自動改往上方彈出
+            if (top + popupHeight > window.innerHeight) {
+                top = rect.top - popupHeight - 4;
+            }
+            // 如果右方超出視窗，向左內縮
+            if (left + popupWidth > window.innerWidth) {
+                left = window.innerWidth - popupWidth - 10;
+            }
+            if (left < 10) left = 10;
+
+            popup.style.top = `${top}px`;
+            popup.style.left = `${left}px`;
 
             const removeBtn = document.getElementById('picker-remove-btn');
             if (activeRunIndex !== null) {
@@ -339,12 +365,6 @@
             } else {
                 removeBtn.style.display = 'none';
             }
-
-            const cleanBase = currentValue.replace(/[^0-9.]/g, '');
-            const defaultMajor = cleanBase.split('.')[0] ? cleanBase.split('.')[0] + '.X' : Object.keys(getPatchHierarchy())[0];
-            pickerSelectedMajor = defaultMajor;
-
-            renderPickerContent(currentValue);
 
             setTimeout(() => {
                 document.addEventListener('click', closePickerOnClickOutside);
