@@ -201,7 +201,6 @@
                     let content = '';
                     
                     if (cell.status === 'COLLAB_SPAN') {
-                        // 直接動態讀取資料中的 collabDate，若無則退回 isCollab 版本號
                         const dateStr = char.collabDate || char.isCollab;
                         html += `<td colspan="${cell.count}" class="collab-text">${dateStr} 後長期開放</td>`;
                         return;
@@ -374,9 +373,11 @@
             const scaleSlider = document.getElementById('ui-scale-slider');
             const scaleText = document.getElementById('ui-scale-text');
 
+            // 🌟 修正：改用標準的 transform: scale 以全面支援 Firefox 瀏覽器
             scaleSlider.addEventListener('input', (e) => {
                 const scaleValue = e.target.value;
-                table.style.zoom = scaleValue;
+                table.style.transform = `scale(${scaleValue})`;
+                table.style.transformOrigin = 'top left';
                 scaleText.textContent = Math.round(scaleValue * 100) + '%';
             });
         }
