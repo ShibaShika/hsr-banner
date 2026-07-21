@@ -11,9 +11,9 @@ GITHUB_TOKEN = os.environ.get('GIST_TOKEN')
 def build_translation_map():
     print("正在建立英中角色名稱對照表...")
     try:
-        # 修正：將 master 改為 main
-        en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/main/index/en/characters.json"
-        zh_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/main/index/zh/characters.json"
+        # 更新為最新的正確 Raw 網址與路徑 (index_new / cht)
+        en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/en/characters.json"
+        zh_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/cht/characters.json"
         
         en_res = requests.get(en_url)
         zh_res = requests.get(zh_url)
@@ -43,7 +43,7 @@ def fetch_prydwen_schedules():
         res = cffi_requests.get(url, impersonate="chrome110")
         if res.status_code != 200:
             print(f"❌ Prydwen 抓取失敗: HTTP {res.status_code}")
-            return []
+            return {}
 
         soup = BeautifulSoup(res.text, "html.parser")
         schedules = []
@@ -97,8 +97,7 @@ def fetch_latest_data():
 
     # 自動偵測與新增 StarRailRes 的全新角色
     try:
-        # 修正：將 master 改為 main
-        zh_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/main/index/zh/characters.json"
+        zh_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/cht/characters.json"
         zh_res = requests.get(zh_url)
         
         if zh_res.status_code == 200:
