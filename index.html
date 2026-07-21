@@ -66,13 +66,37 @@
             return dateStr;
         }
 
+        // 自動對照 PATCH_DATA 與今日日期，找出當前進行中的卡池版本名稱
+        function getCurrentPatchName() {
+            if (!typeof PATCH_DATA !== 'undefined' || PATCH_DATA.length === 0) return "";
+            const today = new Date();
+            const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            let currentPatch = PATCH_DATA[0].patch;
+            
+            for (let i = 0; i < PATCH_DATA.length; i++) {
+                const parts = (PATCH_DATA[i].date || "").split('/');
+                if (parts.length === 3) {
+                    const fullYear = 2000 + parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1;
+                    const day = parseInt(parts[2], 10);
+                    const patchDate = new Date(fullYear, month, day);
+                    
+                    if (patchDate <= todayZero) {
+                        currentPatch = PATCH_DATA[i].patch;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            return currentPatch;
+        }
+
         async function initTracker() {
-            // --- 新增功能：動態讀取 characters.js 的更新日期註解 ---
+            // --- 動態讀取 characters.js 的更新日期註解 ---
             try {
                 const resDate = await fetch('js/characters.js');
                 if (resDate.ok) {
                     const text = await resDate.text();
-                    // 尋找 // 更新日期: YYYY/MM/DD 的格式
                     const match = text.match(/\/\/\s*更新日期[:：]\s*([0-9\/]+)/);
                     if (match && match[1]) {
                         document.getElementById('update-date-text').textContent = match[1];
@@ -84,7 +108,6 @@
                 console.warn("無法讀取本地更新日期 (若在本地直接開啟 HTML 可能會因 CORS 遭阻擋):", error);
                 document.getElementById('update-date-text').textContent = "未知";
             }
-            // --------------------------------------------------------
 
             try {
                 const res = await fetch('https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/cht/characters.json');
@@ -118,6 +141,10 @@
             const patchesList = PATCH_DATA.map(p => p.patch);
             const totalChars = CHARACTERS.length;
             
+            // 取得當前版本名稱與翻轉後的版本陣列
+            const activePatchName = getCurrentPatchName();
+            const reversedPatches = [...PATCH_DATA].reverse();
+
             const PATH_ORDER = ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
             const uniquePaths = PATH_ORDER.filter(p => RAW_CHARACTERS.some(c => c.path === p));
             const uniqueElems = ELEM_ORDER.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
@@ -130,14 +157,25 @@
                 `<label><input type="checkbox" class="elem-item" value="${e}" checked> ${e}</label>`
             ).join('');
 
+            // 構建表頭 1 (日期 + 徽章)
             let html = '<thead><tr><th></th>';
-            [...PATCH_DATA].reverse().forEach(p => {
-                html += `<th>${formatHeaderDate(p.date)}</th>`;
+            reversedPatches.forEach(p => {
+                const isCurrent = (p.patch === activePatchName);
+                const badge = isCurrent ? '<span class="current-patch-badge">📍 當前</span><br>' : '';
+                const colClass = isCurrent ? ' class="current-patch-col"' : '';
+                html += `<th${colClass}>${badge}${formatHeaderDate(p.date)}</th>`;
             });
+
+            // 構建表頭 2 (版本號)
             html += `</tr><tr><th><div style="text-align:center; padding: 0 4px;">&nbsp;</div></th>`;
-            [...PATCH_DATA].reverse().forEach(p => html += `<th>${p.patch}</th>`);
+            reversedPatches.forEach(p => {
+                const isCurrent = (p.patch === activePatchName);
+                const colClass = isCurrent ? ' class="current-patch-col"' : '';
+                html += `<th${colClass}>${p.patch}</th>`;
+            });
             html += '</tr></thead><tbody>';
             
+            // 構建表格主體內容
             CHARACTERS.forEach((char, index) => {
                 const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(char.name)}&background=random&color=fff&size=56&bold=true`;
                 const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
@@ -216,7 +254,11 @@
                     }
                 });
 
-                history.reverse().forEach(cell => {
+                history.reverse().forEach((cell, cellIdx) => {
+                    const patchObj = reversedPatches[cellIdx];
+                    const isCurrentCol = patchObj && (patchObj.patch === activePatchName);
+                    const currentColClass = isCurrentCol ? ' current-patch-col' : '';
+
                     let cls = '';
                     let content = '';
                     
@@ -227,7 +269,7 @@
                         if (parts.length === 3) {
                             dateStr = `${parts[1]}/${parts[2]}`;
                         }
-                        html += `<td colspan="${cell.count}" class="collab-text">← ${dateStr} 後長期開放</td>`;
+                        html += `<td colspan="${cell.count}" class="collab-text${currentColClass}">← ${dateStr} 後長期開放</td>`;
                         return;
                     }
 
@@ -253,7 +295,7 @@
                         else if (cell.gap <= 12) cls = 'w-high';
                         else cls = 'w-crit';
                     }
-                    html += `<td class="${cls}">${content}</td>`;
+                    html += `<td class="${cls}${currentColClass}">${content}</td>`;
                 });
                 html += `</tr>`;
             });
@@ -297,7 +339,6 @@
                 const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
                 const keyword = searchInput.value.trim().toLowerCase();
 
-                // 動態更新下拉選單按鈕文字：顯示實際選擇的內容
                 if (selectedPaths.length === pathItems.length) {
                     pathBox.textContent = '全部命途';
                 } else if (selectedPaths.length === 0) {
