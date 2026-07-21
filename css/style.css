@@ -130,3 +130,31 @@ tr:hover td:first-child { filter: none !important; }
     white-space: nowrap;
     user-select: none;
 }
+
+/* ===== 當前版本卡池高亮樣式 ===== */
+/* 1. 表頭當前版本徽章 */
+.current-patch-badge {
+    background: #d4af37;
+    color: #121212;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-bottom: 2px;
+    box-shadow: 0 0 6px rgba(212, 175, 55, 0.6);
+    letter-spacing: 0;
+}
+
+/* 2. 當前版本表頭頂部金色強光條 */
+thead tr:nth-child(1) th.current-patch-col {
+    border-top: 3px solid #ffd700 !important;
+}
+
+/* 3. 當前版本整欄（含表頭與內文）套用琥珀金微光與左右分界線 */
+#tracker th.current-patch-col,
+#tracker td.current-patch-col {
+    box-shadow: inset 0 0 0 9999px rgba(212, 175, 55, 0.09) !important;
+    border-left: 1px solid rgba(212, 175, 55, 0.45) !important;
+    border-right: 1px solid rgba(212, 175, 55, 0.45) !important;
+}
