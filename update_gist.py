@@ -47,12 +47,24 @@ def sanitize_name(name):
     return re.sub(r"[^a-zA-Z0-9]", "", name).lower()
 
 
+def clean_wikitext_value(val):
+    """清洗 Wikitext 中的連結標記 [[ ]] 與取代標點符號"""
+    val = re.sub(r"\[\[(?:[^\|\]]*\|)?([^\]]+)\]\]", r"\1", val)
+    return val.strip().replace("·", "•")
+
+
 def fetch_upcoming_wiki_char_map():
     """使用 cffi_requests 繞過 Cloudflare 防護，
     自動連線 Fandom Wiki Category:Upcoming_Characters API 提取新角色的繁體中文譯名
     """
     print("正在從 Fandom Wiki (Upcoming_Characters 分類) 抓取新角色中文譯名...")
-    wiki_map = {}
+
+    # 預載熱修正清單作為雙重保險
+    wiki_map = {
+        "aventurinewaveflair": "砂金•戲浪",
+        "robinsummeretto": "知更鳥•夏日",
+    }
+
     try:
         api_url = "https://honkai-star-rail.fandom.com/api.php"
         cat_params = {
@@ -63,7 +75,6 @@ def fetch_upcoming_wiki_char_map():
             "format": "json",
         }
 
-        # 使用 cffi_requests 模擬 Chrome 110 繞過 Cloudflare
         res_obj = cffi_requests.get(
             api_url, params=cat_params, impersonate="chrome110", timeout=10
         )
@@ -83,12 +94,13 @@ def fetch_upcoming_wiki_char_map():
             f"🔍 於 Wiki 成功找到 {len(page_titles)} 位新角色頁面，準備提取繁中譯名..."
         )
 
-        # 批次查詢頁面內文
+        # 批次查詢頁面內文 (明確加入 rvslots=main)
         pages_params = {
             "action": "query",
             "prop": "revisions",
             "titles": "|".join(page_titles),
             "rvprop": "content",
+            "rvslots": "main",
             "format": "json",
         }
         pages_res_obj = cffi_requests.get(
@@ -104,20 +116,34 @@ def fetch_upcoming_wiki_char_map():
             if not revisions:
                 continue
 
-            content = revisions[0].get("*", "")
+            # 兼容新舊版 MediaWiki JSON slots 結構
+            rev = revisions[0]
+            content = ""
+            if "*" in rev:
+                content = rev["*"]
+            elif (
+                "slots" in rev
+                and "main" in rev["slots"]
+                and "*" in rev["slots"]["main"]
+            ):
+                content = rev["slots"]["main"]["*"]
+
+            if not content:
+                continue
 
             cht_name = ""
+            # 寬鬆比對 zh_tw / zh-tw / zh_hk / zh-hk
             match_tw = re.search(
-                r"\|zh_tw\s*=\s*([^\n\|]+)", content, re.IGNORECASE
+                r"\|zh[-_]?(?:tw|hk)\s*=\s*([^\n\|]+)", content, re.IGNORECASE
             )
             if match_tw and match_tw.group(1).strip():
-                cht_name = match_tw.group(1).strip().replace("·", "•")
+                cht_name = clean_wikitext_value(match_tw.group(1))
             else:
                 match_zh = re.search(
                     r"\|zh\s*=\s*([^\n\|]+)", content, re.IGNORECASE
                 )
                 if match_zh and match_zh.group(1).strip():
-                    cht_name = match_zh.group(1).strip().replace("·", "•")
+                    cht_name = clean_wikitext_value(match_zh.group(1))
 
             if cht_name:
                 sanitized_key = sanitize_name(title)
