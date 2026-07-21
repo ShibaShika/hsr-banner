@@ -11,7 +11,6 @@ GITHUB_TOKEN = os.environ.get('GIST_TOKEN')
 def build_translation_map():
     print("正在建立英中角色名稱對照表...")
     try:
-        # 更新為最新的正確 Raw 網址與路徑 (index_new / cht)
         en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/en/characters.json"
         zh_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/cht/characters.json"
         
@@ -26,10 +25,14 @@ def build_translation_map():
         zh_data = zh_res.json()
         
         mapping = {}
-        for cid, cinfo in en_data.items():
-            en_name = cinfo.get("name")
-            if cid in zh_data:
-                mapping[en_name] = zh_data[cid].get("name")
+        for cid, en_info in en_data.items():
+            # 相容字串或字典格式
+            en_name = en_info.get("name") if isinstance(en_info, dict) else en_info
+            zh_info = zh_data.get(cid)
+            zh_name = zh_info.get("name") if isinstance(zh_info, dict) else zh_info
+            
+            if en_name and zh_name:
+                mapping[en_name] = zh_name
         return mapping
     except Exception as e:
         print(f"對照表建立失敗: {e}")
@@ -39,23 +42,20 @@ def fetch_prydwen_schedules():
     print("正在破解防護並抓取 Prydwen 卡池排程...")
     url = "https://www.prydwen.gg/star-rail/banners/"
     try:
-        # 使用 curl_cffi 偽裝成 Chrome 110，完美繞過 Cloudflare 驗證
         res = cffi_requests.get(url, impersonate="chrome110")
         if res.status_code != 200:
             print(f"❌ Prydwen 抓取失敗: HTTP {res.status_code}")
-            return {}
+            return []
 
         soup = BeautifulSoup(res.text, "html.parser")
         schedules = []
         
-        # 鎖定所有角色卡池的卡片結構
         cards = soup.find_all("article", class_="character-banner-card")
         for card in cards:
             name_tag = card.find(class_="banner-name")
             if not name_tag: continue
             en_name = name_tag.text.strip()
             
-            # 抓取版本與階段資訊
             meta_div = card.find(class_="banner-phase-meta")
             phase_str = meta_div.find("span").text.strip() if meta_div and meta_div.find("span") else ""
             
@@ -103,14 +103,14 @@ def fetch_latest_data():
         if zh_res.status_code == 200:
             zh_data = zh_res.json()
             for char_id, char_info in zh_data.items():
-                name = char_info.get('name')
+                # 相容新版 index_new 的字串或字典結構
+                name = char_info.get('name') if isinstance(char_info, dict) else char_info
+                
                 if name and name not in existing_char_names and not name.startswith("開拓者"):
-                    path = char_info.get('path', {}).get('name', '毀滅')
-                    elem = char_info.get('element', '火')
                     updated_chars.append({
                         "name": name,
-                        "path": path,
-                        "elem": elem,
+                        "path": "未知",
+                        "elem": "未知",
                         "runs": []
                     })
                     existing_char_names.add(name)
