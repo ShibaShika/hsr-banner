@@ -608,7 +608,6 @@
         function addCharRow() {
             let nextRun = "";
             
-            // 從後往前尋找第一個「一般角色」（即擁有 runs 欄位且不為空的正常角色），藉此取得正確的版本順序
             for (let i = charsData.length - 1; i >= 0; i--) {
                 const targetChar = charsData[i];
                 if (targetChar.runs && targetChar.runs.length > 0) {
@@ -851,7 +850,8 @@
             const dd = String(now.getDate()).padStart(2, '0');
             const dateStr = `${yyyy}/${mm}/${dd}`;
 
-            return `// 更新日期: ${dateStr}\nconst ${varName} = ${jsString};\n`;
+            // 第 1 行: 更新日期，第 2 行: 空行，第 3 行開始: 資料
+            return `// 更新日期: ${dateStr}\n\nconst ${varName} = ${jsString};\n`;
         }
 
         function exportData(type) {
