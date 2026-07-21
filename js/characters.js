@@ -1,3 +1,4 @@
+// 更新日期: 2026/07/21
 const RAW_CHARACTERS = [
     {
         name: "希兒",
@@ -621,5 +622,23 @@ const RAW_CHARACTERS = [
         isCollab: "4.4上",
         runs: [],
         collabDate: "2026/07/24"
+    },
+    {
+        name: "知更鳥•晴歌",
+        path: "記憶",
+        elem: "風",
+        avatar: "",
+        runs: [
+            "4.5上"
+        ]
+    },
+    {
+        name: "砂金•戲浪",
+        path: "歡愉",
+        elem: "量子",
+        avatar: "",
+        runs: [
+            "4.5下"
+        ]
     }
 ];
