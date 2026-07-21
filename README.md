@@ -1,21 +1,21 @@
-# 崩壞：星穹鐵道 - 限定躍遷一覽表 (HSR Banner Tracker)[cite: 1]
+# 崩壞：星穹鐵道 - 限定躍遷一覽表 (HSR Banner Tracker)
 
-這是一個用來追蹤《崩壞：星穹鐵道》角色限定躍遷（卡池）歷史與復刻間隔的互動式表格網頁[cite: 1]。
+這是一個用來追蹤《崩壞：星穹鐵道》角色限定躍遷（卡池）歷史與復刻間隔的互動式表格網頁。
 
-🔗 **線上即時預覽**：https://shibashika.github.io/hsr-banner/[cite: 1]
+🔗 **線上即時預覽**：https://shibashika.github.io/hsr-banner/
 
 ---
 
 ## 📂 專案資料夾結構
 
-本專案採用模組化結構與視覺化後台，方便日後維護與更新[cite: 1]：
-* `index.html`：網頁主架構與核心渲染邏輯[cite: 1]。
-* `editor.html`：專屬視覺化資料管理後台（支援智慧版本推斷、年度摺疊與優化格式匯出）[cite: 1]。
-* `css/style.css`：網頁專屬樣式與配色定義[cite: 1]。
-* `js/characters.js`：角色資料庫（包含角色名稱、命途、屬性、復刻紀錄）[cite: 1]。
-* `js/patches.js`：遊戲版本與對應日期資料[cite: 1]。
-* `js/paths.js`：命途圖標連結與順序配置[cite: 1]。
-* `js/elements.js`：屬性分類配置[cite: 1]。
+本專案採用模組化結構與視覺化後台，方便日後維護與更新：
+* `index.html`：網頁主架構與核心渲染邏輯。
+* `editor.html`：專屬視覺化資料管理後台（支援智慧版本推斷、年度摺疊與優化格式匯出）。
+* `css/style.css`：網頁專屬樣式與配色定義。
+* `js/characters.js`：角色資料庫（包含角色名稱、命途、屬性、復刻紀錄）。
+* `js/patches.js`：遊戲版本與對應日期資料。
+* `js/paths.js`：命途圖標連結與順序配置。
+* `js/elements.js`：屬性分類配置。
 
 ---
 
@@ -24,8 +24,8 @@
 本專案內建了升級版的網頁版管理後台，讓資料維護更加智慧化：
 
 ### 1. 開啟管理後台
-在瀏覽器中打開您的管理後台網址[cite: 1]：
-> https://shibashika.github.io/hsr-banner/editor.html[cite: 1]
+在瀏覽器中打開您的管理後台網址：
+> https://shibashika.github.io/hsr-banner/editor.html
 
 ### 2. 智慧化資料編輯特色
 * **版本與角色智慧推斷**：
@@ -34,7 +34,7 @@
 * **年度摺疊與彈出選單**：版本管理支援以 4 月 26 日週年為基準的年度分區與點擊摺疊，並可透過彈出式版本選單快速點選調整。
 
 ### 3. 套用更新至專案
-1. 在管理後台完成編輯後，點擊下方的 **「複製 Characters」** 或 **「複製 Patches」** 按鈕[cite: 1]。
+1. 在管理後台完成編輯後，點擊下方的 **「複製 Characters」** 或 **「複製 Patches」** 按鈕。
 2. 匯出的程式碼格式已優化：**第一行**會自動帶入更新日期（例如 `// 更新日期: 2026/07/21`），**第二行**為空行，**第三行**起開始輸出對應的變數資料。
-3. 至 GitHub 專案的 `js/` 資料夾中，開啟對應的檔案 (`characters.js` 或 `patches.js`) 進行編輯[cite: 1]。
-4. 貼上新產生的程式碼並儲存 (`Commit changes`)，等待幾十秒後即可在主頁面看到最新內容[cite: 1]。
+3. 至 GitHub 專案的 `js/` 資料夾中，開啟對應的檔案 (`characters.js` 或 `patches.js`) 進行編輯。
+4. 貼上新產生的程式碼並儲存 (`Commit changes`)，等待幾十秒後即可在主頁面看到最新內容。
