@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>崩壞：星穹鐵道 - 限定躍遷資料編輯器 (HSR Banner Tracker Editor)</title>
-    <!-- 載入所有相關的資料與設定檔 -->
     <script src="js/patches.js"></script>
     <script src="js/paths.js"></script>
     <script src="js/elements.js"></script>
@@ -15,27 +14,23 @@
         .container { max-width: 1300px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         h1 { margin-top: 0; font-size: 24px; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         
-        /* 頁籤樣式 */
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab-btn { background: #222; color: #aaa; border: 1px solid var(--border); padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .tab-btn.active { background: var(--primary); color: #fff; border-color: #5575b5; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        /* 表格與表單樣式 (角色管理專用) */
         table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 14px; }
         th, td { border: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: middle; }
         th { background: #2a2a2a; text-align: center; }
         input[type="text"], input[type="date"], select { padding: 5px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
-        /* 版本管理專用網格排版 */
         .patches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 15px; }
         .patch-card { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px; display: flex; align-items: center; gap: 8px; justify-content: space-between; transition: 0.2s; }
         .patch-card:hover { border-color: #555; background: #222; }
         .patch-card .input-group { display: flex; gap: 6px; flex: 1; }
 
-        /* 按鈕樣式 */
         .btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
         .btn:hover { background: #444; }
         .btn-add { background: #2d5a2d; border-color: #4a8a4a; margin-top: 10px; display: inline-block; }
@@ -45,12 +40,10 @@
         .btn-export { background: var(--primary); font-size: 16px; padding: 10px 20px; border-color: #5575b5; }
         .btn-export:hover { background: #3b558c; }
 
-        /* 輸出區塊 */
         .export-area { margin-top: 30px; padding-top: 20px; border-top: 2px dashed var(--border); }
         textarea { width: 100%; height: 150px; background: #111; color: #8ef9f3; border: 1px solid #555; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 13px; box-sizing: border-box; margin-bottom: 15px; }
         .success-msg { color: #86efac; font-size: 14px; display: none; margin-left: 10px; }
 
-        /* 右側懸浮導航按鈕 */
         .quick-nav {
             position: fixed;
             right: 25px;
@@ -94,7 +87,6 @@
             <button class="tab-btn" onclick="switchTab('patches')">📅 版本管理 (patches.js)</button>
         </div>
 
-        <!-- 角色管理區塊 -->
         <div id="tab-chars" class="tab-content active">
             <table>
                 <thead>
@@ -112,14 +104,12 @@
             <button class="btn btn-add" onclick="addCharRow()">+ 新增角色</button>
         </div>
 
-        <!-- 版本管理區塊 (年度分區網格化 + 可摺疊) -->
         <div id="tab-patches" class="tab-content">
-            <div style="margin-bottom: 5px; color: #aaa; font-size: 13px;">📌 點擊年度標題可展開或摺疊舊版本。系統會以每年 <b>04/26</b> 自動進行年度分區。</div>
+            <div style="margin-bottom: 5px; color: #aaa; font-size: 13px;">📌 點擊年度標題可展開或摺疊舊版本。支援動態版本長度與多期池(如上、中、下)，系統會自動以 <b>04/26</b> 為基準進行年度分區。</div>
             <div id="patches-container"></div>
             <button class="btn btn-add" onclick="addPatchRow()">+ 新增版本</button>
         </div>
 
-        <!-- 匯出與儲存區塊 -->
         <div class="export-area">
             <h3>📥 匯出修改後的檔案</h3>
             <div style="display: flex; gap: 20px;">
@@ -143,7 +133,6 @@
         </div>
     </div>
 
-    <!-- 右側懸浮導航按鈕 -->
     <div class="quick-nav">
         <button class="quick-nav-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'});" title="回到頁首">▲</button>
         <button class="quick-nav-btn" onclick="window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});" title="移至頁尾">▼</button>
@@ -213,7 +202,6 @@
             return "";
         }
 
-        // --- 輔助函式：版本日期格式轉換 (YY/MM/DD <-> YYYY-MM-DD) ---
         function formatPatchDateForInput(dateStr) {
             if (!dateStr) return "";
             const parts = dateStr.split('/');
@@ -233,7 +221,6 @@
             return "";
         }
 
-        // --- 渲染與操作：角色 ---
         function renderChars() {
             const tbody = document.getElementById('chars-tbody');
             if (!tbody) return;
@@ -394,7 +381,7 @@
             }
         }
 
-        // --- 渲染與操作：版本 (動態 04/26 年度分區 + 摺疊功能) ---
+        // --- 核心進化：動態辨識與動態跨年判定 ---
         function renderPatches() {
             const container = document.getElementById('patches-container');
             if (!container) return;
@@ -402,11 +389,14 @@
             
             if (patchesData.length === 0) return;
 
-            // 1. 將上下版根據「大版本編號」進行群組化
+            // 1. 萃取純數字大版本 (完美處理 "3.8上", "3.8中", "3.8下")
             const baseGroups = {};
             const groupOrder = []; 
             patchesData.forEach((p, index) => {
-                const baseName = (p.patch || "").replace(/[上下]+$/, '');
+                // 利用正則表達式，剔除所有非數字和小數點的字元（如：上、中、下、第一期）
+                let baseName = (p.patch || "").replace(/[^0-9.]/g, ''); 
+                if (!baseName) baseName = "other"; // 防呆機制
+                
                 if (!baseGroups[baseName]) {
                     baseGroups[baseName] = [];
                     groupOrder.push(baseName);
@@ -414,15 +404,16 @@
                 baseGroups[baseName].push({ ...p, originalIndex: index });
             });
 
-            // 2. 依照大版本計算所屬年度
+            // 2. 依照大版本的跨越邊界計算所屬年度
             const years = [];
             let currentYear = 1;
             let nextAnniversaryYear = 2024;
             let currentYearPatches = [];
 
-            groupOrder.forEach(baseName => {
+            groupOrder.forEach((baseName, i) => {
                 const group = baseGroups[baseName];
                 
+                // 找出該群組的最晚時間
                 let maxTime = 0;
                 group.forEach(p => {
                     const parts = (p.date || "").split('/');
@@ -432,15 +423,32 @@
                     }
                 });
                 
-                const endOfPatchTime = maxTime + (21 * 24 * 60 * 60 * 1000); 
-                const anniversaryTime = new Date(nextAnniversaryYear, 3, 26).getTime();
+                // 決定此大版本的「邊界結束時間」。直接找「下一個大版本的起始日」作為判定基準。
+                let endOfPatchTime = maxTime + (21 * 24 * 60 * 60 * 1000); // 預設 +21 天 (防止是最後一個版本)
+                if (i < groupOrder.length - 1) {
+                    const nextGroupName = groupOrder[i + 1];
+                    let nextMinTime = Infinity;
+                    baseGroups[nextGroupName].forEach(p => {
+                        const parts = (p.date || "").split('/');
+                        if (parts.length === 3) {
+                            const time = new Date(2000 + parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                            if (time < nextMinTime) nextMinTime = time;
+                        }
+                    });
+                    if (nextMinTime !== Infinity) {
+                        endOfPatchTime = nextMinTime;
+                    }
+                }
                 
-                if (endOfPatchTime >= anniversaryTime && maxTime > 0) {
+                const anniversaryTime = new Date(nextAnniversaryYear, 3, 26).getTime(); // 3 代表 4 月
+                
+                // 若這個大版本的有效跨度 (直到下個大版本開啟前) 涵蓋了 04/26，就分進新的一年
+                if (endOfPatchTime > anniversaryTime && maxTime > 0) {
                     if (currentYearPatches.length > 0) {
                         years.push({ yearNum: currentYear, patches: currentYearPatches });
                         currentYearPatches = [];
                     }
-                    while (endOfPatchTime >= new Date(nextAnniversaryYear, 3, 26).getTime()) {
+                    while (endOfPatchTime > new Date(nextAnniversaryYear, 3, 26).getTime()) {
                         currentYear++;
                         nextAnniversaryYear++;
                     }
@@ -453,9 +461,9 @@
                 years.push({ yearNum: currentYear, patches: currentYearPatches });
             }
 
-            // 3. 渲染年度區塊、網格與摺疊邏輯
+            // 3. 渲染年度區塊
             years.forEach((yearData, yIdx) => {
-                const isLatest = (yIdx === years.length - 1); // 判斷是否為最新一年
+                const isLatest = (yIdx === years.length - 1);
                 
                 const header = document.createElement('h3');
                 header.style.cssText = 'color: #a5c8ff; border-bottom: 1px solid #444; padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px; font-size: 18px; display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;';
@@ -464,7 +472,6 @@
                 const firstPatch = yearData.patches[0].patch;
                 const lastPatch = yearData.patches[yearData.patches.length - 1].patch;
                 
-                // 預設最新一年展開(true)，其餘舊年份摺疊(false)
                 let isExpanded = isLatest;
 
                 header.innerHTML = `
@@ -478,7 +485,6 @@
                 grid.className = 'patches-grid';
                 grid.style.display = isExpanded ? 'grid' : 'none';
 
-                // 點擊標題切換摺疊狀態
                 header.addEventListener('click', () => {
                     isExpanded = !isExpanded;
                     grid.style.display = isExpanded ? 'grid' : 'none';
@@ -525,7 +531,6 @@
             }
         }
 
-        // --- 核心：匯出程式碼 ---
         function generateJSString(varName, data) {
             let json = JSON.stringify(data, null, 4);
             let jsString = json.replace(/"([^"]+)":/g, '$1:');
@@ -556,7 +561,6 @@
             });
         }
 
-        // 初始化渲染
         renderChars();
         renderPatches();
     </script>
