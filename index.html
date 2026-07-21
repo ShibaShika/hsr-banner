@@ -157,7 +157,7 @@
                 `<label><input type="checkbox" class="elem-item" value="${e}" checked> ${e}</label>`
             ).join('');
 
-            // 構建表頭 1 (日期) - 移除寬度擠壓源
+            // 構建表頭 1 (日期)
             let html = '<thead><tr><th></th>';
             reversedPatches.forEach(p => {
                 const isCurrent = (p.patch === activePatchName);
@@ -202,7 +202,8 @@
                     if (char.isCollab) {
                         const collabStart = char.isCollab;
                         const sIdx = patchesList.indexOf(collabStart);
-                        const spanCount = Math.min(6, sIdx);
+                        // 將跨越欄位由上限 6 改為 5
+                        const spanCount = Math.min(5, sIdx);
                         
                         if (pIdx < sIdx) {
                             if (pIdx === sIdx - spanCount) {
@@ -268,7 +269,8 @@
                         if (parts.length === 3) {
                             dateStr = `${parts[1]}/${parts[2]}`;
                         }
-                        html += `<td colspan="${cell.count}" class="collab-text${currentColClass}">← ${dateStr} 後長期開放</td>`;
+                        // 移除所有中間空格，改為緊密顯示
+                        html += `<td colspan="${cell.count}" class="collab-text${currentColClass}">←${dateStr}後長期開放</td>`;
                         return;
                     }
 
