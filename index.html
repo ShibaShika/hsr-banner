@@ -202,13 +202,11 @@
                     
                     if (cell.status === 'COLLAB_SPAN') {
                         let rawDate = char.collabDate || char.isCollab;
-                        // 自動解析並只取 mm/dd（支援 YYYY/MM/DD 或 YYYY-MM-DD 格式）
                         const parts = rawDate.split(/[\/\-]/);
                         let dateStr = rawDate;
                         if (parts.length === 3) {
                             dateStr = `${parts[1]}/${parts[2]}`;
                         }
-                        // 加上向左的箭頭與文字
                         html += `<td colspan="${cell.count}" class="collab-text">← ${dateStr} 後長期開放</td>`;
                         return;
                     }
@@ -382,8 +380,7 @@
 
             scaleSlider.addEventListener('input', (e) => {
                 const scaleValue = e.target.value;
-                table.style.transform = `scale(${scaleValue})`;
-                table.style.transformOrigin = 'top left';
+                table.style.zoom = scaleValue; // 改用 zoom 屬性以完美支援 sticky 定位與排版
                 scaleText.textContent = Math.round(scaleValue * 100) + '%';
             });
         }
