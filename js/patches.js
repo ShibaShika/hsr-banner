@@ -1,3 +1,4 @@
+// 更新日期: 2026/07/21
 const PATCH_DATA = [
     {
         patch: "1.0上",
