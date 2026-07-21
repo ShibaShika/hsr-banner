@@ -26,7 +26,7 @@
         input[type="text"], input[type="date"], select { padding: 5px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
-        /* 彈出式版本選單與選項卡片 (內建刪除格子按鈕) */
+        /* 彈出式版本選單與頂部刪除鈕 */
         .picker-trigger {
             background: #161616;
             border: 1px solid #555;
@@ -57,43 +57,40 @@
             width: 280px;
         }
         .picker-popup.show { display: block; }
-        .picker-major-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; border-bottom: 1px solid #444; padding-bottom: 6px; }
+        
+        .picker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 6px;
+        }
+        .picker-major-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
         .major-tab { background: #222; color: #aaa; border: 1px solid #444; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .major-tab.active { background: var(--primary); color: #fff; border-color: #5575b5; }
-        .picker-options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; max-height: 180px; overflow-y: auto; }
         
-        .picker-option-card {
-            background: #222;
-            border: 1px solid #444;
-            border-radius: 3px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 4px 6px;
-            cursor: pointer;
-            transition: 0.1s;
-        }
-        .picker-option-card:hover { background: #2a2a2a; border-color: #777; }
-        .picker-option-card.selected { background: var(--primary); border-color: #5575b5; }
-        .picker-option-text { font-size: 11px; color: #ddd; flex: 1; text-align: left; }
-        .picker-option-card.selected .picker-option-text { color: #fff; font-weight: bold; }
-        
-        .picker-delete-btn {
+        .picker-remove-current-btn {
             background: #7a2222;
             color: #fff;
             border: none;
-            border-radius: 2px;
-            width: 16px;
-            height: 16px;
-            font-size: 9px;
+            border-radius: 3px;
+            width: 20px;
+            height: 20px;
+            font-size: 10px;
+            font-weight: bold;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            opacity: 0.8;
             transition: 0.1s;
         }
-        .picker-delete-btn:hover { opacity: 1; background: #9c2e2e; }
+        .picker-remove-current-btn:hover { background: #9c2e2e; }
+
+        .picker-options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; max-height: 180px; overflow-y: auto; }
+        .picker-option { background: #222; border: 1px solid #444; color: #ddd; padding: 6px; text-align: center; border-radius: 3px; cursor: pointer; font-size: 11px; }
+        .picker-option:hover { background: #333; border-color: #777; color: #fff; }
+        .picker-option.selected { background: var(--primary); border-color: #5575b5; color: #fff; font-weight: bold; }
 
         .patches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 15px; }
         .patch-card { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px; display: flex; align-items: center; gap: 8px; justify-content: space-between; transition: 0.2s; }
@@ -202,9 +199,12 @@
         </div>
     </div>
 
-    <!-- 彈出式版本選單容器 (內建版本格子刪除鈕) -->
+    <!-- 彈出式版本選單容器 (頂部標題列右側含單一刪除鈕) -->
     <div id="custom-patch-picker" class="picker-popup">
-        <div class="picker-major-tabs" id="picker-majors"></div>
+        <div class="picker-header">
+            <div class="picker-major-tabs" id="picker-majors"></div>
+            <button class="picker-remove-current-btn" id="picker-remove-btn" title="移除此版本格">✕</button>
+        </div>
         <div class="picker-options-grid" id="picker-options"></div>
     </div>
 
@@ -297,7 +297,7 @@
             return "";
         }
 
-        // --- 全域版本挑選器邏輯 (內含版本格移除功能) ---
+        // --- 全域版本挑選器邏輯 (頂部含單一刪除格按鈕) ---
         let activePickerCallback = null;
         let pickerSelectedMajor = null;
         let activeCharIndex = null;
@@ -327,6 +327,19 @@
             popup.style.top = `${rect.bottom + window.scrollY + 4}px`;
             popup.style.left = `${rect.left + window.scrollX}px`;
             popup.classList.add('show');
+
+            // 只有一般多期版本的 runs 格子才顯示頂部的刪除按鈕，term 暫不顯示或隱藏
+            const removeBtn = document.getElementById('picker-remove-btn');
+            if (activeRunIndex !== null) {
+                removeBtn.style.display = 'flex';
+                removeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    closePicker();
+                    removeRun(activeCharIndex, activeRunIndex);
+                };
+            } else {
+                removeBtn.style.display = 'none';
+            }
 
             const cleanBase = currentValue.replace(/[^0-9.]/g, '');
             const defaultMajor = cleanBase.split('.')[0] ? cleanBase.split('.')[0] + '.X' : Object.keys(getPatchHierarchy())[0];
@@ -388,35 +401,15 @@
             }
 
             allOptions.forEach(opt => {
-                const card = document.createElement('div');
-                card.className = `picker-option-card ${opt === currentValue ? 'selected' : ''}`;
-                
-                // 點擊文字套用版本
-                const textSpan = document.createElement('span');
-                textSpan.className = 'picker-option-text';
-                textSpan.textContent = opt;
-                textSpan.onclick = (e) => {
+                const cell = document.createElement('div');
+                cell.className = `picker-option ${opt === currentValue ? 'selected' : ''}`;
+                cell.textContent = opt;
+                cell.onclick = (e) => {
                     e.stopPropagation();
                     if (activePickerCallback) activePickerCallback(opt);
                     closePicker();
                 };
-
-                // 點擊右側 ✕ 按鈕：移除該角色的這個版本格
-                const delBtn = document.createElement('button');
-                delBtn.className = 'picker-delete-btn';
-                delBtn.textContent = '✕';
-                delBtn.title = '移除此版本格';
-                delBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    closePicker();
-                    if (activeCharIndex !== null && activeRunIndex !== null) {
-                        removeRun(activeCharIndex, activeRunIndex);
-                    }
-                };
-
-                card.appendChild(textSpan);
-                card.appendChild(delBtn);
-                optionsContainer.appendChild(card);
+                optionsContainer.appendChild(cell);
             });
         }
 
