@@ -92,16 +92,41 @@
         .picker-option:hover { background: #333; border-color: #777; color: #fff; }
         .picker-option.selected { background: var(--primary); border-color: #5575b5; color: #fff; font-weight: bold; }
 
-        .patches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 15px; }
-        .patch-card { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px; display: flex; align-items: center; gap: 8px; justify-content: space-between; transition: 0.2s; }
+        .patches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 15px; }
+        .patch-card { 
+            background: #1a1a1a; 
+            border: 1px solid #333; 
+            border-radius: 6px; 
+            padding: 8px 10px; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            justify-content: space-between; 
+            box-sizing: border-box;
+            transition: 0.2s; 
+        }
         .patch-card:hover { border-color: #555; background: #222; }
-        .patch-card .input-group { display: flex; gap: 6px; flex: 1; }
+        .patch-card .input-group { 
+            display: flex; 
+            gap: 6px; 
+            flex: 1; 
+            min-width: 0; 
+        }
+        .patch-card input[type="text"] {
+            width: 70px;
+            flex-shrink: 0;
+            text-align: center;
+        }
+        .patch-card input[type="date"] {
+            flex: 1;
+            min-width: 0;
+        }
 
         .btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
         .btn:hover { background: #444; }
         .btn-add { background: #2d5a2d; border-color: #4a8a4a; margin-top: 10px; display: inline-block; }
         .btn-add:hover { background: #3a753a; }
-        .btn-danger { background: #7a2222; border-color: #b53838; padding: 4px 8px; font-size: 12px; }
+        .btn-danger { background: #7a2222; border-color: #b53838; padding: 4px 8px; font-size: 12px; flex-shrink: 0; }
         .btn-danger:hover { background: #9c2e2e; }
         .btn-export { background: var(--primary); font-size: 16px; padding: 10px 20px; border-color: #5575b5; }
         .btn-export:hover { background: #3b558c; }
@@ -702,10 +727,10 @@
                     card.className = 'patch-card';
                     card.innerHTML = `
                         <div class="input-group">
-                            <input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)" style="width: 70px; text-align: center;" placeholder="版本名稱">
-                            <input type="date" value="${inputDateVal}" onchange="updatePatchDate(${index}, this.value)" style="width: 130px;" title="版本日期">
+                            <input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)" placeholder="版本名稱">
+                            <input type="date" value="${inputDateVal}" onchange="updatePatchDate(${index}, this.value)" title="版本日期">
                         </div>
-                        <button class="btn btn-danger" style="padding: 4px 8px; border: none; font-weight: bold;" onclick="deletePatch(${index})" title="刪除">✕</button>
+                        <button class="btn btn-danger" onclick="deletePatch(${index})" title="刪除">✕</button>
                     `;
                     grid.appendChild(card);
                 });
