@@ -131,27 +131,27 @@ tr:hover td:first-child { filter: none !important; }
     user-select: none;
 }
 
-/* ===== 紫羅蘭霓虹高亮 (確保 Sticky 捲動不消失、零撐寬) ===== */
+/* ===== 質感琥珀金高亮 (零撐寬版) ===== */
 
-/* 1. 當前版本表頭 (第一行日期)：深紫底色 + 亮紫文字 + 頂部螢光強光條 */
+/* 1. 當前版本表頭 (第一行日期)：深琥珀金背景 + 亮金文字 + 頂部黃金強光條 */
 thead tr:nth-child(1) th.current-patch-col {
-    background-color: #2e1065 !important;
-    color: #f3e8ff !important;
-    border-top: 3px solid #c084fc !important;
+    background-color: #382c00 !important;
+    color: #ffe680 !important;
+    border-top: 3px solid #ffd700 !important;
 }
 
-/* 2. 當前版本表頭 (第二行版本號)：紫羅蘭霓虹發光字體 */
+/* 2. 當前版本表頭 (第二行版本號)：黃金發光字體 */
 thead tr:nth-child(2) th.current-patch-col {
-    background-color: #2e1065 !important;
-    color: #c084fc !important;
+    background-color: #382c00 !important;
+    color: #ffd700 !important;
     font-weight: bold;
-    text-shadow: 0 0 8px rgba(192, 132, 252, 0.8);
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.6);
 }
 
-/* 3. 當前版本整欄內文：紫羅蘭微光底色與清晰側邊界 */
+/* 3. 當前版本整欄內文：琥珀金微光底色與清晰左右分界線 */
 #tracker th.current-patch-col,
 #tracker td.current-patch-col {
-    box-shadow: inset 0 0 0 9999px rgba(168, 85, 247, 0.12) !important;
-    border-left: 1px solid rgba(192, 132, 252, 0.5) !important;
-    border-right: 1px solid rgba(192, 132, 252, 0.5) !important;
+    box-shadow: inset 0 0 0 9999px rgba(212, 175, 55, 0.12) !important;
+    border-left: 1px solid rgba(212, 175, 55, 0.5) !important;
+    border-right: 1px solid rgba(212, 175, 55, 0.5) !important;
 }
