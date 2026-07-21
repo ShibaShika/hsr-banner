@@ -46,7 +46,8 @@
                 <input type="range" id="ui-scale-slider" min="0.7" max="1.4" step="0.05" value="1" style="cursor: pointer; width: 90px; accent-color: #666;">
                 <span id="ui-scale-text" style="min-width: 35px; text-align: right;">100%</span>
             </div>
-            <div style="font-size: 12px; color: #888; white-space: nowrap;">更新日期：2026/07/21</div>
+            <!-- 在這裡加上 span ID 來動態填入日期 -->
+            <div style="font-size: 12px; color: #888; white-space: nowrap;">更新日期：<span id="update-date-text">載入中...</span></div>
         </div>
     </div>
     
@@ -66,6 +67,25 @@
         }
 
         async function initTracker() {
+            // --- 新增功能：動態讀取 characters.js 的更新日期註解 ---
+            try {
+                const resDate = await fetch('js/characters.js');
+                if (resDate.ok) {
+                    const text = await resDate.text();
+                    // 尋找 // 更新日期: YYYY/MM/DD 的格式
+                    const match = text.match(/\/\/\s*更新日期[:：]\s*([0-9\/]+)/);
+                    if (match && match[1]) {
+                        document.getElementById('update-date-text').textContent = match[1];
+                    } else {
+                        document.getElementById('update-date-text').textContent = "未知";
+                    }
+                }
+            } catch (error) {
+                console.warn("無法讀取本地更新日期 (若在本地直接開啟 HTML 可能會因 CORS 遭阻擋):", error);
+                document.getElementById('update-date-text').textContent = "未知";
+            }
+            // --------------------------------------------------------
+
             try {
                 const res = await fetch('https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/cht/characters.json');
                 if (res.ok) {
