@@ -26,6 +26,45 @@
         input[type="text"], input[type="date"], select { padding: 5px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
+        /* 類似日期選擇器的彈出式按鈕與面板 */
+        .picker-trigger {
+            background: #161616;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            min-width: 65px;
+            user-select: none;
+        }
+        .picker-trigger:hover { border-color: #888; background: #222; }
+        
+        .picker-popup {
+            display: none;
+            position: fixed;
+            background: #1a1a1a;
+            border: 1px solid #5575b5;
+            border-radius: 6px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.7);
+            padding: 12px;
+            z-index: 9999;
+            width: 260px;
+        }
+        .picker-popup.show { display: block; }
+        .picker-major-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; border-bottom: 1px solid #444; padding-bottom: 6px; }
+        .major-tab { background: #222; color: #aaa; border: 1px solid #444; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .major-tab.active { background: var(--primary); color: #fff; border-color: #5575b5; }
+        .picker-options-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-height: 150px; overflow-y: auto; }
+        .picker-option { background: #222; border: 1px solid #444; color: #ddd; padding: 6px; text-align: center; border-radius: 3px; cursor: pointer; font-size: 11px; }
+        .picker-option:hover { background: #333; border-color: #777; color: #fff; }
+        .picker-option.selected { background: var(--primary); border-color: #5575b5; color: #fff; font-weight: bold; }
+
         .patches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 15px; }
         .patch-card { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px; display: flex; align-items: center; gap: 8px; justify-content: space-between; transition: 0.2s; }
         .patch-card:hover { border-color: #555; background: #222; }
@@ -105,7 +144,7 @@
         </div>
 
         <div id="tab-patches" class="tab-content">
-            <div style="margin-bottom: 5px; color: #aaa; font-size: 13px;">📌 點擊年度標題可展開或摺疊舊版本。請優先在此維護版本，角色管理將會直接讀取這裡的下拉選單。</div>
+            <div style="margin-bottom: 5px; color: #aaa; font-size: 13px;">📌 點擊年度標題可展開或摺疊舊版本。請優先在此維護版本，角色管理將會直接讀取這裡的選擇器。</div>
             <div id="patches-container"></div>
             <button class="btn btn-add" onclick="addPatchRow()">+ 新增版本</button>
         </div>
@@ -133,6 +172,12 @@
         </div>
     </div>
 
+    <!-- 共用的雙層點擊跳出式選單容器 -->
+    <div id="custom-patch-picker" class="picker-popup">
+        <div class="picker-major-tabs" id="picker-majors"></div>
+        <div class="picker-options-grid" id="picker-options"></div>
+    </div>
+
     <div class="quick-nav">
         <button class="quick-nav-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'});" title="回到頁首">▲</button>
         <button class="quick-nav-btn" onclick="window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});" title="移至頁尾">▼</button>
@@ -157,6 +202,7 @@
         }
 
         function switchTab(tab) {
+            closePicker();
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(`tab-${tab}`).classList.add('active');
@@ -221,7 +267,10 @@
             return "";
         }
 
-        // --- 核心工具：取得大版本群組與二層選單結構 ---
+        // --- 全域版本挑選器邏輯 (類似日期選擇器彈窗) ---
+        let activePickerCallback = null;
+        let pickerSelectedMajor = null;
+
         function getPatchHierarchy() {
             const groups = {};
             patchesData.forEach(p => {
@@ -236,6 +285,92 @@
             return groups;
         }
 
+        function openPatchPicker(currentValue, buttonEl, callback) {
+            const popup = document.getElementById('custom-patch-picker');
+            activePickerCallback = callback;
+
+            // 定位彈窗在按鈕下方
+            const rect = buttonEl.getBoundingClientRect();
+            popup.style.top = `${rect.bottom + window.scrollY + 4}px`;
+            popup.style.left = `${rect.left + window.scrollX}px`;
+            popup.classList.add('show');
+
+            // 自動決定預設顯示的大版本
+            const cleanBase = currentValue.replace(/[^0-9.]/g, '');
+            const defaultMajor = cleanBase.split('.')[0] ? cleanBase.split('.')[0] + '.X' : Object.keys(getPatchHierarchy())[0];
+            pickerSelectedMajor = defaultMajor;
+
+            renderPickerContent(currentValue);
+
+            // 點擊外部關閉
+            setTimeout(() => {
+                document.addEventListener('click', closePickerOnClickOutside);
+            }, 10);
+        }
+
+        function closePicker() {
+            const popup = document.getElementById('custom-patch-picker');
+            popup.classList.remove('show');
+            document.removeEventListener('click', closePickerOnClickOutside);
+        }
+
+        function closePickerOnClickOutside(e) {
+            const popup = document.getElementById('custom-patch-picker');
+            if (!popup.contains(e.target) && !e.target.classList.contains('picker-trigger')) {
+                closePicker();
+            }
+        }
+
+        function renderPickerContent(currentValue) {
+            const hierarchy = getPatchHierarchy();
+            const majorsContainer = document.getElementById('picker-majors');
+            const optionsContainer = document.getElementById('picker-options');
+            
+            majorsContainer.innerHTML = '';
+            optionsContainer.innerHTML = '';
+
+            const majors = Object.keys(hierarchy);
+            if (majors.length === 0) {
+                optionsContainer.innerHTML = '<div style="grid-column: span 3; color: #888; text-align: center; font-size: 11px;">尚無版本資料</div>';
+                return;
+            }
+
+            if (!pickerSelectedMajor || !hierarchy[pickerSelectedMajor]) {
+                pickerSelectedMajor = majors[0];
+            }
+
+            // 渲染第一層：大版本 Tab
+            majors.forEach(major => {
+                const tab = document.createElement('div');
+                tab.className = `major-tab ${major === pickerSelectedMajor ? 'active' : ''}`;
+                tab.textContent = major;
+                tab.onclick = (e) => {
+                    e.stopPropagation();
+                    pickerSelectedMajor = major;
+                    renderPickerContent(currentValue);
+                };
+                majorsContainer.appendChild(tab);
+            });
+
+            // 渲染第二層：該大版本底下的所有具體版本方格
+            let allOptions = [];
+            for (let base in hierarchy[pickerSelectedMajor]) {
+                allOptions = allOptions.concat(hierarchy[pickerSelectedMajor][base]);
+            }
+
+            allOptions.forEach(opt => {
+                const cell = document.createElement('div');
+                cell.className = `picker-option ${opt === currentValue ? 'selected' : ''}`;
+                cell.textContent = opt;
+                cell.onclick = (e) => {
+                    e.stopPropagation();
+                    if (activePickerCallback) activePickerCallback(opt);
+                    closePicker();
+                };
+                optionsContainer.appendChild(cell);
+            });
+        }
+
         // --- 渲染與操作：角色 ---
         function renderChars() {
             const tbody = document.getElementById('chars-tbody');
@@ -244,7 +379,6 @@
             
             const availablePaths = getDynamicOptions('path');
             const availableElems = getDynamicOptions('elem');
-            const patchHierarchy = getPatchHierarchy();
 
             charsData.forEach((char, index) => {
                 try {
@@ -287,7 +421,7 @@
                             </select>
                         </td>
                         <td>
-                            <div style="display: grid; grid-template-columns: max-content 105px 1fr; align-items: center; gap: 8px;">
+                            <div style="display: grid; grid-template-columns: max-content 110px 1fr; align-items: center; gap: 8px;">
                                 <select onchange="onTypeChange(${index}, this.value)" style="font-size: 12px; font-weight: bold; background: #222; padding-right: 20px;">
                                     <option value="normal" ${currentType === 'normal' ? 'selected' : ''}>一般角色</option>
                                     <option value="pool" ${currentType === 'pool' ? 'selected' : ''}>星緣相邀</option>
@@ -297,10 +431,9 @@
 
                                 <div>
                                     ${(currentType === 'pool' || currentType === 'shop') ? `
-                                        <select onchange="updateTermPatch(${index}, this.value)" style="width: 100%; font-size: 12px; text-align: center;">
-                                            <option value="">選擇版本</option>
-                                            ${patchesData.map(p => `<option value="${p.patch}" ${termPatch === p.patch ? 'selected' : ''}>${p.patch}</option>`).join('')}
-                                        </select>
+                                        <div class="picker-trigger" onclick="openPatchPicker('${termPatch}', this, (val) => { updateTermPatch(${index}, val); renderChars(); })">
+                                            <span>${termPatch || '選擇版本'}</span> <span>▼</span>
+                                        </div>
                                     ` : ''}
                                     ${currentType === 'collab' ? `
                                         <input type="date" value="${dateInputValue}" onchange="updateCollabDate(${index}, this.value)" style="width: 100%; font-size: 12px;" title="聯動日期">
@@ -310,27 +443,14 @@
                                 <div>
                                     ${currentType !== 'collab' ? `
                                         <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
-                                            ${runs.map((run, rIdx) => {
-                                                // 找出目前 run 屬於哪個 1.X / 2.X / 3.X 大版本
-                                                const cleanRunBase = run.replace(/[^0-9.]/g, '');
-                                                const currentMajor = cleanRunBase.split('.')[0] ? cleanRunBase.split('.')[0] + '.X' : Object.keys(patchHierarchy)[0];
-                                                
-                                                return `
-                                                <div style="display: flex; align-items: center; gap: 2px; background: #222; padding: 2px 4px; border: 1px solid #555; border-radius: 3px;">
-                                                    <!-- 第一層：選擇 1.X, 2.X... -->
-                                                    <select onchange="onRunMajorChange(${index}, ${rIdx}, this.value)" style="font-size: 10px; background: #161616; color: #aaa; border: none; padding: 2px;">
-                                                        ${Object.keys(patchHierarchy).map(maj => `<option value="${maj}" ${maj === currentMajor ? 'selected' : ''}>${maj}</option>`).join('')}
-                                                    </select>
-                                                    <!-- 第二層：選擇具體版本 (如 2.1上, 2.1下) -->
-                                                    <select onchange="updateRun(${index}, ${rIdx}, this.value)" style="font-size: 11px; background: transparent; border: none; color: #fff; padding: 2px;">
-                                                        <option value="">選擇</option>
-                                                        ${getPatchesForMajor(patchHierarchy, currentMajor).map(pName => `
-                                                            <option value="${pName}" ${run === pName ? 'selected' : ''}>${pName}</option>
-                                                        `).join('')}
-                                                    </select>
+                                            ${runs.map((run, rIdx) => `
+                                                <div style="display: flex; align-items: center; gap: 4px; background: #222; padding: 2px 6px; border: 1px solid #555; border-radius: 3px;">
+                                                    <div class="picker-trigger" onclick="openPatchPicker('${run}', this, (val) => { updateRun(${index}, ${rIdx}, val); renderChars(); })">
+                                                        <span>${run || '選擇'}</span> <span>▼</span>
+                                                    </div>
                                                     <button type="button" onclick="removeRun(${index}, ${rIdx})" style="background: #7a2222; color: #fff; border: none; border-radius: 2px; width: 14px; height: 14px; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="刪除">✕</button>
                                                 </div>
-                                            `}).join('')}
+                                            `).join('')}
                                             <button type="button" class="btn" style="padding: 2px 6px; font-size: 11px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addRun(${index})" title="新增版本格">＋</button>
                                         </div>
                                     ` : `
@@ -348,27 +468,6 @@
                     console.error("渲染角色出錯: ", err);
                 }
             });
-        }
-
-        // 輔助：根據大版本取得對應的所有版本名稱
-        function getPatchesForMajor(hierarchy, majorKey) {
-            if (!hierarchy[majorKey]) return [];
-            let list = [];
-            for (let base in hierarchy[majorKey]) {
-                list = list.concat(hierarchy[majorKey][base]);
-            }
-            return list;
-        }
-
-        function onRunMajorChange(index, rIndex, majorKey) {
-            const hierarchy = getPatchHierarchy();
-            const patches = getPatchesForMajor(hierarchy, majorKey);
-            if (patches.length > 0) {
-                updateRun(index, rIndex, patches[0]); // 切換大版本時預設帶入該大版本的第一個選項
-            } else {
-                updateRun(index, rIndex, "");
-            }
-            renderChars();
         }
 
         function updateChar(index, key, value) { charsData[index][key] = value; }
