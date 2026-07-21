@@ -105,7 +105,7 @@
         </div>
 
         <div id="tab-patches" class="tab-content">
-            <div style="margin-bottom: 5px; color: #aaa; font-size: 13px;">📌 點擊年度標題可展開或摺疊舊版本。支援動態版本長度與多期池(如上、中、下)，系統會自動以 <b>04/26</b> 為基準進行年度分區。</div>
+            <div style="margin-bottom: 5px; color: #aaa; font-size: 13px;">📌 點擊年度標題可展開或摺疊舊版本。請優先在此維護版本，角色管理將會直接讀取這裡的下拉選單。</div>
             <div id="patches-container"></div>
             <button class="btn btn-add" onclick="addPatchRow()">+ 新增版本</button>
         </div>
@@ -221,6 +221,22 @@
             return "";
         }
 
+        // --- 核心工具：取得大版本群組與二層選單結構 ---
+        function getPatchHierarchy() {
+            const groups = {};
+            patchesData.forEach(p => {
+                const raw = p.patch || "";
+                const base = raw.replace(/[^0-9.]/g, '') || "其他";
+                const major = base.split('.')[0] ? base.split('.')[0] + '.X' : '其他';
+                
+                if (!groups[major]) groups[major] = {};
+                if (!groups[major][base]) groups[major][base] = [];
+                groups[major][base].push(raw);
+            });
+            return groups;
+        }
+
+        // --- 渲染與操作：角色 ---
         function renderChars() {
             const tbody = document.getElementById('chars-tbody');
             if (!tbody) return;
@@ -228,6 +244,7 @@
             
             const availablePaths = getDynamicOptions('path');
             const availableElems = getDynamicOptions('elem');
+            const patchHierarchy = getPatchHierarchy();
 
             charsData.forEach((char, index) => {
                 try {
@@ -280,7 +297,10 @@
 
                                 <div>
                                     ${(currentType === 'pool' || currentType === 'shop') ? `
-                                        <input type="text" value="${termPatch}" placeholder="起始版本" onchange="updateTermPatch(${index}, this.value)" style="width: 100%; font-size: 12px; text-align: center;">
+                                        <select onchange="updateTermPatch(${index}, this.value)" style="width: 100%; font-size: 12px; text-align: center;">
+                                            <option value="">選擇版本</option>
+                                            ${patchesData.map(p => `<option value="${p.patch}" ${termPatch === p.patch ? 'selected' : ''}>${p.patch}</option>`).join('')}
+                                        </select>
                                     ` : ''}
                                     ${currentType === 'collab' ? `
                                         <input type="date" value="${dateInputValue}" onchange="updateCollabDate(${index}, this.value)" style="width: 100%; font-size: 12px;" title="聯動日期">
@@ -290,12 +310,27 @@
                                 <div>
                                     ${currentType !== 'collab' ? `
                                         <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
-                                            ${runs.map((run, rIdx) => `
+                                            ${runs.map((run, rIdx) => {
+                                                // 找出目前 run 屬於哪個 1.X / 2.X / 3.X 大版本
+                                                const cleanRunBase = run.replace(/[^0-9.]/g, '');
+                                                const currentMajor = cleanRunBase.split('.')[0] ? cleanRunBase.split('.')[0] + '.X' : Object.keys(patchHierarchy)[0];
+                                                
+                                                return `
                                                 <div style="display: flex; align-items: center; gap: 2px; background: #222; padding: 2px 4px; border: 1px solid #555; border-radius: 3px;">
-                                                    <input type="text" value="${run}" onchange="updateRun(${index}, ${rIdx}, this.value)" style="width: 50px; font-size: 11px; padding: 2px; background: transparent; border: none; color: #fff; text-align: center;">
+                                                    <!-- 第一層：選擇 1.X, 2.X... -->
+                                                    <select onchange="onRunMajorChange(${index}, ${rIdx}, this.value)" style="font-size: 10px; background: #161616; color: #aaa; border: none; padding: 2px;">
+                                                        ${Object.keys(patchHierarchy).map(maj => `<option value="${maj}" ${maj === currentMajor ? 'selected' : ''}>${maj}</option>`).join('')}
+                                                    </select>
+                                                    <!-- 第二層：選擇具體版本 (如 2.1上, 2.1下) -->
+                                                    <select onchange="updateRun(${index}, ${rIdx}, this.value)" style="font-size: 11px; background: transparent; border: none; color: #fff; padding: 2px;">
+                                                        <option value="">選擇</option>
+                                                        ${getPatchesForMajor(patchHierarchy, currentMajor).map(pName => `
+                                                            <option value="${pName}" ${run === pName ? 'selected' : ''}>${pName}</option>
+                                                        `).join('')}
+                                                    </select>
                                                     <button type="button" onclick="removeRun(${index}, ${rIdx})" style="background: #7a2222; color: #fff; border: none; border-radius: 2px; width: 14px; height: 14px; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="刪除">✕</button>
                                                 </div>
-                                            `).join('')}
+                                            `}).join('')}
                                             <button type="button" class="btn" style="padding: 2px 6px; font-size: 11px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addRun(${index})" title="新增版本格">＋</button>
                                         </div>
                                     ` : `
@@ -315,6 +350,27 @@
             });
         }
 
+        // 輔助：根據大版本取得對應的所有版本名稱
+        function getPatchesForMajor(hierarchy, majorKey) {
+            if (!hierarchy[majorKey]) return [];
+            let list = [];
+            for (let base in hierarchy[majorKey]) {
+                list = list.concat(hierarchy[majorKey][base]);
+            }
+            return list;
+        }
+
+        function onRunMajorChange(index, rIndex, majorKey) {
+            const hierarchy = getPatchHierarchy();
+            const patches = getPatchesForMajor(hierarchy, majorKey);
+            if (patches.length > 0) {
+                updateRun(index, rIndex, patches[0]); // 切換大版本時預設帶入該大版本的第一個選項
+            } else {
+                updateRun(index, rIndex, "");
+            }
+            renderChars();
+        }
+
         function updateChar(index, key, value) { charsData[index][key] = value; }
 
         function updateRun(index, rIndex, value) {
@@ -324,7 +380,8 @@
 
         function addRun(index) {
             if (!charsData[index].runs) charsData[index].runs = [];
-            charsData[index].runs.push("");
+            const patches = patchesData.map(p => p.patch);
+            charsData[index].runs.push(patches.length > 0 ? patches[patches.length - 1] : "");
             renderChars();
         }
 
@@ -342,12 +399,12 @@
             } else if (type === 'pool' || type === 'shop') {
                 delete charsData[index].isCollab;
                 delete charsData[index].collabDate;
-                const currentPatch = charsData[index].term ? charsData[index].term.patch : "3.2上";
-                charsData[index].term = { type: type, patch: currentPatch };
+                const defaultP = patchesData.length > 0 ? patchesData[0].patch : "3.2上";
+                charsData[index].term = { type: type, patch: defaultP };
             } else if (type === 'collab') {
                 delete charsData[index].term;
                 charsData[index].runs = [];
-                charsData[index].isCollab = "4.4上";
+                charsData[index].isCollab = patchesData.length > 0 ? patchesData[0].patch : "4.4上";
                 charsData[index].collabDate = "2026/07/24";
             }
             renderChars();
@@ -381,7 +438,7 @@
             }
         }
 
-        // --- 核心進化：動態辨識與動態跨年判定 ---
+        // --- 渲染與操作：版本 (動態 04/26 年度分區 + 摺疊功能) ---
         function renderPatches() {
             const container = document.getElementById('patches-container');
             if (!container) return;
@@ -389,13 +446,11 @@
             
             if (patchesData.length === 0) return;
 
-            // 1. 萃取純數字大版本 (完美處理 "3.8上", "3.8中", "3.8下")
             const baseGroups = {};
             const groupOrder = []; 
             patchesData.forEach((p, index) => {
-                // 利用正則表達式，剔除所有非數字和小數點的字元（如：上、中、下、第一期）
                 let baseName = (p.patch || "").replace(/[^0-9.]/g, ''); 
-                if (!baseName) baseName = "other"; // 防呆機制
+                if (!baseName) baseName = "other";
                 
                 if (!baseGroups[baseName]) {
                     baseGroups[baseName] = [];
@@ -404,7 +459,6 @@
                 baseGroups[baseName].push({ ...p, originalIndex: index });
             });
 
-            // 2. 依照大版本的跨越邊界計算所屬年度
             const years = [];
             let currentYear = 1;
             let nextAnniversaryYear = 2024;
@@ -413,7 +467,6 @@
             groupOrder.forEach((baseName, i) => {
                 const group = baseGroups[baseName];
                 
-                // 找出該群組的最晚時間
                 let maxTime = 0;
                 group.forEach(p => {
                     const parts = (p.date || "").split('/');
@@ -423,8 +476,7 @@
                     }
                 });
                 
-                // 決定此大版本的「邊界結束時間」。直接找「下一個大版本的起始日」作為判定基準。
-                let endOfPatchTime = maxTime + (21 * 24 * 60 * 60 * 1000); // 預設 +21 天 (防止是最後一個版本)
+                let endOfPatchTime = maxTime + (21 * 24 * 60 * 60 * 1000); 
                 if (i < groupOrder.length - 1) {
                     const nextGroupName = groupOrder[i + 1];
                     let nextMinTime = Infinity;
@@ -440,9 +492,8 @@
                     }
                 }
                 
-                const anniversaryTime = new Date(nextAnniversaryYear, 3, 26).getTime(); // 3 代表 4 月
+                const anniversaryTime = new Date(nextAnniversaryYear, 3, 26).getTime();
                 
-                // 若這個大版本的有效跨度 (直到下個大版本開啟前) 涵蓋了 04/26，就分進新的一年
                 if (endOfPatchTime > anniversaryTime && maxTime > 0) {
                     if (currentYearPatches.length > 0) {
                         years.push({ yearNum: currentYear, patches: currentYearPatches });
@@ -461,7 +512,6 @@
                 years.push({ yearNum: currentYear, patches: currentYearPatches });
             }
 
-            // 3. 渲染年度區塊
             years.forEach((yearData, yIdx) => {
                 const isLatest = (yIdx === years.length - 1);
                 
