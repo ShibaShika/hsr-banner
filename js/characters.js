@@ -628,22 +628,22 @@ const RAW_CHARACTERS = [
     },
     {
         cid: null,
-        name: "Aventurine Waveflair",
-        path: "歡愉",
-        elem: "量子",
-        avatar: "",
-        runs: [
-            "4.5下"
-        ]
-    },
-    {
-        cid: null,
         name: "Robin Summeretto",
         path: "記憶",
         elem: "風",
         avatar: "",
         runs: [
             "4.5上"
+        ]
+    },
+    {
+        cid: null,
+        name: "Aventurine Waveflair",
+        path: "歡愉",
+        elem: "量子",
+        avatar: "",
+        runs: [
+            "4.5下"
         ]
     }
 ];
