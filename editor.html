@@ -727,7 +727,7 @@
                     card.className = 'patch-card';
                     card.innerHTML = `
                         <div class="input-group">
-                            <input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)" placeholder="版本名稱">
+                            <input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)" placeholder="新版本">
                             <input type="date" value="${inputDateVal}" onchange="updatePatchDate(${index}, this.value)" title="版本日期">
                         </div>
                         <button class="btn btn-danger" onclick="deletePatch(${index})" title="刪除">✕</button>
@@ -752,9 +752,33 @@
         }
         
         function addPatchRow() {
+            let nextPatchName = "";
             let newDateStr = "26/07/21";
+
             if (patchesData.length > 0) {
                 const lastPatch = patchesData[patchesData.length - 1];
+                
+                // 自動推斷下一版名稱 (例如 4.4下 -> 4.5上, 4.5上 -> 4.5下)
+                if (lastPatch && lastPatch.patch) {
+                    const match = lastPatch.patch.match(/^(\d+)\.(\d+)(上|下)?$/);
+                    if (match) {
+                        let major = parseInt(match[1]);
+                        let minor = parseInt(match[2]);
+                        let half = match[3];
+
+                        if (half === "上") {
+                            nextPatchName = `${major}.${minor}下`;
+                        } else if (half === "下") {
+                            minor += 1;
+                            nextPatchName = `${major}.${minor}上`;
+                        } else {
+                            // 若無上下標記，預設接上
+                            nextPatchName = `${major}.${minor}下`;
+                        }
+                    }
+                }
+
+                // 自動計算前一格日期 + 21 天
                 if (lastPatch && lastPatch.date) {
                     const parts = lastPatch.date.split('/');
                     if (parts.length === 3) {
@@ -771,7 +795,8 @@
                     }
                 }
             }
-            patchesData.push({ patch: "新版本", date: newDateStr });
+
+            patchesData.push({ patch: nextPatchName, date: newDateStr });
             renderPatches();
         }
 
