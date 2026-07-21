@@ -22,13 +22,19 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        /* 表格與表單樣式 */
+        /* 表格與表單樣式 (角色管理專用) */
         table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 14px; }
         th, td { border: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: middle; }
         th { background: #2a2a2a; text-align: center; }
         input[type="text"], input[type="date"], select { padding: 5px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
+        /* 版本管理專用網格排版 */
+        .patches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; margin-bottom: 15px; }
+        .patch-card { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px; display: flex; align-items: center; gap: 8px; justify-content: space-between; transition: 0.2s; }
+        .patch-card:hover { border-color: #555; background: #222; }
+        .patch-card .input-group { display: flex; gap: 6px; flex: 1; }
+
         /* 按鈕樣式 */
         .btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
         .btn:hover { background: #444; }
@@ -106,18 +112,10 @@
             <button class="btn btn-add" onclick="addCharRow()">+ 新增角色</button>
         </div>
 
-        <!-- 版本管理區塊 -->
+        <!-- 版本管理區塊 (改為網格排列) -->
         <div id="tab-patches" class="tab-content">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 40%;">版本名稱 (如: 4.5上)</th>
-                        <th style="width: 40%;">日期 (如: 26/03/15)</th>
-                        <th style="width: 20%;">操作</th>
-                    </tr>
-                </thead>
-                <tbody id="patches-tbody"></tbody>
-            </table>
+            <div style="margin-bottom: 15px; color: #aaa; font-size: 13px;">📌 按照順序排列。系統會自動抓取這裡的設定應用至主畫面。</div>
+            <div class="patches-grid" id="patches-container"></div>
             <button class="btn btn-add" onclick="addPatchRow()">+ 新增版本</button>
         </div>
 
@@ -145,7 +143,7 @@
         </div>
     </div>
 
-    <!-- 右側懸浮導航按鈕 (頁首 / 頁尾) -->
+    <!-- 右側懸浮導航按鈕 -->
     <div class="quick-nav">
         <button class="quick-nav-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'});" title="回到頁首">▲</button>
         <button class="quick-nav-btn" onclick="window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});" title="移至頁尾">▼</button>
@@ -155,7 +153,6 @@
         let charsData = typeof RAW_CHARACTERS !== 'undefined' ? [...RAW_CHARACTERS] : [];
         let patchesData = typeof PATCH_DATA !== 'undefined' ? [...PATCH_DATA] : [];
 
-        // 動態整合命途與屬性選項
         function getDynamicOptions(type) {
             let baseList = [];
             if (type === 'path') {
@@ -163,7 +160,6 @@
             } else {
                 baseList = typeof ELEM_ORDER !== 'undefined' ? ELEM_ORDER : ["火", "冰", "雷", "風", "物理", "量子", "虛數"];
             }
-            
             const set = new Set(baseList);
             charsData.forEach(char => {
                 if (char[type]) set.add(char[type]);
@@ -378,19 +374,23 @@
             }
         }
 
-        // --- 渲染與操作：版本 ---
+        // --- 渲染與操作：版本 (網格化) ---
         function renderPatches() {
-            const tbody = document.getElementById('patches-tbody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
+            const container = document.getElementById('patches-container');
+            if (!container) return;
+            container.innerHTML = '';
+            
             patchesData.forEach((p, index) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)" style="width: 100%;"></td>
-                    <td><input type="text" value="${p.date || ''}" onchange="updatePatch(${index}, 'date', this.value)" style="width: 100%;"></td>
-                    <td style="text-align: center;"><button class="btn btn-danger" onclick="deletePatch(${index})">刪除</button></td>
+                const card = document.createElement('div');
+                card.className = 'patch-card';
+                card.innerHTML = `
+                    <div class="input-group">
+                        <input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)" style="width: 70px; text-align: center;" placeholder="版本名稱">
+                        <input type="text" value="${p.date || ''}" onchange="updatePatch(${index}, 'date', this.value)" style="width: 85px; text-align: center;" placeholder="YY/MM/DD">
+                    </div>
+                    <button class="btn btn-danger" style="padding: 4px 8px; border: none; font-weight: bold;" onclick="deletePatch(${index})" title="刪除">✕</button>
                 `;
-                tbody.appendChild(tr);
+                container.appendChild(card);
             });
         }
 
