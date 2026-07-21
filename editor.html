@@ -26,7 +26,7 @@
         input[type="text"], input[type="date"], select { padding: 5px; background: #161616; border: 1px solid #555; color: #fff; border-radius: 3px; box-sizing: border-box; }
         input:focus, select:focus { border-color: #888; outline: none; }
         
-        /* 彈出式版本選單與自適應緊湊按鈕 */
+        /* 彈出式版本選單與緊湊按鈕 */
         .picker-trigger {
             background: #161616;
             border: 1px solid #555;
@@ -40,7 +40,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 4px;
-            width: auto; /* 改為自適應寬度，不再過寬 */
+            width: auto;
             user-select: none;
         }
         .picker-trigger:hover { border-color: #888; background: #222; }
@@ -680,7 +680,7 @@
 
                 header.innerHTML = `
                     <span class="collapse-icon" style="font-size: 14px; width: 16px; text-align: center;">${isExpanded ? '▼' : '▶'}</span>
-                    <span>🌟 第 ${yearData.yearNum} 年</span>
+                    <span>第 ${yearData.yearNum} 年</span>
                     <span style="color: #888; font-size: 14px; font-weight: normal;">(${firstPatch} ~ ${lastPatch})</span>
                 `;
                 container.appendChild(header);
