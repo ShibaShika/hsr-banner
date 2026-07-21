@@ -256,6 +256,11 @@
         let charsData = typeof RAW_CHARACTERS !== 'undefined' ? JSON.parse(initialCharsJson) : [];
         let patchesData = typeof PATCH_DATA !== 'undefined' ? JSON.parse(initialPatchesJson) : [];
 
+        function sanitizeName(name) {
+            if (!name) return "";
+            return name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+        }
+
         function getDynamicOptions(type) {
             let baseList = [];
             if (type === 'path') {
@@ -487,7 +492,7 @@
                     const isPathModified = char.path !== origChar.path;
                     const isElemModified = char.elem !== origChar.elem;
                     const isRunsModified = JSON.stringify(char.runs) !== JSON.stringify(origChar.runs);
-                    const isRowNew = !originalChars.some(o => o.name === char.name && char.name !== "");
+                    const isRowNew = !originalChars.some(o => (char.cid && o.cid === char.cid) || o.name === char.name && char.name !== "");
 
                     const isCollab = char.isCollab !== undefined;
                     const termType = char.term ? char.term.type : 'none'; 
@@ -949,6 +954,7 @@
 
                 let addedPatchesList = [];
                 let addedCharsList = [];
+                let updatedCharsList = [];
 
                 // 處理新版本
                 if (data.new_patches && data.new_patches.length > 0) {
@@ -961,11 +967,37 @@
                     });
                 }
 
-                // 處理新角色
+                // 處理新角色與自動升級中文名 (支援 cid 或英文模糊比對)
                 if (data.new_characters && data.new_characters.length > 0) {
                     data.new_characters.forEach(newChar => {
-                        const exists = charsData.some(c => c.name === newChar.name);
-                        if (!exists) {
+                        const newSanitized = sanitizeName(newChar.name);
+                        
+                        let existingChar = charsData.find(c => 
+                            (newChar.cid && c.cid === newChar.cid) || 
+                            c.name === newChar.name || 
+                            (c.name && sanitizeName(c.name) === newSanitized)
+                        );
+
+                        if (existingChar) {
+                            // 自動將舊英文名原地升級為正式中文名
+                            if (existingChar.name !== newChar.name && !newChar.name.match(/^[a-zA-Z\s•]+$/)) {
+                                updatedCharsList.push(`${existingChar.name} ➡️ ${newChar.name}`);
+                                existingChar.name = newChar.name;
+                            }
+                            if (newChar.cid && !existingChar.cid) {
+                                existingChar.cid = newChar.cid;
+                            }
+                            if (newChar.path && (existingChar.path === "未知" || !existingChar.path)) existingChar.path = newChar.path;
+                            if (newChar.elem && (existingChar.elem === "未知" || !existingChar.elem)) existingChar.elem = newChar.elem;
+
+                            // 同步版本 runs
+                            if (newChar.runs) {
+                                if (!existingChar.runs) existingChar.runs = [];
+                                newChar.runs.forEach(r => {
+                                    if (!existingChar.runs.includes(r)) existingChar.runs.push(r);
+                                });
+                            }
+                        } else {
                             charsData.push({
                                 cid: newChar.cid || null,
                                 name: newChar.name || "新角色",
@@ -979,21 +1011,27 @@
                     });
                 }
 
-                if (addedPatchesList.length > 0 || addedCharsList.length > 0) {
+                if (addedPatchesList.length > 0 || addedCharsList.length > 0 || updatedCharsList.length > 0) {
                     renderPatches();
                     renderChars();
 
-                    let msg = `✅ 同步完成！以下為本次新增的項目：\n\n`;
-                    if (addedPatchesList.length > 0) {
-                        msg += `【新增版本 (${addedPatchesList.length} 個)】\n- ${addedPatchesList.join(', ')}\n\n`;
+                    let msg = `✅ 同步完成！\n\n`;
+                    if (updatedCharsList.length > 0) {
+                        msg += `【名稱自動升級為中文 (${updatedCharsList.length} 位)】\n`;
+                        updatedCharsList.forEach(c => msg += `• ${c}\n`);
+                        msg += `\n`;
                     }
                     if (addedCharsList.length > 0) {
                         msg += `【新增角色 (${addedCharsList.length} 位)】\n`;
                         addedCharsList.forEach(c => msg += `• ${c}\n`);
+                        msg += `\n`;
+                    }
+                    if (addedPatchesList.length > 0) {
+                        msg += `【新增版本 (${addedPatchesList.length} 個)】\n- ${addedPatchesList.join(', ')}\n`;
                     }
                     alert(msg);
                 } else {
-                    alert(`✨ 目前已經是最新的資料，沒有新增任何項目。`);
+                    alert(`✨ 目前已經是最新的資料，沒有新增或變動的項目。`);
                 }
 
                 btnEl.textContent = originalText;
