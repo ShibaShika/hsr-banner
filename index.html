@@ -202,10 +202,8 @@
                     let content = '';
                     
                     if (cell.status === 'COLLAB_SPAN') {
-                        let dateStr = "";
-                        if (char.isCollab === "3.4上") dateStr = "2025/07/11";
-                        else if (char.isCollab === "4.4上") dateStr = "2026/07/24";
-                        
+                        // 優先讀取角色資料中的 collabDate，若無則退回顯示版本號
+                        const dateStr = char.collabDate || char.isCollab; 
                         html += `<td colspan="${cell.count}" class="collab-text" style="text-align: left; padding-left: 8px;">${dateStr} 後長期開放</td>`;
                         return;
                     }
