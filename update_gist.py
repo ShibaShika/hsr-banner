@@ -59,11 +59,8 @@ def fetch_upcoming_wiki_char_map():
     """
     print("正在從 Fandom Wiki (Upcoming_Characters 分類) 抓取新角色中文譯名...")
 
-    # 預載熱修正清單作為雙重保險
-    wiki_map = {
-        "aventurinewaveflair": "砂金•戲浪",
-        "robinsummeretto": "知更鳥•夏日",
-    }
+    # 保持乾淨的空字典，100% 交給 Wiki API 自動動態抓取
+    wiki_map = {}
 
     try:
         api_url = "https://honkai-star-rail.fandom.com/api.php"
