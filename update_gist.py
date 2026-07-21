@@ -49,7 +49,7 @@ def sanitize_name(name):
 
 def clean_wikitext_value(val):
     """清洗 Wikitext 中的連結標記 [[ ]] 與取代標點符號"""
-    val = re.sub(r"\[\[(?:[^\|\]]*\|)?([^\]]+)\]\]", r"\1", val)
+    val = re.sub(r"\[\[(?:[^\Vert{}\]]*\Vert{})?([^\]]+)\]\]", r"\1", val)
     return val.strip().replace("·", "•")
 
 
@@ -129,9 +129,11 @@ def fetch_upcoming_wiki_char_map():
                 continue
 
             cht_name = ""
-            # 寬鬆比對 zh_tw / zh-tw / zh_hk / zh-hk
+            # 支援 zht 以及 zh_tw / zh-tw 等欄位格式
             match_tw = re.search(
-                r"\|zh[-_]?(?:tw|hk)\s*=\s*([^\n\|]+)", content, re.IGNORECASE
+                r"\|(?:zht|zh[-_]?(?:tw|hk))\s*=\s*([^\n\|]+)",
+                content,
+                re.IGNORECASE,
             )
             if match_tw and match_tw.group(1).strip():
                 cht_name = clean_wikitext_value(match_tw.group(1))
@@ -422,3 +424,4 @@ if __name__ == "__main__":
     else:
         latest_data = fetch_latest_data()
         update_gist(latest_data)
+]
