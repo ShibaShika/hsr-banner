@@ -2,7 +2,7 @@ import os
 import json
 import requests
 
-GIST_ID = '請在這裡填入您的_GIST_ID'
+GIST_ID = '53c5bb324cd140fb8751c9812bd5df68'
 GITHUB_TOKEN = os.environ.get('GIST_TOKEN')
 
 def fetch_latest_data():
