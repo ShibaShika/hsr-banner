@@ -47,12 +47,10 @@ def sanitize_name(name):
     return re.sub(r"[^a-zA-Z0-9]", "", name).lower()
 
 
-def get_official_cht_from_wiki(en_name):
-    """自動向 Fandom Wiki API 查詢角色的官方繁體中文譯名"""
-    # 如果已經包含中文，不需要查詢
-    if any("\u4e00" <= char <= "\u9fff" for char in en_name):
-        return en_name
-
+def fetch_upcoming_wiki_char_map():
+    """自動連線 Fandom Wiki 的 Category:Upcoming_Characters API，
+    提取所有新角色的 Wikitext 繁體中文譯名 (|zh_tw = 或 |zh =)
+    """
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -60,55 +58,73 @@ def get_official_cht_from_wiki(en_name):
             "Chrome/120.0.0.0 Safari/537.36"
         )
     }
-
+    wiki_map = {}
     try:
         api_url = "https://honkai-star-rail.fandom.com/api.php"
-        params = {
+
+        # 1. 取得 Category:Upcoming_Characters 的所有頁面清單
+        cat_params = {
+            "action": "query",
+            "list": "categorymembers",
+            "cmtitle": "Category:Upcoming_Characters",
+            "cmlimit": "500",
+            "format": "json",
+        }
+        res = requests.get(
+            api_url, params=cat_params, headers=headers, timeout=5
+        ).json()
+        members = res.get("query", {}).get("categorymembers", [])
+
+        page_titles = [m["title"] for m in members if "title" in m]
+        if not page_titles:
+            return wiki_map
+
+        # 2. 批次查詢這些頁面的內容，提取中文譯名
+        pages_params = {
             "action": "query",
             "prop": "revisions",
-            "titles": en_name,
+            "titles": "|".join(page_titles),
             "rvprop": "content",
             "format": "json",
-            "redirects": 1,
         }
-
-        res = requests.get(
-            api_url, params=params, headers=headers, timeout=5
+        pages_res = requests.get(
+            api_url, params=pages_params, headers=headers, timeout=5
         ).json()
-        pages = res.get("query", {}).get("pages", {})
+        pages = pages_res.get("query", {}).get("pages", {})
 
-        for page_id, page_info in pages.items():
-            if page_id == "-1":
+        for p_id, p_info in pages.items():
+            if p_id == "-1":
                 continue
-
-            revisions = page_info.get("revisions", [])
+            title = p_info.get("title", "")
+            revisions = p_info.get("revisions", [])
             if not revisions:
                 continue
 
             content = revisions[0].get("*", "")
 
-            # 優先匹配 zh_tw 繁體
+            cht_name = ""
             match_tw = re.search(
                 r"\|zh_tw\s*=\s*([^\n\|]+)", content, re.IGNORECASE
             )
-            if match_tw:
-                cht_name = match_tw.group(1).strip()
-                if cht_name:
-                    return cht_name.replace("·", "•")
+            if match_tw and match_tw.group(1).strip():
+                cht_name = match_tw.group(1).strip().replace("·", "•")
+            else:
+                match_zh = re.search(
+                    r"\|zh\s*=\s*([^\n\|]+)", content, re.IGNORECASE
+                )
+                if match_zh and match_zh.group(1).strip():
+                    cht_name = match_zh.group(1).strip().replace("·", "•")
 
-            # 次之匹配 zh 欄位
-            match_zh = re.search(
-                r"\|zh\s*=\s*([^\n\|]+)", content, re.IGNORECASE
-            )
-            if match_zh:
-                cht_name = match_zh.group(1).strip()
-                if cht_name:
-                    return cht_name.replace("·", "•")
+            if cht_name:
+                # 將 "Aventurine • Waveflair" 簡化為 "aventurinewaveflair" 作為 Key
+                sanitized_key = sanitize_name(title)
+                wiki_map[sanitized_key] = cht_name
+                print(f"📖 Wiki 分類庫載入角色: {title} ➡️ {cht_name}")
 
     except Exception as e:
-        print(f"⚠️ 查詢 Wiki 繁中名稱失敗 [{en_name}]: {e}")
+        print(f"⚠️ 抓取 Wiki Category:Upcoming_Characters 失敗: {e}")
 
-    return en_name
+    return wiki_map
 
 
 def fetch_starrailres_data():
@@ -220,8 +236,10 @@ def fetch_latest_data():
                     clean_runs.append(f"{r['version']}{half}")
         char["runs"] = clean_runs
 
-    # 1. 取得資料庫並建立映射
+    # 1. 取得資料庫與 Wiki 預載清單
     en_data, cht_data = fetch_starrailres_data()
+    wiki_upcoming_map = fetch_upcoming_wiki_char_map()
+
     en_sanitized_map = {}
     for cid, info in en_data.items():
         name = info.get("name", "") if isinstance(info, dict) else str(info)
@@ -231,7 +249,7 @@ def fetch_latest_data():
 
     schedules = fetch_prydwen_schedules()
 
-    # 建立現有角色的快速查找對照 (優先用 cid，其次用 name)
+    # 建立現有角色的快速查找對照
     existing_char_map_by_cid = {
         c["cid"]: c for c in updated_chars if c.get("cid")
     }
@@ -246,7 +264,7 @@ def fetch_latest_data():
         path = sched["fallback_path"]
         elem = sched["fallback_elem"]
 
-        # 1. 透過英文去符號比對資料庫尋找 cid 與詳細中文資料
+        # A. 優先比對 StarRailRes 正式解包資料庫
         if sanitized_query in en_sanitized_map:
             target_cid = en_sanitized_map[sanitized_query]
             cht_info = cht_data.get(target_cid, {})
@@ -275,19 +293,18 @@ def fetch_latest_data():
             elif isinstance(cht_info, str):
                 target_name = cht_info
 
-        # 2. 備援機制：如果 StarRailRes 沒找到繁中名，向 Fandom Wiki 查詢繁中譯名
+        # B. 備援機制：如果 StarRailRes 還沒更新，自動對照 Wiki Upcoming Category
         if target_name == en_name or not any(
             "\u4e00" <= char <= "\u9fff" for char in target_name
         ):
-            wiki_name = get_official_cht_from_wiki(en_name)
-            if wiki_name != en_name:
+            if sanitized_query in wiki_upcoming_map:
+                target_name = wiki_upcoming_map[sanitized_query]
                 print(
-                    f"✨ 成功從 Wiki 補全官方繁中名稱: {en_name} ->"
-                    f" {wiki_name}"
+                    "✨ 成功從 Wiki Upcoming 分類自動對照繁中名稱:"
+                    f" {en_name} ➡️ {target_name}"
                 )
-                target_name = wiki_name
 
-        # 3. 尋找是否已存在於 Gist 中 (優先透過 cid 匹配，其次透過名稱或英文模糊匹配)
+        # C. 尋找是否已存在於 Gist 中 (透過 cid 或名稱模糊匹配)
         matched_char = None
         if target_cid and target_cid in existing_char_map_by_cid:
             matched_char = existing_char_map_by_cid[target_cid]
@@ -304,7 +321,7 @@ def fetch_latest_data():
             if target_cid and not matched_char.get("cid"):
                 matched_char["cid"] = target_cid
 
-            # 自動升級英文名為正式中文名
+            # 自動將舊英文名升級為正確繁中名
             if matched_char["name"] != target_name and target_name != en_name:
                 print(
                     "🔄 自動將名稱升級為正式中文:"
