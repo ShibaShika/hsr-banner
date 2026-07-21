@@ -32,7 +32,7 @@
                     <div id="elem-items-container"></div>
                 </div>
             </div>
-            <!-- 🌟 新增：角色名稱搜尋框 -->
+            <!-- 角色名稱搜尋框 -->
             <input type="text" id="char-search-input" class="search-input" placeholder="搜尋角色...">
         </div>
 
@@ -59,7 +59,7 @@
             const parts = dateStr.split('/');
             if (parts.length === 3) {
                 const yyyy = '20' + parts[0];
-                const mmdd = `${parts[1]}/${parts[2]}`; // 🌟 於月日之間加入斜線
+                const mmdd = `${parts[1]}/${parts[2]}`;
                 return `${yyyy}<br>${mmdd}`;
             }
             return dateStr;
@@ -124,7 +124,6 @@
                 const pathIconUrl = PATH_ICONS[char.path] || "";
                 const seqNum = totalChars - index;
                 
-                // 🌟 加上 data-name 屬性以供搜尋過濾使用
                 html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-name="${char.name}">
                     <td class="bg-${char.elem}">
                         <div class="char-info-cell">
@@ -146,7 +145,7 @@
                     if (char.isCollab) {
                         const collabStart = char.isCollab;
                         const sIdx = patchesList.indexOf(collabStart);
-                        const spanCount = Math.min(6, sIdx); // 🌟 限制文字框最多合併 6 格寬
+                        const spanCount = Math.min(6, sIdx);
                         
                         if (pIdx < sIdx) {
                             if (pIdx === sIdx - spanCount) {
@@ -202,9 +201,9 @@
                     let content = '';
                     
                     if (cell.status === 'COLLAB_SPAN') {
-                        // 優先讀取角色資料中的 collabDate，若無則退回顯示版本號
-                        const dateStr = char.collabDate || char.isCollab; 
-                        html += `<td colspan="${cell.count}" class="collab-text" style="text-align: left; padding-left: 8px;">${dateStr} 後長期開放</td>`;
+                        // 直接動態讀取資料中的 collabDate，若無則退回 isCollab 版本號
+                        const dateStr = char.collabDate || char.isCollab;
+                        html += `<td colspan="${cell.count}" class="collab-text">${dateStr} 後長期開放</td>`;
                         return;
                     }
 
@@ -247,7 +246,7 @@
             const pathItems = pathPanel.querySelectorAll('.path-item');
             const elemAll = document.getElementById('elem-all');
             const elemItems = elemPanel.querySelectorAll('.elem-item');
-            const searchInput = document.getElementById('char-search-input'); // 🌟 取得搜尋框元素
+            const searchInput = document.getElementById('char-search-input');
 
             pathBox.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -272,7 +271,7 @@
             function applyFilters() {
                 const selectedPaths = Array.from(pathItems).filter(i => i.checked).map(i => i.value);
                 const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
-                const keyword = searchInput.value.trim().toLowerCase(); // 🌟 取得搜尋關鍵字
+                const keyword = searchInput.value.trim().toLowerCase();
 
                 pathBox.textContent = selectedPaths.length === pathItems.length ? '全部命途' : (selectedPaths.length === 0 ? '未選命途' : `命途 (${selectedPaths.length})`);
                 elemBox.textContent = selectedElems.length === elemItems.length ? '全部屬性' : (selectedElems.length === 0 ? '未選屬性' : `屬性 (${selectedElems.length})`);
@@ -282,11 +281,11 @@
                 rows.forEach(row => {
                     const rowPath = row.getAttribute('data-path');
                     const rowElem = row.getAttribute('data-elem');
-                    const rowName = row.getAttribute('data-name').toLowerCase(); // 🌟 角色名稱
+                    const rowName = row.getAttribute('data-name').toLowerCase();
 
                     const matchPath = selectedPaths.includes(rowPath);
                     const matchElem = selectedElems.includes(rowElem);
-                    const matchName = keyword === '' || rowName.includes(keyword); // 🌟 名稱比對
+                    const matchName = keyword === '' || rowName.includes(keyword);
 
                     if (matchPath && matchElem && matchName) {
                         row.style.display = '';
@@ -343,7 +342,6 @@
                 });
             });
 
-            // 🌟 綁定搜尋框輸入事件
             searchInput.addEventListener('input', applyFilters);
 
             const trackerTable = document.getElementById('tracker');
