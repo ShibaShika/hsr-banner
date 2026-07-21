@@ -31,15 +31,16 @@ ELEM_MAP = {
 }
 
 def sanitize_name(name):
-    """去除空格與所有非英數字元，並轉為小寫"""
+    """去除空格與所有非英數字元（包含 • 等符號），並轉為小寫"""
     if not name:
         return ""
     return re.sub(r'[^a-zA-Z0-9]', '', name).lower()
 
 def fetch_starrailres_data():
-    print("正在從 StarRailRes 抓取完整角色資料庫...")
-    en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index/en/characters.json"
-    cht_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index/cht/characters.json"
+    print("正在從 StarRailRes (index_new) 抓取完整角色資料庫...")
+    # 修正：改用 index_new 才能抓到最新的解包未來角色
+    en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/en/characters.json"
+    cht_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/cht/characters.json"
     
     en_res = requests.get(en_url)
     cht_res = requests.get(cht_url)
@@ -67,7 +68,6 @@ def fetch_prydwen_schedules():
             if not name_tag: continue
             en_name = name_tag.text.strip()
             
-            # 解析備用中文命途與屬性
             path_span = card.find(class_=re.compile(r"path\s+"))
             en_path = path_span.find("strong").text.strip() if path_span and path_span.find("strong") else ""
             zh_path = PATH_MAP.get(en_path, "未知")
@@ -76,7 +76,6 @@ def fetch_prydwen_schedules():
             en_elem = elem_span.find("strong").text.strip() if elem_span and elem_span.find("strong") else ""
             zh_elem = ELEM_MAP.get(en_elem, "未知")
             
-            # 抓取版本與階段資訊
             meta_div = card.find(class_="banner-phase-meta")
             phase_str = meta_div.find("span").text.strip() if meta_div and meta_div.find("span") else ""
             
@@ -118,7 +117,6 @@ def fetch_latest_data():
 
     updated_chars = existing_data.get('new_characters', [])
     
-    # 清洗舊格式 runs
     for char in updated_chars:
         clean_runs = []
         if 'runs' in char and isinstance(char['runs'], list):
@@ -132,7 +130,7 @@ def fetch_latest_data():
 
     existing_char_map = {c['name']: c for c in updated_chars}
 
-    # 1. 取得資料庫並建立「英文去符號對照表 -> ID」
+    # 1. 取得 index_new 資料庫並建立「英文去符號對照表 -> ID」
     en_data, cht_data = fetch_starrailres_data()
     en_sanitized_map = {}
     for cid, info in en_data.items():
@@ -169,6 +167,8 @@ def fetch_latest_data():
                 db_elem = cht_info.get("element")
                 if isinstance(db_elem, str):
                     elem = db_elem
+            elif isinstance(cht_info, str):
+                target_name = cht_info
         else:
             target_name = en_name
             print(f"⚠️ 資料庫查無此英文名稱 ({en_name})，將採用原始名稱。")
