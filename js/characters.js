@@ -1,4 +1,4 @@
-// 更新日期: 2026/07/21
+// 更新日期: 2026/07/22
 
 const RAW_CHARACTERS = [
     {
@@ -230,7 +230,8 @@ const RAW_CHARACTERS = [
             "2.1下",
             "2.6下",
             "4.4下"
-        ]
+        ],
+        cid: "1304"
     },
     {
         name: "知更鳥",
@@ -424,7 +425,8 @@ const RAW_CHARACTERS = [
             "3.2下",
             "3.6下",
             "4.4下"
-        ]
+        ],
+        cid: "1405"
     },
     {
         name: "風堇",
@@ -495,7 +497,8 @@ const RAW_CHARACTERS = [
             "3.5下",
             "4.0下",
             "4.4下"
-        ]
+        ],
+        cid: "1412"
     },
     {
         name: "長夜月",
@@ -506,7 +509,8 @@ const RAW_CHARACTERS = [
             "3.6上",
             "4.0上",
             "4.4上"
-        ]
+        ],
+        cid: "1413"
     },
     {
         name: "丹恆•騰荒",
@@ -516,7 +520,8 @@ const RAW_CHARACTERS = [
         runs: [
             "3.6下",
             "4.4上"
-        ]
+        ],
+        cid: "1414"
     },
     {
         name: "昔漣",
@@ -558,7 +563,8 @@ const RAW_CHARACTERS = [
         runs: [
             "4.0下",
             "4.4上"
-        ]
+        ],
+        cid: "1501"
     },
     {
         name: "不死途",
@@ -604,7 +610,8 @@ const RAW_CHARACTERS = [
         avatar: "",
         runs: [
             "4.4上"
-        ]
+        ],
+        cid: "1510"
     },
     {
         cid: "1508",
@@ -612,7 +619,9 @@ const RAW_CHARACTERS = [
         path: "智識",
         elem: "量子",
         avatar: "",
-        runs: [],
+        runs: [
+            "4.4上"
+        ],
         isCollab: "4.4上",
         collabDate: "2026/07/24"
     },
@@ -622,13 +631,15 @@ const RAW_CHARACTERS = [
         path: "毀滅",
         elem: "雷",
         avatar: "",
-        runs: [],
+        runs: [
+            "4.4上"
+        ],
         isCollab: "4.4上",
         collabDate: "2026/07/24"
     },
     {
         cid: null,
-        name: "Robin Summeretto",
+        name: "知更鳥•晴歌",
         path: "記憶",
         elem: "風",
         avatar: "",
@@ -638,7 +649,7 @@ const RAW_CHARACTERS = [
     },
     {
         cid: null,
-        name: "Aventurine Waveflair",
+        name: "砂金•戲浪",
         path: "歡愉",
         elem: "量子",
         avatar: "",
