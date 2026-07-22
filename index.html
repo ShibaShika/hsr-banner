@@ -449,6 +449,12 @@
                 const cell = e.target.closest('td, th');
                 if (!cell || cell.closest('tr')?.classList.contains('empty-row')) return;
 
+                // 1. 若滑鼠懸停在合併儲存格（colspan > 1），清空直欄高亮並直接返回，避免擴散成多欄高亮
+                if (cell.colSpan > 1) {
+                    trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
+                    return;
+                }
+
                 const startCol = parseInt(cell.dataset.startCol, 10);
                 const endCol = parseInt(cell.dataset.endCol, 10);
 
@@ -458,9 +464,12 @@
                 // 第一欄（角色資訊欄，col 0）不上直欄高亮
                 if (endCol === 0 || isNaN(startCol)) return;
 
-                // 尋找視覺直欄重疊的所有儲存格並高亮
+                // 尋找同屬該直欄的單一儲存格並加上高亮
                 const allCells = trackerTable.querySelectorAll('th, td');
                 allCells.forEach(c => {
+                    // 2. 忽略合併儲存格，避免單直欄高亮影響到橫跨多欄的文字格
+                    if (c.colSpan > 1) return;
+
                     const cStart = parseInt(c.dataset.startCol, 10);
                     const cEnd = parseInt(c.dataset.endCol, 10);
                     if (cEnd >= startCol && cStart <= endCol && cEnd > 0) {
