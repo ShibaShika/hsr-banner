@@ -26,16 +26,76 @@ body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: va
 h1 { color: var(--text); margin: 0; font-size: 22px; font-weight: bold; }
 
 .table-wrap { overflow-x: auto; max-height: calc(100vh - 75px); border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
-table { border-collapse: collapse; min-width: 100%; text-align: center; font-size: 12px; background: var(--surface); }
-th, td { padding: 3px 2px; border: 1px solid var(--border); white-space: nowrap; min-width: 26px; }
 
-thead th { background: var(--th-bg); position: sticky; z-index: 10; font-weight: 600; color: #fff; line-height: 1.1; }
-thead tr:nth-child(1) th { top: 0; font-size: 10px; color: #aaa; border-bottom: none; padding-bottom: 1px; padding-top: 4px; }
-thead tr:nth-child(2) th { top: 25px; border-top: none; padding-top: 2px; font-size: 11px; }
+/* 改用 border-separate + border-spacing: 0 完美解決 Firefox Sticky 邊框透光與縫隙問題 */
+table { 
+    border-collapse: separate; 
+    border-spacing: 0; 
+    min-width: 100%; 
+    text-align: center; 
+    font-size: 12px; 
+    background: var(--surface); 
+}
 
-th:first-child, td:first-child { position: sticky; left: 0; z-index: 11; text-align: left; box-shadow: 2px 0 5px rgba(0,0,0,0.4); padding: 0; }
+th, td { 
+    padding: 3px 2px; 
+    border-right: 1px solid var(--border); 
+    border-bottom: 1px solid var(--border); 
+    white-space: nowrap; 
+    min-width: 26px; 
+    box-sizing: border-box;
+}
+
+/* 補上第一欄與第一行的左/頂外框，確保 border-separate 不會缺外框 */
+#tracker tr th:first-child,
+#tracker tr td:first-child {
+    border-left: 1px solid var(--border);
+}
+#tracker thead tr:first-child th {
+    border-top: 1px solid var(--border);
+}
+
+/* ===== 精確固定 Sticky 表頭高度與偏移位置 ===== */
+thead th { 
+    background: var(--th-bg); 
+    position: sticky; 
+    z-index: 10; 
+    font-weight: 600; 
+    color: #fff; 
+}
+
+/* 第一行：日期列（固定高度 30px，固定 top: 0） */
+thead tr:nth-child(1) th { 
+    top: 0; 
+    height: 30px;
+    font-size: 10px; 
+    color: #aaa; 
+    line-height: 1.15;
+    padding: 2px 2px;
+}
+
+/* 第二行：版本號列（固定高度 24px，固定 top: 30px，精確接續第一行底部） */
+thead tr:nth-child(2) th { 
+    top: 30px; 
+    height: 24px;
+    font-size: 11px; 
+    line-height: 1.15;
+    padding: 2px 2px;
+}
+
+/* 第一欄（角色資訊欄）釘左 */
+th:first-child, td:first-child { 
+    position: sticky; 
+    left: 0; 
+    z-index: 11; 
+    text-align: left; 
+    box-shadow: 2px 0 5px rgba(0,0,0,0.4); 
+    padding: 0; 
+}
+
+/* 左上角交叉點 (固定最高 z-index) */
 thead tr:nth-child(1) th:first-child { z-index: 12; top: 0; background: var(--th-bg); }
-thead tr:nth-child(2) th:first-child { z-index: 12; top: 25px; background: var(--th-bg); }
+thead tr:nth-child(2) th:first-child { z-index: 12; top: 30px; background: var(--th-bg); }
 
 .char-info-cell { display: flex; align-items: center; padding: 3px 6px; color: #000; font-weight: 600; }
 .char-seq { width: 22px; text-align: center; font-size: 13px; opacity: 0.8; }
@@ -117,7 +177,7 @@ tr:hover td:first-child { filter: none !important; }
     }
 }
 
-/* 聯動角色專用的長期開放文字區塊（已將對齊與內距統一納入 CSS 管理） */
+/* 聯動角色專用的長期開放文字區塊 */
 .collab-text {
     background-color: #181818; 
     color: #999; 
@@ -131,13 +191,13 @@ tr:hover td:first-child { filter: none !important; }
     user-select: none;
 }
 
-/* ===== 質感琥珀金高亮 (零撐寬版) ===== */
+/* ===== 質感琥珀金高亮 (修正厚度撐寬與邊框壓迫) ===== */
 
-/* 1. 當前版本表頭 (第一行日期)：深琥珀金背景 + 亮金文字 + 頂部黃金強光條 */
+/* 1. 當前版本表頭 (第一行日期)：改用內陰影 (inset) 替代 border-top，避免影響元素尺寸導致縫隙 */
 thead tr:nth-child(1) th.current-patch-col {
     background-color: #382c00 !important;
     color: #ffe680 !important;
-    border-top: 3px solid #ffd700 !important;
+    box-shadow: inset 0 3px 0 #ffd700 !important;
 }
 
 /* 2. 當前版本表頭 (第二行版本號)：黃金發光字體 */
