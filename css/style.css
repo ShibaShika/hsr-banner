@@ -5,14 +5,14 @@
     --text: #e0e0e0;
     --th-bg: #222;
     
-    --elem-fire: #fca5a5;      
-    --elem-ice: #93c5fd;       
-    --elem-lightning: #d8b4fe; 
-    --elem-wind: #86efac;      
-    --elem-physical: #cbd5e1;  
-    --elem-quantum: #c4b5fd;   
-    --elem-imaginary: #fef08a; 
-    --elem-unknown: #64748b;   
+    --elem-fire: #fca5a5;      /* 火：柔和粉紅 */
+    --elem-ice: #93c5fd;       /* 冰：天空淡藍 */
+    --elem-lightning: #f0abfc; /* 雷：鮮明粉紫 / 電光紫 (原 #d8b4fe) */
+    --elem-wind: #86efac;      /* 風：薄荷淺綠 */
+    --elem-physical: #cbd5e1;  /* 物理：鋼鐵淺灰 */
+    --elem-quantum: #818cf8;   /* 量子：沉穩靛紫 / 藍紫 (原 #c4b5fd) */
+    --elem-imaginary: #fef08a; /* 虛數：明亮鵝黃 */
+    --elem-unknown: #64748b;   /* 未知：暗灰藍 */
 }
 
 body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; position: relative; }
