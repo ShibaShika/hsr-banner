@@ -302,6 +302,22 @@
             
             table.innerHTML = html;
 
+            // ===== 建立精確的直欄座標對應 (解決 colspan 引起的 cellIndex 錯位) =====
+            function updateColumnIndices() {
+                const rows = table.rows;
+                for (let r = 0; r < rows.length; r++) {
+                    let colIdx = 0;
+                    for (let c = 0; c < rows[r].cells.length; c++) {
+                        const cell = rows[r].cells[c];
+                        const span = cell.colSpan || 1;
+                        cell.dataset.startCol = colIdx;
+                        cell.dataset.endCol = colIdx + span - 1;
+                        colIdx += span;
+                    }
+                }
+            }
+            updateColumnIndices();
+
             const pathBox = document.getElementById('path-select-box');
             const elemBox = document.getElementById('elem-select-box');
             const pathPanel = document.getElementById('path-panel');
@@ -426,31 +442,35 @@
 
             searchInput.addEventListener('input', applyFilters);
 
+            // ===== 重構十字高亮 (直欄部分) 邏輯 =====
             const trackerTable = document.getElementById('tracker');
+
             trackerTable.addEventListener('mouseover', (e) => {
                 const cell = e.target.closest('td, th');
-                if (!cell) return;
-                const colIndex = cell.cellIndex;
-                if (colIndex === 0) return;
+                if (!cell || cell.closest('tr')?.classList.contains('empty-row')) return;
 
-                const rows = trackerTable.rows;
-                for (let i = 0; i < rows.length; i++) {
-                    const c = rows[i].cells[colIndex];
-                    if (c) c.classList.add('col-highlight');
-                }
+                const startCol = parseInt(cell.dataset.startCol, 10);
+                const endCol = parseInt(cell.dataset.endCol, 10);
+
+                // 移除舊高亮
+                trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
+
+                // 第一欄（角色資訊欄，col 0）不上直欄高亮
+                if (endCol === 0 || isNaN(startCol)) return;
+
+                // 尋找視覺直欄重疊的所有儲存格並高亮
+                const allCells = trackerTable.querySelectorAll('th, td');
+                allCells.forEach(c => {
+                    const cStart = parseInt(c.dataset.startCol, 10);
+                    const cEnd = parseInt(c.dataset.endCol, 10);
+                    if (cEnd >= startCol && cStart <= endCol && cEnd > 0) {
+                        c.classList.add('col-highlight');
+                    }
+                });
             });
 
-            trackerTable.addEventListener('mouseout', (e) => {
-                const cell = e.target.closest('td, th');
-                if (!cell) return;
-                const colIndex = cell.cellIndex;
-                if (colIndex === 0) return;
-
-                const rows = trackerTable.rows;
-                for (let i = 0; i < rows.length; i++) {
-                    const c = rows[i].cells[colIndex];
-                    if (c) c.classList.remove('col-highlight');
-                }
+            trackerTable.addEventListener('mouseleave', () => {
+                trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
             });
 
             const scaleSlider = document.getElementById('ui-scale-slider');
