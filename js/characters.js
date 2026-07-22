@@ -2,6 +2,7 @@
 
 const RAW_CHARACTERS = [
     {
+        cid: "1102",
         name: "希兒",
         path: "巡獵",
         elem: "量子",
@@ -16,6 +17,7 @@ const RAW_CHARACTERS = [
         }
     },
     {
+        cid: "1204",
         name: "景元",
         path: "智識",
         elem: "雷",
@@ -27,6 +29,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1006",
         name: "銀狼",
         path: "虛無",
         elem: "量子",
@@ -43,6 +46,7 @@ const RAW_CHARACTERS = [
         }
     },
     {
+        cid: "1203",
         name: "羅剎",
         path: "豐饒",
         elem: "虛數",
@@ -57,6 +61,7 @@ const RAW_CHARACTERS = [
         }
     },
     {
+        cid: "1205",
         name: "刃",
         path: "毀滅",
         elem: "風",
@@ -72,6 +77,7 @@ const RAW_CHARACTERS = [
         }
     },
     {
+        cid: "1005",
         name: "卡芙卡",
         path: "虛無",
         elem: "雷",
@@ -84,6 +90,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1213",
         name: "丹恆•飲月",
         path: "毀滅",
         elem: "虛數",
@@ -95,6 +102,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1208",
         name: "符玄",
         path: "存護",
         elem: "量子",
@@ -109,6 +117,7 @@ const RAW_CHARACTERS = [
         }
     },
     {
+        cid: "1212",
         name: "鏡流",
         path: "毀滅",
         elem: "冰",
@@ -120,6 +129,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1112",
         name: "托帕",
         path: "巡獵",
         elem: "火",
@@ -135,6 +145,7 @@ const RAW_CHARACTERS = [
         }
     },
     {
+        cid: "1217",
         name: "藿藿",
         path: "豐饒",
         elem: "風",
@@ -150,6 +161,7 @@ const RAW_CHARACTERS = [
         }
     },
     {
+        cid: "1302",
         name: "銀枝",
         path: "智識",
         elem: "物理",
@@ -164,6 +176,7 @@ const RAW_CHARACTERS = [
         }
     },
     {
+        cid: "1303",
         name: "阮•梅",
         path: "同諧",
         elem: "冰",
@@ -178,6 +191,7 @@ const RAW_CHARACTERS = [
         }
     },
     {
+        cid: "1305",
         name: "真理醫生",
         path: "巡獵",
         elem: "虛數",
@@ -188,6 +202,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1307",
         name: "黑天鵝",
         path: "虛無",
         elem: "風",
@@ -199,6 +214,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1306",
         name: "花火",
         path: "同諧",
         elem: "量子",
@@ -211,6 +227,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1308",
         name: "黃泉",
         path: "虛無",
         elem: "雷",
@@ -222,6 +239,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1304",
         name: "砂金",
         path: "存護",
         elem: "虛數",
@@ -230,10 +248,10 @@ const RAW_CHARACTERS = [
             "2.1下",
             "2.6下",
             "4.4下"
-        ],
-        cid: "1304"
+        ]
     },
     {
+        cid: "1309",
         name: "知更鳥",
         path: "同諧",
         elem: "物理",
@@ -249,6 +267,7 @@ const RAW_CHARACTERS = [
         }
     },
     {
+        cid: "1315",
         name: "波提歐",
         path: "巡獵",
         elem: "物理",
@@ -260,6 +279,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1310",
         name: "流螢",
         path: "毀滅",
         elem: "火",
@@ -273,6 +293,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1314",
         name: "翡翠",
         path: "智識",
         elem: "量子",
@@ -283,6 +304,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1220",
         name: "雲璃",
         path: "毀滅",
         elem: "物理",
@@ -297,6 +319,7 @@ const RAW_CHARACTERS = [
         }
     },
     {
+        cid: "1218",
         name: "椒丘",
         path: "虛無",
         elem: "火",
@@ -307,6 +330,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1221",
         name: "飛霄",
         path: "巡獵",
         elem: "風",
@@ -318,6 +342,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1222",
         name: "靈砂",
         path: "豐饒",
         elem: "火",
@@ -329,6 +354,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1317",
         name: "亂破",
         path: "智識",
         elem: "虛數",
@@ -339,6 +365,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1313",
         name: "星期日",
         path: "同諧",
         elem: "虛數",
@@ -351,6 +378,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1225",
         name: "忘歸人",
         path: "虛無",
         elem: "火",
@@ -362,6 +390,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1401",
         name: "大黑塔",
         path: "智識",
         elem: "冰",
@@ -373,6 +402,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1402",
         name: "阿格萊雅",
         path: "記憶",
         elem: "雷",
@@ -384,6 +414,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1403",
         name: "緹寶",
         path: "同諧",
         elem: "量子",
@@ -396,6 +427,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1404",
         name: "萬敵",
         path: "毀滅",
         elem: "虛數",
@@ -406,6 +438,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1407",
         name: "遐蝶",
         path: "記憶",
         elem: "量子",
@@ -417,6 +450,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1405",
         name: "那刻夏",
         path: "智識",
         elem: "風",
@@ -425,10 +459,10 @@ const RAW_CHARACTERS = [
             "3.2下",
             "3.6下",
             "4.4下"
-        ],
-        cid: "1405"
+        ]
     },
     {
+        cid: "1408",
         name: "風堇",
         path: "記憶",
         elem: "風",
@@ -440,6 +474,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1409",
         name: "賽飛兒",
         path: "同諧",
         elem: "量子",
@@ -450,6 +485,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1410",
         name: "白厄",
         path: "毀滅",
         elem: "物理",
@@ -461,6 +497,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1502",
         name: "Saber",
         path: "毀滅",
         elem: "風",
@@ -470,6 +507,7 @@ const RAW_CHARACTERS = [
         collabDate: "2025/07/11"
     },
     {
+        cid: "1503",
         name: "Archer",
         path: "巡獵",
         elem: "量子",
@@ -479,6 +517,7 @@ const RAW_CHARACTERS = [
         collabDate: "2025/07/11"
     },
     {
+        cid: "1411",
         name: "海瑟音",
         path: "虛無",
         elem: "物理",
@@ -489,6 +528,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1412",
         name: "刻律德菈",
         path: "同諧",
         elem: "風",
@@ -497,10 +537,10 @@ const RAW_CHARACTERS = [
             "3.5下",
             "4.0下",
             "4.4下"
-        ],
-        cid: "1412"
+        ]
     },
     {
+        cid: "1413",
         name: "長夜月",
         path: "記憶",
         elem: "冰",
@@ -509,10 +549,10 @@ const RAW_CHARACTERS = [
             "3.6上",
             "4.0上",
             "4.4上"
-        ],
-        cid: "1413"
+        ]
     },
     {
+        cid: "1414",
         name: "丹恆•騰荒",
         path: "存護",
         elem: "物理",
@@ -520,10 +560,10 @@ const RAW_CHARACTERS = [
         runs: [
             "3.6下",
             "4.4上"
-        ],
-        cid: "1414"
+        ]
     },
     {
+        cid: "1415",
         name: "昔漣",
         path: "記憶",
         elem: "冰",
@@ -535,6 +575,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1416",
         name: "大理花",
         path: "虛無",
         elem: "火",
@@ -545,6 +586,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1417",
         name: "爻光",
         path: "歡愉",
         elem: "物理",
@@ -556,6 +598,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1501",
         name: "火花",
         path: "歡愉",
         elem: "火",
@@ -563,10 +606,10 @@ const RAW_CHARACTERS = [
         runs: [
             "4.0下",
             "4.4上"
-        ],
-        cid: "1501"
+        ]
     },
     {
+        cid: "1504",
         name: "不死途",
         path: "巡獵",
         elem: "雷",
@@ -577,6 +620,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1505",
         name: "銀狼LV.999",
         path: "歡愉",
         elem: "虛數",
@@ -586,6 +630,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1506",
         name: "緋英",
         path: "歡愉",
         elem: "物理",
@@ -595,6 +640,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1507",
         name: "千冶•刃",
         path: "虛無",
         elem: "火",
@@ -604,14 +650,14 @@ const RAW_CHARACTERS = [
         ]
     },
     {
+        cid: "1510",
         name: "姬子•啟行",
         path: "智識",
         elem: "火",
         avatar: "",
         runs: [
             "4.4上"
-        ],
-        cid: "1510"
+        ]
     },
     {
         cid: "1508",
