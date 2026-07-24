@@ -32,6 +32,20 @@
                     <div id="elem-items-container"></div>
                 </div>
             </div>
+            <!-- 新增：取得機制篩選器 -->
+            <div class="multi-select" id="type-dropdown">
+                <div class="select-box" id="type-select-box">全部機制</div>
+                <div class="dropdown-panel" id="type-panel">
+                    <label><input type="checkbox" id="type-all" checked> <b>全部機制</b></label>
+                    <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
+                    <div id="type-items-container">
+                        <label><input type="checkbox" class="type-item" value="normal" checked> 一般角色</label>
+                        <label><input type="checkbox" class="type-item" value="pool" checked> 星緣相邀</label>
+                        <label><input type="checkbox" class="type-item" value="shop" checked> 聚靈鑄星</label>
+                        <label><input type="checkbox" class="type-item" value="collab" checked> 長期聯動</label>
+                    </div>
+                </div>
+            </div>
             <!-- 角色名稱搜尋框 -->
             <input type="text" id="char-search-input" class="search-input" placeholder="搜尋角色...">
         </div>
@@ -181,7 +195,17 @@
                 const pathIconUrl = PATH_ICONS[char.path] || "";
                 const seqNum = totalChars - index;
                 
-                html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-name="${char.name}">
+                // 判斷取得機制類型以利過濾
+                let charType = 'normal';
+                if (char.isCollab) {
+                    charType = 'collab';
+                } else if (char.term) {
+                    if (char.term.type === 'pool') charType = 'pool';
+                    else if (char.term.type === 'shop') charType = 'shop';
+                }
+                
+                // 新增 data-type 屬性
+                html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-name="${char.name}">
                     <td class="bg-${char.elem}">
                         <div class="char-info-cell">
                             <span class="char-seq">${seqNum}</span>
@@ -318,42 +342,63 @@
             }
             updateColumnIndices();
 
+            // === 篩選器 DOM 變數與邏輯 ===
             const pathBox = document.getElementById('path-select-box');
             const elemBox = document.getElementById('elem-select-box');
+            const typeBox = document.getElementById('type-select-box');
+            
             const pathPanel = document.getElementById('path-panel');
             const elemPanel = document.getElementById('elem-panel');
+            const typePanel = document.getElementById('type-panel');
             
             const pathAll = document.getElementById('path-all');
-            const pathItems = pathPanel.querySelectorAll('.path-item');
             const elemAll = document.getElementById('elem-all');
+            const typeAll = document.getElementById('type-all');
+            
+            const pathItems = pathPanel.querySelectorAll('.path-item');
             const elemItems = elemPanel.querySelectorAll('.elem-item');
+            const typeItems = typePanel.querySelectorAll('.type-item');
             const searchInput = document.getElementById('char-search-input');
 
+            // 切換面板顯示，開啟當前的同時隱藏另外兩個
             pathBox.addEventListener('click', (e) => {
                 e.stopPropagation();
                 elemPanel.classList.remove('show');
+                typePanel.classList.remove('show');
                 pathPanel.classList.toggle('show');
             });
 
             elemBox.addEventListener('click', (e) => {
                 e.stopPropagation();
                 pathPanel.classList.remove('show');
+                typePanel.classList.remove('show');
                 elemPanel.classList.toggle('show');
+            });
+
+            typeBox.addEventListener('click', (e) => {
+                e.stopPropagation();
+                pathPanel.classList.remove('show');
+                elemPanel.classList.remove('show');
+                typePanel.classList.toggle('show');
             });
 
             document.addEventListener('click', () => {
                 pathPanel.classList.remove('show');
                 elemPanel.classList.remove('show');
+                typePanel.classList.remove('show');
             });
 
             pathPanel.addEventListener('click', (e) => e.stopPropagation());
             elemPanel.addEventListener('click', (e) => e.stopPropagation());
+            typePanel.addEventListener('click', (e) => e.stopPropagation());
 
             function applyFilters() {
                 const selectedPaths = Array.from(pathItems).filter(i => i.checked).map(i => i.value);
                 const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
+                const selectedTypes = Array.from(typeItems).filter(i => i.checked).map(i => i.value);
                 const keyword = searchInput.value.trim().toLowerCase();
 
+                // 更新命途 UI 文字
                 if (selectedPaths.length === pathItems.length) {
                     pathBox.textContent = '全部命途';
                 } else if (selectedPaths.length === 0) {
@@ -364,6 +409,7 @@
                     pathBox.textContent = `${selectedPaths[0]} 等 ${selectedPaths.length} 個`;
                 }
 
+                // 更新屬性 UI 文字
                 if (selectedElems.length === elemItems.length) {
                     elemBox.textContent = '全部屬性';
                 } else if (selectedElems.length === 0) {
@@ -374,18 +420,32 @@
                     elemBox.textContent = `${selectedElems[0]} 等 ${selectedElems.length} 個`;
                 }
 
+                // 更新機制 UI 文字
+                const typeLabelMap = { 'normal': '一般', 'pool': '星緣', 'shop': '聚靈', 'collab': '聯動' };
+                if (selectedTypes.length === typeItems.length) {
+                    typeBox.textContent = '全部機制';
+                } else if (selectedTypes.length === 0) {
+                    typeBox.textContent = '未選機制';
+                } else if (selectedTypes.length <= 2) {
+                    typeBox.textContent = selectedTypes.map(t => typeLabelMap[t]).join(', ');
+                } else {
+                    typeBox.textContent = `${typeLabelMap[selectedTypes[0]]} 等 ${selectedTypes.length} 個`;
+                }
+
                 const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
                 let visibleCount = 0;
                 rows.forEach(row => {
                     const rowPath = row.getAttribute('data-path');
                     const rowElem = row.getAttribute('data-elem');
+                    const rowType = row.getAttribute('data-type');
                     const rowName = row.getAttribute('data-name').toLowerCase();
 
                     const matchPath = selectedPaths.includes(rowPath);
                     const matchElem = selectedElems.includes(rowElem);
+                    const matchType = selectedTypes.includes(rowType);
                     const matchName = keyword === '' || rowName.includes(keyword);
 
-                    if (matchPath && matchElem && matchName) {
+                    if (matchPath && matchElem && matchType && matchName) {
                         row.style.display = '';
                         visibleCount++;
                     } else {
@@ -410,11 +470,11 @@
                 }
             }
 
+            // --- 綁定 Checkbox 事件 ---
             pathAll.addEventListener('change', () => {
                 pathItems.forEach(i => i.checked = pathAll.checked);
                 applyFilters();
             });
-
             pathItems.forEach(item => {
                 item.addEventListener('change', () => {
                     const allChecked = Array.from(pathItems).every(i => i.checked);
@@ -429,13 +489,26 @@
                 elemItems.forEach(i => i.checked = elemAll.checked);
                 applyFilters();
             });
-
             elemItems.forEach(item => {
                 item.addEventListener('change', () => {
                     const allChecked = Array.from(elemItems).every(i => i.checked);
                     const noneChecked = Array.from(elemItems).every(i => !i.checked);
                     elemAll.checked = allChecked;
                     elemAll.indeterminate = !allChecked && !noneChecked;
+                    applyFilters();
+                });
+            });
+
+            typeAll.addEventListener('change', () => {
+                typeItems.forEach(i => i.checked = typeAll.checked);
+                applyFilters();
+            });
+            typeItems.forEach(item => {
+                item.addEventListener('change', () => {
+                    const allChecked = Array.from(typeItems).every(i => i.checked);
+                    const noneChecked = Array.from(typeItems).every(i => !i.checked);
+                    typeAll.checked = allChecked;
+                    typeAll.indeterminate = !allChecked && !noneChecked;
                     applyFilters();
                 });
             });
