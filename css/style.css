@@ -7,10 +7,10 @@
     
     --elem-fire: #fca5a5;      /* 火：柔和粉紅 */
     --elem-ice: #93c5fd;       /* 冰：天空淡藍 */
-    --elem-lightning: #f0abfc; /* 雷：鮮明粉紫 / 電光紫 (原 #d8b4fe) */
+    --elem-lightning: #f0abfc; /* 雷：鮮明粉紫 / 電光紫 */
     --elem-wind: #86efac;      /* 風：薄荷淺綠 */
     --elem-physical: #cbd5e1;  /* 物理：鋼鐵淺灰 */
-    --elem-quantum: #818cf8;   /* 量子：沉穩靛紫 / 藍紫 (原 #c4b5fd) */
+    --elem-quantum: #818cf8;   /* 量子：沉穩靛紫 / 藍紫 */
     --elem-imaginary: #fef08a; /* 虛數：明亮鵝黃 */
     --elem-unknown: #64748b;   /* 未知：暗灰藍 */
 }
@@ -44,6 +44,7 @@ th, td {
     white-space: nowrap; 
     min-width: 26px; 
     box-sizing: border-box;
+    position: relative; /* 確保角標相對定位正確 */
 }
 
 /* 補上第一欄與第一行的左/頂外框，確保 border-separate 不會缺外框 */
@@ -191,7 +192,7 @@ tr:hover td:first-child { filter: none !important; }
     user-select: none;
 }
 
-/* ===== 質感琥珀金高亮 (修正厚度撐寬與邊框壓迫) ===== */
+/* ===== 質感琥珀金高亮 ===== */
 
 /* 1. 當前版本表頭 (第一行日期)：改用內陰影 (inset) 替代 border-top，避免影響元素尺寸導致縫隙 */
 thead tr:nth-child(1) th.current-patch-col {
@@ -214,4 +215,18 @@ thead tr:nth-child(2) th.current-patch-col {
     box-shadow: inset 0 0 0 9999px rgba(212, 175, 55, 0.12) !important;
     border-left: 1px solid rgba(212, 175, 55, 0.5) !important;
     border-right: 1px solid rgba(212, 175, 55, 0.5) !important;
+}
+
+/* ===== 礪爍新輝加強角標樣式 ===== */
+.buff-badge {
+    position: absolute;
+    top: 1px;
+    right: 2px;
+    font-size: 9px;
+    color: #86efac; /* 閃耀薄荷綠 */
+    text-shadow: 0 0 4px rgba(134, 239, 172, 0.8);
+    font-weight: bold;
+    pointer-events: none;
+    line-height: 1;
+    z-index: 2;
 }
