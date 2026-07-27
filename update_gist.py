@@ -131,51 +131,97 @@ def fetch_starrailres_data():
     
     return en_data, cht_data
 
+def parse_next_data_json(json_text):
+    """【方法一】直抓 Next.js 底層 __NEXT_DATA__ JSON，免疫版面 DOM 改版"""
+    schedules = []
+    try:
+        data = json.loads(json_text)
+        page_props = data.get("props", {}).get("pageProps", {})
+        
+        # 尋找 pageProps 內可能包含卡池資料的變數
+        banner_list = page_props.get("banners") or page_props.get("data") or page_props.get("schedule") or []
+        
+        if isinstance(banner_list, list):
+            for item in banner_list:
+                if not isinstance(item, dict): continue
+                
+                en_name = item.get("name") or item.get("characterName") or item.get("title")
+                version = item.get("patch") or item.get("version")
+                phase = item.get("phase") or item.get("half")
+                
+                if en_name and version:
+                    phase_num = 2 if str(phase) == "2" else 1
+                    half_str = "上" if phase_num == 1 else "下"
+                    run_str = f"{version}{half_str}"
+                    
+                    zh_path = PATH_MAP.get(item.get("path", ""), "未知")
+                    zh_elem = ELEM_MAP.get(item.get("element", ""), "未知")
+                    
+                    schedules.append({
+                        "en_name": str(en_name).strip(),
+                        "fallback_path": zh_path,
+                        "fallback_elem": zh_elem,
+                        "run": run_str
+                    })
+                    print(f"解析卡池角色 (JSON 模式): {en_name} -> {run_str}")
+    except Exception as e:
+        print(f"⚠️ __NEXT_DATA__ 解析失敗或結構不吻合: {e}")
+        
+    return schedules
+
 def fetch_prydwen_schedules():
     print("正在從 Prydwen 抓取卡池資訊...")
     url = "https://www.prydwen.gg/star-rail/banners/"
     try:
-        res = cffi_requests.get(url, impersonate="chrome110")
+        res = cffi_requests.get(url, impersonate="chrome110", timeout=15)
         if res.status_code != 200:
-            print(f"❌ Prydwen 抓取失敗: HTTP {res.status_code}")
+            print(f"❌ Prydwen 存取失敗: HTTP {res.status_code}")
             return []
 
         soup = BeautifulSoup(res.text, "html.parser")
         schedules = []
-        
-        cards = soup.find_all("article", class_="character-banner-card")
-        for card in cards:
-            name_tag = card.find(class_="banner-name")
-            if not name_tag: continue
-            en_name = name_tag.text.strip()
-            
-            path_span = card.find(class_=re.compile(r"path\s+"))
-            en_path = path_span.find("strong").text.strip() if path_span and path_span.find("strong") else ""
-            zh_path = PATH_MAP.get(en_path, "未知")
-            
-            elem_span = card.find(class_=re.compile(r"element\s+"))
-            en_elem = elem_span.find("strong").text.strip() if elem_span and elem_span.find("strong") else ""
-            zh_elem = ELEM_MAP.get(en_elem, "未知")
-            
-            meta_div = card.find(class_="banner-phase-meta")
-            phase_str = meta_div.find("span").text.strip() if meta_div and meta_div.find("span") else ""
-            
-            version_match = re.search(r"Patch ([\d\.X]+)", phase_str)
-            if not version_match: 
-                continue 
+
+        # 優先方案：嘗試抽取 __NEXT_DATA__ 純資料 JSON
+        next_data_tag = soup.find("script", id="__NEXT_DATA__")
+        if next_data_tag and next_data_tag.string:
+            schedules = parse_next_data_json(next_data_tag.string)
+
+        # 備援方案：若 JSON 抽不到資料，自動降級切換回傳統 HTML DOM 爬蟲
+        if not schedules:
+            print("🔄 JSON 提取無結果，切換至傳統 HTML DOM 解析器...")
+            cards = soup.find_all("article", class_="character-banner-card")
+            for card in cards:
+                name_tag = card.find(class_="banner-name")
+                if not name_tag: continue
+                en_name = name_tag.text.strip()
                 
-            version = version_match.group(1)
-            phase_num = 2 if "Phase 2" in phase_str else 1
-            half_str = "上" if phase_num == 1 else "下"
-            run_str = f"{version}{half_str}"
-            
-            schedules.append({
-                "en_name": en_name,
-                "fallback_path": zh_path,
-                "fallback_elem": zh_elem,
-                "run": run_str
-            })
-            print(f"解析卡池角色: {en_name} -> {run_str}")
+                path_span = card.find(class_=re.compile(r"path\s+"))
+                en_path = path_span.find("strong").text.strip() if path_span and path_span.find("strong") else ""
+                zh_path = PATH_MAP.get(en_path, "未知")
+                
+                elem_span = card.find(class_=re.compile(r"element\s+"))
+                en_elem = elem_span.find("strong").text.strip() if elem_span and elem_span.find("strong") else ""
+                zh_elem = ELEM_MAP.get(en_elem, "未知")
+                
+                meta_div = card.find(class_="banner-phase-meta")
+                phase_str = meta_div.find("span").text.strip() if meta_div and meta_div.find("span") else ""
+                
+                version_match = re.search(r"Patch ([\d\.X]+)", phase_str)
+                if not version_match: 
+                    continue 
+                    
+                version = version_match.group(1)
+                phase_num = 2 if "Phase 2" in phase_str else 1
+                half_str = "上" if phase_num == 1 else "下"
+                run_str = f"{version}{half_str}"
+                
+                schedules.append({
+                    "en_name": en_name,
+                    "fallback_path": zh_path,
+                    "fallback_elem": zh_elem,
+                    "run": run_str
+                })
+                print(f"解析卡池角色 (DOM 模式): {en_name} -> {run_str}")
             
         return schedules
     except Exception as e:
@@ -185,6 +231,14 @@ def fetch_prydwen_schedules():
 def fetch_latest_data():
     print("正在檢查遠端與公開資料源...")
     
+    schedules = fetch_prydwen_schedules()
+    
+    # 🛡️ 熔斷機制：如果完全沒抓到任何卡池資料（例如被 Cloudflare 強制封鎖或出現驗證碼）
+    if not schedules:
+        print("⚠️ 警告：無法取得任何有效的卡池資料！(可能遭遇 Cloudflare 攔截或網頁異常)")
+        print("🛡️ 觸發保護熔斷機制！停止本次更新，避免空白資料覆蓋原有資料庫。")
+        return None
+
     existing_data = {"new_patches": [], "new_characters": []}
     try:
         gist_url = f"https://api.github.com/gists/{GIST_ID}"
@@ -220,8 +274,6 @@ def fetch_latest_data():
         sanitized = sanitize_name(name)
         if sanitized:
             en_sanitized_map[sanitized] = cid
-
-    schedules = fetch_prydwen_schedules()
 
     # 建立現有角色的快速查找對照
     existing_char_map_by_cid = {c['cid']: c for c in updated_chars if c.get('cid')}
@@ -349,4 +401,7 @@ if __name__ == "__main__":
         print("❌ 找不到 GIST_TOKEN 環境變數。")
     else:
         latest_data = fetch_latest_data()
-        update_gist(latest_data)
+        if latest_data is not None:
+            update_gist(latest_data)
+        else:
+            print("🛑 任務安全終止：保持現有 Gist 資料不變。")
