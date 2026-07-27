@@ -11,6 +11,9 @@ const RAW_CHARACTERS = [
             "1.0上",
             "1.4下"
         ],
+        buffs: [
+            "4.2上"
+        ],
         term: {
             type: "pool",
             patch: "3.2上"
@@ -39,6 +42,9 @@ const RAW_CHARACTERS = [
             "1.5下",
             "3.0下",
             "3.5下"
+        ],
+        buffs: [
+            "3.4上"
         ],
         term: {
             type: "pool",
@@ -71,6 +77,9 @@ const RAW_CHARACTERS = [
             "1.6上",
             "3.4下"
         ],
+        buffs: [
+            "3.4上"
+        ],
         term: {
             type: "pool",
             patch: "3.2上"
@@ -87,6 +96,9 @@ const RAW_CHARACTERS = [
             "1.6下",
             "2.5上",
             "3.5上"
+        ],
+        buffs: [
+            "3.4上"
         ]
     },
     {
@@ -126,6 +138,9 @@ const RAW_CHARACTERS = [
             "1.4上",
             "2.1下",
             "3.4下"
+        ],
+        buffs: [
+            "3.4上"
         ]
     },
     {
@@ -154,6 +169,9 @@ const RAW_CHARACTERS = [
             "1.5上",
             "2.4上",
             "3.1下"
+        ],
+        buffs: [
+            "4.2上"
         ],
         term: {
             type: "shop",
@@ -211,6 +229,9 @@ const RAW_CHARACTERS = [
             "2.0上",
             "2.5上",
             "4.0上"
+        ],
+        buffs: [
+            "4.0上"
         ]
     },
     {
@@ -224,6 +245,9 @@ const RAW_CHARACTERS = [
             "2.4下",
             "3.4上",
             "4.0下"
+        ],
+        buffs: [
+            "4.0上"
         ]
     },
     {
@@ -289,6 +313,9 @@ const RAW_CHARACTERS = [
             "2.7下",
             "3.4下",
             "3.8上",
+            "4.2上"
+        ],
+        buffs: [
             "4.2上"
         ]
     },
