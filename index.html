@@ -42,6 +42,7 @@
             white-space: nowrap;
             width: 90px;
             box-sizing: border-box;
+            position: relative;
         }
         .toggle-btn:hover {
             border-color: #666;
@@ -68,67 +69,62 @@
             width: 130px !important;
         }
 
-        /* ===== 說明按鈕與浮動視窗 (Info Tooltip) ===== */
-        .info-help-wrap {
+        /* ===== 質感懸浮提示 (CSS Custom Tooltip) ===== */
+        /* 1. 下拉選單項目的右側氣泡 */
+        .dropdown-panel label[data-tooltip] {
             position: relative;
-            display: inline-block;
         }
-        .info-btn {
-            background: #1c1c1c;
-            color: #a5c8ff;
-            border: 1px solid #444;
-            padding: 5px 9px;
+        .dropdown-panel label[data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: calc(100% + 8px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1e1e1e;
+            color: #ffd700;
+            border: 1px solid #5575b5;
+            padding: 4px 8px;
             border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            font-size: 11px;
+            font-weight: normal;
             white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            pointer-events: none;
+            z-index: 2000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.7);
         }
-        .info-btn:hover {
-            border-color: #5575b5;
-            background: #2e436e;
-            color: #fff;
+        .dropdown-panel label[data-tooltip]:hover::after {
+            opacity: 1;
+            visibility: visible;
         }
-        .info-popover {
-            display: none;
+
+        /* 2. 礪爍新輝按鈕的下方氣泡 */
+        .toggle-btn[data-tooltip]::after {
+            content: attr(data-tooltip);
             position: absolute;
             top: calc(100% + 6px);
-            left: 0;
+            left: 50%;
+            transform: translateX(-50%);
             background: #1e1e1e;
-            border: 1px solid #5575b5;
-            border-radius: 6px;
-            padding: 10px 12px;
-            z-index: 1000;
-            width: 210px;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.7);
-            font-size: 12px;
-            color: #e0e0e0;
-            white-space: normal;
-            line-height: 1.6;
+            color: #86efac;
+            border: 1px solid #86efac;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: normal;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            pointer-events: none;
+            z-index: 2000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.7);
         }
-        .info-popover.show {
-            display: block;
-        }
-        .info-popover-header {
-            font-weight: bold;
-            color: #a5c8ff;
-            border-bottom: 1px solid #333;
-            padding-bottom: 4px;
-            margin-bottom: 6px;
-        }
-        .info-list {
-            margin: 0;
-            padding-left: 16px;
-        }
-        .info-list li {
-            margin-bottom: 4px;
-        }
-        .info-list li:last-child {
-            margin-bottom: 0;
-        }
-        .info-list b {
-            color: #ffd700;
+        .toggle-btn[data-tooltip]:hover::after {
+            opacity: 1;
+            visibility: visible;
         }
     </style>
 </head>
@@ -156,38 +152,25 @@
             <!-- 取得方法選單 -->
             <div class="multi-select" id="type-dropdown">
                 <div class="select-box" id="type-select-box">取得方法</div>
-                <div class="dropdown-panel" id="type-panel">
+                <div class="dropdown-panel" id="type-panel" style="overflow: visible;">
                     <label><input type="checkbox" id="type-all" checked> <b>全部方法</b></label>
                     <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
                     <div id="type-items-container">
                         <label><input type="checkbox" class="type-item" value="normal" checked> 限定躍遷</label>
-                        <label><input type="checkbox" class="type-item" value="pool" checked> 星緣相邀</label>
-                        <label><input type="checkbox" class="type-item" value="shop" checked> 聚靈鑄星</label>
+                        <label data-tooltip="加入非UP自選池"><input type="checkbox" class="type-item" value="pool" checked> 星緣相邀</label>
+                        <label data-tooltip="加入兌換商店"><input type="checkbox" class="type-item" value="shop" checked> 聚靈鑄星</label>
                         <label><input type="checkbox" class="type-item" value="collab" checked> 長期聯動</label>
                     </div>
                 </div>
             </div>
 
             <!-- 現代化按鈕切換：礪爍新輝 -->
-            <button type="button" id="buff-toggle-btn" class="toggle-btn">
+            <button type="button" id="buff-toggle-btn" class="toggle-btn" data-tooltip="僅顯示加強過的角色">
                 <span class="toggle-icon">▲</span> 礪爍新輝
             </button>
 
             <!-- 角色名稱搜尋框 -->
             <input type="text" id="char-search-input" class="search-input" placeholder="搜尋角色">
-
-            <!-- 說明 Tooltip -->
-            <div class="info-help-wrap">
-                <button type="button" id="info-btn" class="info-btn">ⓘ 說明</button>
-                <div id="info-popover" class="info-popover">
-                    <div class="info-popover-header">📌 名詞說明</div>
-                    <ul class="info-list">
-                        <li><b>星緣相邀</b>：可選入非當期UP池。</li>
-                        <li><b>聚靈鑄星</b>：進入兌換商店。</li>
-                        <li><b>礪爍新輝</b>：角色加強。</li>
-                    </ul>
-                </div>
-            </div>
         </div>
 
         <div class="header-center">
@@ -509,18 +492,6 @@
             const buffToggleBtn = document.getElementById('buff-toggle-btn');
             const searchInput = document.getElementById('char-search-input');
 
-            // 說明 Tooltip 控制
-            const infoBtn = document.getElementById('info-btn');
-            const infoPopover = document.getElementById('info-popover');
-
-            infoBtn.addEventListener('mouseenter', () => infoPopover.classList.add('show'));
-            infoBtn.addEventListener('mouseleave', () => infoPopover.classList.remove('show'));
-            infoBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                infoPopover.classList.toggle('show');
-            });
-            infoPopover.addEventListener('click', (e) => e.stopPropagation());
-
             // 礪爍新輝按鈕切換狀態
             let onlyBuffs = false;
             buffToggleBtn.addEventListener('click', () => {
@@ -555,7 +526,6 @@
                 pathPanel.classList.remove('show');
                 elemPanel.classList.remove('show');
                 typePanel.classList.remove('show');
-                infoPopover.classList.remove('show');
             });
 
             pathPanel.addEventListener('click', (e) => e.stopPropagation());
