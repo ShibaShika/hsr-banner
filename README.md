@@ -1,4 +1,4 @@
-# 崩壞：星穹鐵道 - 限定躍遷一覽表 (HSR Banner Tracker)
+# 崩壞：星穹鐵道 - 限定躍遷一覽表
 
 🔗 **線上即時預覽**：[https://shibashika.github.io/hsr-banner/](https://shibashika.github.io/hsr-banner/)
 
@@ -44,7 +44,7 @@ hsr-banner/
 
 ---
 
-## ⚙️ 視覺化資料管理後台 (editor.html)
+## ⚙️ 視覺化資料管理後台
 
 本專案附帶專屬的視覺化後台（`editor.html`），方便進行資料維護與校對：
 
@@ -55,7 +55,7 @@ hsr-banner/
 
 ---
 
-## ⚖️ 免責與版權聲明 (Disclaimer)
+## ⚖️ 免責與版權聲明
 
 1. 本專案為玩家自製之非商業同人工具，僅供社群交流與個人紀錄使用。
 2. 本網站所使用之《崩壞：星穹鐵道》（*Honkai: Star Rail*）遊戲美術圖示、角色名稱及相關素材，其智慧財產權與商標皆歸屬 **上海米哈游網絡科技股份有限公司 (miHoYo)** / **COGNOSPHERE PTE. LTD. (HoYoverse)** 所有。
