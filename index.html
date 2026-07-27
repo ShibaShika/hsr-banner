@@ -309,13 +309,19 @@
             const uniquePaths = PATH_ORDER.filter(p => RAW_CHARACTERS.some(c => c.path === p));
             const uniqueElems = ELEM_ORDER.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
 
-            document.getElementById('path-items-container').innerHTML = uniquePaths.map(p => 
-                `<label><input type="checkbox" class="path-item" value="${p}" checked> ${p}</label>`
-            ).join('');
+            // ===== 動態產生命途選項（帶有小圖示） =====
+            document.getElementById('path-items-container').innerHTML = uniquePaths.map(p => {
+                const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
+                const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${p}">` : "";
+                return `<label><input type="checkbox" class="path-item" value="${p}" checked> ${iconHtml}${p}</label>`;
+            }).join('');
             
-            document.getElementById('elem-items-container').innerHTML = uniqueElems.map(e => 
-                `<label><input type="checkbox" class="elem-item" value="${e}" checked> ${e}</label>`
-            ).join('');
+            // ===== 動態產生屬性選項（帶有小圖示） =====
+            document.getElementById('elem-items-container').innerHTML = uniqueElems.map(e => {
+                const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
+                const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${e}">` : "";
+                return `<label><input type="checkbox" class="elem-item" value="${e}" checked> ${iconHtml}${e}</label>`;
+            }).join('');
 
             // 構建表頭 1 (日期)
             let html = '<thead><tr><th></th>';
