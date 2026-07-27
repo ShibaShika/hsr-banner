@@ -32,7 +32,7 @@
                     <div id="elem-items-container"></div>
                 </div>
             </div>
-            <!-- 新增：取得機制篩選器 -->
+            <!-- 取得機制篩選器 -->
             <div class="multi-select" id="type-dropdown">
                 <div class="select-box" id="type-select-box">全部機制</div>
                 <div class="dropdown-panel" id="type-panel">
@@ -282,6 +282,11 @@
                     const isCurrentCol = patchObj && (patchObj.patch === activePatchName);
                     const currentColClass = isCurrentCol ? ' current-patch-col' : '';
 
+                    // 檢查角色在此版本是否有「礪爍新輝」能力加強
+                    const hasBuff = char.buffs && patchObj && char.buffs.includes(patchObj.patch);
+                    const buffBadgeHtml = hasBuff ? '<span class="buff-badge" title="【礪爍新輝】角色能力加強">▲</span>' : '';
+                    const buffTitleAttr = hasBuff ? ' title="【礪爍新輝】角色能力加強"' : '';
+
                     let cls = '';
                     let content = '';
                     
@@ -292,33 +297,33 @@
                         if (parts.length === 3) {
                             dateStr = `${parts[1]}/${parts[2]}`;
                         }
-                        html += `<td colspan="${cell.count}" class="collab-text${currentColClass}">←${dateStr}後長期開放</td>`;
+                        html += `<td colspan="${cell.count}" class="collab-text${currentColClass}">${buffBadgeHtml}←${dateStr}後長期開放</td>`;
                         return;
                     }
 
                     if (cell.status === 'UP' || cell.status === 'COLLAB') {
                         cls = 'img-cell';
-                        content = `<img src="${avatarUrl}" class="grid-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">`;
+                        content = `${buffBadgeHtml}<img src="${avatarUrl}" class="grid-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';"${buffTitleAttr}>`;
                     } else if (cell.status === 'COLLAB_EMPTY') {
                         cls = `collab-empty bg-${char.elem}`;
-                        content = '';
+                        content = buffBadgeHtml;
                     } else if (cell.status === 'TERM_START') {
                         cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
-                        content = cell.type === 'pool' ? '星緣' : '聚靈';
+                        content = `${buffBadgeHtml}${cell.type === 'pool' ? '星緣' : '聚靈'}`;
                     } else if (cell.status === 'TERM_EMPTY') {
                         cls = cell.type === 'pool' ? 'term-pool-empty' : 'term-shop-empty';
-                        content = '';
+                        content = buffBadgeHtml;
                     } else if (cell.status === 'NONE') {
                         cls = 'none';
-                        content = '-';
+                        content = `${buffBadgeHtml}-`;
                     } else {
-                        content = cell.gap;
+                        content = `${buffBadgeHtml}${cell.gap}`;
                         if (cell.gap <= 3) cls = 'w-low';
                         else if (cell.gap <= 7) cls = 'w-med';
                         else if (cell.gap <= 12) cls = 'w-high';
                         else cls = 'w-crit';
                     }
-                    html += `<td class="${cls}${currentColClass}">${content}</td>`;
+                    html += `<td class="${cls}${currentColClass}"${buffTitleAttr}>${content}</td>`;
                 });
                 html += `</tr>`;
             });
