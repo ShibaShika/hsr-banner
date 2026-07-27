@@ -11,7 +11,7 @@
     <style>
         :root { --bg: #121212; --surface: #1e1e1e; --border: #444; --text: #e0e0e0; --primary: #2e436e; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1300px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .container { max-width: 1400px; margin: 0 auto; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         h1 { margin-top: 0; font-size: 24px; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
@@ -192,11 +192,13 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 5%; text-align: center;">序號</th>
+                        <th style="width: 4%; text-align: center;">序號</th>
+                        <th style="width: 7%; text-align: center;">CID</th>
                         <th style="width: 10%;">名稱</th>
                         <th style="width: 6%;">命途</th>
                         <th style="width: 6%;">屬性</th>
-                        <th style="width: 66%;">取得機制與版本設定</th>
+                        <th style="width: 50%;">取得機制與版本設定</th>
+                        <th style="width: 10%;">礪爍新輝</th>
                         <th style="width: 7%; text-align: center;">操作</th>
                     </tr>
                 </thead>
@@ -345,7 +347,8 @@
         let activePickerCallback = null;
         let pickerSelectedMajor = null;
         let activeCharIndex = null;
-        let activeRunIndex = null;
+        let activeItemIndex = null;
+        let activePickerType = 'run'; // 'run' 或 'buff'
 
         function getPatchHierarchy() {
             const groups = {};
@@ -361,11 +364,12 @@
             return groups;
         }
 
-        function openPatchPicker(currentValue, buttonEl, charIdx, runIdx, callback) {
+        function openPatchPicker(currentValue, buttonEl, charIdx, itemIdx, callback, type = 'run') {
             const popup = document.getElementById('custom-patch-picker');
             activePickerCallback = callback;
             activeCharIndex = charIdx;
-            activeRunIndex = runIdx;
+            activeItemIndex = itemIdx;
+            activePickerType = type;
 
             const cleanBase = currentValue.replace(/[^0-9.]/g, '');
             const defaultMajor = cleanBase.split('.')[0] ? cleanBase.split('.')[0] + '.X' : Object.keys(getPatchHierarchy())[0];
@@ -396,12 +400,16 @@
             popup.style.left = `${left}px`;
 
             const removeBtn = document.getElementById('picker-remove-btn');
-            if (activeRunIndex !== null) {
+            if (activeItemIndex !== null) {
                 removeBtn.style.display = 'flex';
                 removeBtn.onclick = (e) => {
                     e.stopPropagation();
                     closePicker();
-                    removeRun(activeCharIndex, activeRunIndex);
+                    if (activePickerType === 'buff') {
+                        removeBuff(activeCharIndex, activeItemIndex);
+                    } else {
+                        removeRun(activeCharIndex, activeItemIndex);
+                    }
                 };
             } else {
                 removeBtn.style.display = 'none';
@@ -488,11 +496,13 @@
             charsData.forEach((char, index) => {
                 try {
                     const origChar = originalChars[index] || {};
+                    const isCidModified = (char.cid || "") !== (origChar.cid || "");
                     const isNameModified = char.name !== origChar.name;
                     const isPathModified = char.path !== origChar.path;
                     const isElemModified = char.elem !== origChar.elem;
-                    const isRunsModified = JSON.stringify(char.runs) !== JSON.stringify(origChar.runs);
-                    const isRowNew = !originalChars.some(o => (char.cid && o.cid === char.cid) || o.name === char.name && char.name !== "");
+                    const isRunsModified = JSON.stringify(char.runs || []) !== JSON.stringify(origChar.runs || []);
+                    const isBuffsModified = JSON.stringify(char.buffs || []) !== JSON.stringify(origChar.buffs || []);
+                    const isRowNew = !originalChars.some(o => (char.cid && o.cid === char.cid) || (o.name === char.name && char.name !== ""));
 
                     const isCollab = char.isCollab !== undefined;
                     const termType = char.term ? char.term.type : 'none'; 
@@ -517,6 +527,7 @@
                     }
 
                     const runs = char.runs || [];
+                    const buffs = char.buffs || [];
 
                     const tr = document.createElement('tr');
                     if (isRowNew) {
@@ -525,6 +536,7 @@
 
                     tr.innerHTML = `
                         <td style="text-align: center; color: #888; font-weight: bold; font-size: 13px;">${index + 1}</td>
+                        <td><input type="text" value="${char.cid || ''}" placeholder="CID" onchange="updateChar(${index}, 'cid', this.value)" class="${isCidModified ? 'modified-highlight' : ''}" style="width: 100%; text-align: center;"></td>
                         <td><input type="text" value="${char.name || ''}" placeholder="新角色" onchange="updateChar(${index}, 'name', this.value)" class="${isNameModified ? 'modified-highlight' : ''}" style="width: 100%;"></td>
                         <td>
                             <select onchange="updateChar(${index}, 'path', this.value)" class="${isPathModified ? 'modified-highlight' : ''}" style="width: 100%; text-align: center; text-align-last: center;">
@@ -547,7 +559,7 @@
 
                                 <div>
                                     ${(currentType === 'pool' || currentType === 'shop') ? `
-                                        <div class="picker-trigger" onclick="openPatchPicker('${termPatch}', this, ${index}, null, (val) => { updateTermPatch(${index}, val); renderChars(); })">
+                                        <div class="picker-trigger" onclick="openPatchPicker('${termPatch}', this, ${index}, null, (val) => { updateTermPatch(${index}, val); renderChars(); }, 'run')">
                                             <span>${termPatch || '選擇版本'}</span> <span>▼</span>
                                         </div>
                                     ` : ''}
@@ -560,7 +572,7 @@
                                     ${currentType !== 'collab' ? `
                                         <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
                                             ${runs.map((run, rIdx) => `
-                                                <div class="picker-trigger ${isRunsModified ? 'modified-highlight' : ''}" onclick="openPatchPicker('${run}', this, ${index}, ${rIdx}, (val) => { updateRun(${index}, ${rIdx}, val); renderChars(); })">
+                                                <div class="picker-trigger ${isRunsModified ? 'modified-highlight' : ''}" onclick="openPatchPicker('${run}', this, ${index}, ${rIdx}, (val) => { updateRun(${index}, ${rIdx}, val); renderChars(); }, 'run')">
                                                     <span>${run || '選擇'}</span> <span>▼</span>
                                                 </div>
                                             `).join('')}
@@ -570,6 +582,16 @@
                                         <span style="font-size: 11px; color: #8ef9f3;">對應版本: <b>${char.isCollab || '未定'}</b></span>
                                     `}
                                 </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
+                                ${buffs.map((buff, bIdx) => `
+                                    <div class="picker-trigger ${isBuffsModified ? 'modified-highlight' : ''}" onclick="openPatchPicker('${buff}', this, ${index}, ${bIdx}, (val) => { updateBuff(${index}, ${bIdx}, val); renderChars(); }, 'buff')">
+                                        <span>${buff || '選擇'}</span> <span>▼</span>
+                                    </div>
+                                `).join('')}
+                                <button type="button" class="btn" style="padding: 2px 6px; font-size: 11px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addBuff(${index})" title="新增加強版本">＋</button>
                             </div>
                         </td>
                         <td style="text-align: center; white-space: nowrap;">
@@ -587,7 +609,7 @@
         }
 
         function updateChar(index, key, value) { 
-            charsData[index][key] = value; 
+            charsData[index][key] = value ? value.trim() : null; 
             renderChars();
         }
 
@@ -607,6 +629,29 @@
         function removeRun(index, rIndex) {
             if (!charsData[index].runs) return;
             charsData[index].runs.splice(rIndex, 1);
+            renderChars();
+        }
+
+        function updateBuff(index, bIndex, value) {
+            if (!charsData[index].buffs) charsData[index].buffs = [];
+            charsData[index].buffs[bIndex] = value.trim();
+            renderChars();
+        }
+
+        function addBuff(index) {
+            if (!charsData[index].buffs) charsData[index].buffs = [];
+            const patches = patchesData.map(p => p.patch);
+            const defaultP = patches.length > 0 ? patches[patches.length - 1] : "3.4上";
+            charsData[index].buffs.push(defaultP);
+            renderChars();
+        }
+
+        function removeBuff(index, bIndex) {
+            if (!charsData[index].buffs) return;
+            charsData[index].buffs.splice(bIndex, 1);
+            if (charsData[index].buffs.length === 0) {
+                delete charsData[index].buffs;
+            }
             renderChars();
         }
 
@@ -689,6 +734,7 @@
             }
 
             charsData.push({ 
+                cid: null,
                 name: "", 
                 path: "毀滅", 
                 elem: "火", 
@@ -939,7 +985,7 @@
             });
         }
 
-        // ======= 遠端同步功能（修復連鎖改名 Bug 版） =======
+        // ======= 遠端同步功能 =======
         const REMOTE_DATA_URL = 'https://gist.githubusercontent.com/ShibaShika/53c5bb324cd140fb8751c9812bd5df68/raw/hsr_latest_banner.json'; 
 
         async function syncFromRemote(btnEl) {
@@ -967,12 +1013,11 @@
                     });
                 }
 
-                // 2. 處理新角色與自動升級中文名 (防止迴圈即時修改導致錯亂，先做快照映射)
+                // 2. 處理新角色與自動升級中文名
                 if (data.new_characters && data.new_characters.length > 0) {
 
-                    // 建立本地角色的舊名稱/CID 映射地圖
                     const localCharSnapshot = charsData.map(c => ({
-                        ref: c, // 直接指向原始物件
+                        ref: c,
                         originalCid: c.cid ? String(c.cid) : null,
                         originalName: c.name,
                         originalSanitized: sanitizeName(c.name)
@@ -983,13 +1028,11 @@
                         const remoteName = newChar.name;
                         const remoteSanitized = sanitizeName(remoteName);
 
-                        // 2a. 優先透過 CID 精準對應
                         let matchedItem = null;
                         if (remoteCid) {
                             matchedItem = localCharSnapshot.find(item => item.originalCid === remoteCid);
                         }
 
-                        // 2b. 若沒有 CID 或沒找著，透過「快照的原始名稱」對應
                         if (!matchedItem && remoteName) {
                             matchedItem = localCharSnapshot.find(item => 
                                 item.originalName === remoteName || 
@@ -1000,7 +1043,6 @@
                         if (matchedItem) {
                             const existingChar = matchedItem.ref;
 
-                            // 自動將舊英文名/暫譯名原地升級為正式中文名
                             if (existingChar.name !== remoteName && !remoteName.match(/^[a-zA-Z\s•]+$/)) {
                                 updatedCharsList.push(`${existingChar.name} ➡️ ${remoteName}`);
                                 existingChar.name = remoteName;
@@ -1011,26 +1053,31 @@
                             if (newChar.path && (existingChar.path === "未知" || !existingChar.path)) existingChar.path = newChar.path;
                             if (newChar.elem && (existingChar.elem === "未知" || !existingChar.elem)) existingChar.elem = newChar.elem;
 
-                            // 同步版本 runs
                             if (newChar.runs && Array.isArray(newChar.runs)) {
                                 if (!existingChar.runs) existingChar.runs = [];
                                 newChar.runs.forEach(r => {
                                     if (!existingChar.runs.includes(r)) existingChar.runs.push(r);
                                 });
                             }
+
+                            if (newChar.buffs && Array.isArray(newChar.buffs)) {
+                                if (!existingChar.buffs) existingChar.buffs = [];
+                                newChar.buffs.forEach(b => {
+                                    if (!existingChar.buffs.includes(b)) existingChar.buffs.push(b);
+                                });
+                            }
                         } else {
-                            // 真的找不到對應角色時，才新增角色
                             const newObj = {
                                 cid: newChar.cid || null,
                                 name: newChar.name || "新角色",
                                 path: newChar.path || "毀滅",
                                 elem: newChar.elem || "火",
                                 avatar: newChar.avatar || "",
-                                runs: newChar.runs || []
+                                runs: newChar.runs || [],
+                                buffs: newChar.buffs || []
                             };
                             charsData.push(newObj);
 
-                            // 將新增的角色也寫入快照，防止後續相同角色的重複新增
                             localCharSnapshot.push({
                                 ref: newObj,
                                 originalCid: newObj.cid ? String(newObj.cid) : null,
