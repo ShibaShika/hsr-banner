@@ -12,42 +12,162 @@
     <script src="js/paths.js"></script>
     <script src="js/elements.js"></script>
     <script src="js/characters.js"></script>
+
+    <style>
+        /* ===== 新增：現代化切換按鈕 (Toggle Button) ===== */
+        .toggle-btn {
+            background: #1c1c1c;
+            color: #aaa;
+            border: 1px solid #444;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            user-select: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            white-space: nowrap;
+        }
+        .toggle-btn:hover {
+            border-color: #666;
+            color: #fff;
+            background: #222;
+        }
+        .toggle-btn.active {
+            background: #1e3a2b;
+            color: #86efac;
+            border-color: #86efac;
+            box-shadow: 0 0 8px rgba(134, 239, 172, 0.3);
+            font-weight: bold;
+        }
+        .toggle-btn .toggle-icon {
+            font-size: 10px;
+            color: #86efac;
+        }
+
+        /* ===== 新增：說明按鈕與浮動視窗 (Info Tooltip) ===== */
+        .info-help-wrap {
+            position: relative;
+            display: inline-block;
+        }
+        .info-btn {
+            background: #1c1c1c;
+            color: #a5c8ff;
+            border: 1px solid #444;
+            padding: 5px 9px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            white-space: nowrap;
+        }
+        .info-btn:hover {
+            border-color: #5575b5;
+            background: #2e436e;
+            color: #fff;
+        }
+        .info-popover {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            background: #1e1e1e;
+            border: 1px solid #5575b5;
+            border-radius: 6px;
+            padding: 10px 12px;
+            z-index: 1000;
+            width: 210px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.7);
+            font-size: 12px;
+            color: #e0e0e0;
+            white-space: normal;
+            line-height: 1.6;
+        }
+        .info-popover.show {
+            display: block;
+        }
+        .info-popover-header {
+            font-weight: bold;
+            color: #a5c8ff;
+            border-bottom: 1px solid #333;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+        }
+        .info-list {
+            margin: 0;
+            padding-left: 16px;
+        }
+        .info-list li {
+            margin-bottom: 4px;
+        }
+        .info-list li:last-child {
+            margin-bottom: 0;
+        }
+        .info-list b {
+            color: #ffd700;
+        }
+    </style>
 </head>
 <body>
     <div class="header-bar">
         <div class="header-left">
+            <!-- 命途選單 -->
             <div class="multi-select" id="path-dropdown">
-                <div class="select-box" id="path-select-box">全部命途</div>
+                <div class="select-box" id="path-select-box">命途</div>
                 <div class="dropdown-panel" id="path-panel">
                     <label><input type="checkbox" id="path-all" checked> <b>全部命途</b></label>
                     <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
                     <div id="path-items-container"></div>
                 </div>
             </div>
+            <!-- 屬性選單 -->
             <div class="multi-select" id="elem-dropdown">
-                <div class="select-box" id="elem-select-box">全部屬性</div>
+                <div class="select-box" id="elem-select-box">屬性</div>
                 <div class="dropdown-panel" id="elem-panel">
                     <label><input type="checkbox" id="elem-all" checked> <b>全部屬性</b></label>
                     <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
                     <div id="elem-items-container"></div>
                 </div>
             </div>
-            <!-- 取得機制篩選器 -->
+            <!-- 取得方法選單 -->
             <div class="multi-select" id="type-dropdown">
-                <div class="select-box" id="type-select-box">全部機制</div>
+                <div class="select-box" id="type-select-box">取得方法</div>
                 <div class="dropdown-panel" id="type-panel">
-                    <label><input type="checkbox" id="type-all" checked> <b>全部機制</b></label>
+                    <label><input type="checkbox" id="type-all" checked> <b>全部方法</b></label>
                     <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
                     <div id="type-items-container">
-                        <label><input type="checkbox" class="type-item" value="normal" checked> 一般角色</label>
+                        <label><input type="checkbox" class="type-item" value="normal" checked> 限定躍遷</label>
                         <label><input type="checkbox" class="type-item" value="pool" checked> 星緣相邀</label>
                         <label><input type="checkbox" class="type-item" value="shop" checked> 聚靈鑄星</label>
                         <label><input type="checkbox" class="type-item" value="collab" checked> 長期聯動</label>
                     </div>
                 </div>
             </div>
+
+            <!-- 現代化按鈕切換：礪爍新輝 -->
+            <button type="button" id="buff-toggle-btn" class="toggle-btn">
+                <span class="toggle-icon">▲</span> 礪爍新輝
+            </button>
+
             <!-- 角色名稱搜尋框 -->
             <input type="text" id="char-search-input" class="search-input" placeholder="搜尋角色...">
+
+            <!-- 說明 Tooltip -->
+            <div class="info-help-wrap">
+                <button type="button" id="info-btn" class="info-btn">ⓘ 說明</button>
+                <div id="info-popover" class="info-popover">
+                    <div class="info-popover-header">📌 名詞說明</div>
+                    <ul class="info-list">
+                        <li><b>星緣相邀</b>：可選入非當期UP池。</li>
+                        <li><b>聚靈鑄星</b>：進入兌換商店。</li>
+                        <li><b>礪爍新輝</b>：角色加強。</li>
+                    </ul>
+                </div>
+            </div>
         </div>
 
         <div class="header-center">
@@ -195,7 +315,7 @@
                 const pathIconUrl = PATH_ICONS[char.path] || "";
                 const seqNum = totalChars - index;
                 
-                // 判斷取得機制類型以利過濾
+                // 判斷取得機制類型
                 let charType = 'normal';
                 if (char.isCollab) {
                     charType = 'collab';
@@ -203,9 +323,11 @@
                     if (char.term.type === 'pool') charType = 'pool';
                     else if (char.term.type === 'shop') charType = 'shop';
                 }
+
+                // 判斷是否有「礪爍新輝」加強紀錄
+                const hasBuff = char.buffs && char.buffs.length > 0;
                 
-                // 新增 data-type 屬性
-                html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-name="${char.name}">
+                html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-has-buff="${hasBuff}" data-name="${char.name}">
                     <td class="bg-${char.elem}">
                         <div class="char-info-cell">
                             <span class="char-seq">${seqNum}</span>
@@ -283,9 +405,9 @@
                     const currentColClass = isCurrentCol ? ' current-patch-col' : '';
 
                     // 檢查角色在此版本是否有「礪爍新輝」能力加強
-                    const hasBuff = char.buffs && patchObj && char.buffs.includes(patchObj.patch);
-                    const buffBadgeHtml = hasBuff ? '<span class="buff-badge" title="【礪爍新輝】角色能力加強">▲</span>' : '';
-                    const buffTitleAttr = hasBuff ? ' title="【礪爍新輝】角色能力加強"' : '';
+                    const cellHasBuff = char.buffs && patchObj && char.buffs.includes(patchObj.patch);
+                    const buffBadgeHtml = cellHasBuff ? '<span class="buff-badge" title="【礪爍新輝】角色能力加強">▲</span>' : '';
+                    const buffTitleAttr = cellHasBuff ? ' title="【礪爍新輝】角色能力加強"' : '';
 
                     let cls = '';
                     let content = '';
@@ -331,7 +453,7 @@
             
             table.innerHTML = html;
 
-            // ===== 建立精確的直欄座標對應 (解決 colspan 引起的 cellIndex 錯位) =====
+            // ===== 建立精確的直欄座標對應 =====
             function updateColumnIndices() {
                 const rows = table.rows;
                 for (let r = 0; r < rows.length; r++) {
@@ -363,7 +485,29 @@
             const pathItems = pathPanel.querySelectorAll('.path-item');
             const elemItems = elemPanel.querySelectorAll('.elem-item');
             const typeItems = typePanel.querySelectorAll('.type-item');
+            
+            const buffToggleBtn = document.getElementById('buff-toggle-btn');
             const searchInput = document.getElementById('char-search-input');
+
+            // 說明 Tooltip 控制
+            const infoBtn = document.getElementById('info-btn');
+            const infoPopover = document.getElementById('info-popover');
+
+            infoBtn.addEventListener('mouseenter', () => infoPopover.classList.add('show'));
+            infoBtn.addEventListener('mouseleave', () => infoPopover.classList.remove('show'));
+            infoBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                infoPopover.classList.toggle('show');
+            });
+            infoPopover.addEventListener('click', (e) => e.stopPropagation());
+
+            // 礪爍新輝按鈕切換狀態
+            let onlyBuffs = false;
+            buffToggleBtn.addEventListener('click', () => {
+                onlyBuffs = !onlyBuffs;
+                buffToggleBtn.classList.toggle('active', onlyBuffs);
+                applyFilters();
+            });
 
             // 切換面板顯示，開啟當前的同時隱藏另外兩個
             pathBox.addEventListener('click', (e) => {
@@ -391,6 +535,7 @@
                 pathPanel.classList.remove('show');
                 elemPanel.classList.remove('show');
                 typePanel.classList.remove('show');
+                infoPopover.classList.remove('show');
             });
 
             pathPanel.addEventListener('click', (e) => e.stopPropagation());
@@ -405,7 +550,7 @@
 
                 // 更新命途 UI 文字
                 if (selectedPaths.length === pathItems.length) {
-                    pathBox.textContent = '全部命途';
+                    pathBox.textContent = '命途';
                 } else if (selectedPaths.length === 0) {
                     pathBox.textContent = '未選命途';
                 } else if (selectedPaths.length <= 2) {
@@ -416,7 +561,7 @@
 
                 // 更新屬性 UI 文字
                 if (selectedElems.length === elemItems.length) {
-                    elemBox.textContent = '全部屬性';
+                    elemBox.textContent = '屬性';
                 } else if (selectedElems.length === 0) {
                     elemBox.textContent = '未選屬性';
                 } else if (selectedElems.length <= 2) {
@@ -425,12 +570,12 @@
                     elemBox.textContent = `${selectedElems[0]} 等 ${selectedElems.length} 個`;
                 }
 
-                // 更新機制 UI 文字
-                const typeLabelMap = { 'normal': '一般', 'pool': '星緣', 'shop': '聚靈', 'collab': '聯動' };
+                // 更新取得方法 UI 文字
+                const typeLabelMap = { 'normal': '限定躍遷', 'pool': '星緣', 'shop': '聚靈', 'collab': '聯動' };
                 if (selectedTypes.length === typeItems.length) {
-                    typeBox.textContent = '全部機制';
+                    typeBox.textContent = '取得方法';
                 } else if (selectedTypes.length === 0) {
-                    typeBox.textContent = '未選機制';
+                    typeBox.textContent = '未選方法';
                 } else if (selectedTypes.length <= 2) {
                     typeBox.textContent = selectedTypes.map(t => typeLabelMap[t]).join(', ');
                 } else {
@@ -443,14 +588,16 @@
                     const rowPath = row.getAttribute('data-path');
                     const rowElem = row.getAttribute('data-elem');
                     const rowType = row.getAttribute('data-type');
+                    const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
                     const rowName = row.getAttribute('data-name').toLowerCase();
 
                     const matchPath = selectedPaths.includes(rowPath);
                     const matchElem = selectedElems.includes(rowElem);
                     const matchType = selectedTypes.includes(rowType);
                     const matchName = keyword === '' || rowName.includes(keyword);
+                    const matchBuff = !onlyBuffs || hasBuffAttr;
 
-                    if (matchPath && matchElem && matchType && matchName) {
+                    if (matchPath && matchElem && matchType && matchName && matchBuff) {
                         row.style.display = '';
                         visibleCount++;
                     } else {
@@ -527,7 +674,6 @@
                 const cell = e.target.closest('td, th');
                 if (!cell || cell.closest('tr')?.classList.contains('empty-row')) return;
 
-                // 1. 若滑鼠懸停在合併儲存格（colspan > 1），清空直欄高亮並直接返回，避免擴散成多欄高亮
                 if (cell.colSpan > 1) {
                     trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
                     return;
@@ -536,16 +682,12 @@
                 const startCol = parseInt(cell.dataset.startCol, 10);
                 const endCol = parseInt(cell.dataset.endCol, 10);
 
-                // 移除舊高亮
                 trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
 
-                // 第一欄（角色資訊欄，col 0）不上直欄高亮
                 if (endCol === 0 || isNaN(startCol)) return;
 
-                // 尋找同屬該直欄的單一儲存格並加上高亮
                 const allCells = trackerTable.querySelectorAll('th, td');
                 allCells.forEach(c => {
-                    // 2. 忽略合併儲存格，避免單直欄高亮影響到橫跨多欄的文字格
                     if (c.colSpan > 1) return;
 
                     const cStart = parseInt(c.dataset.startCol, 10);
