@@ -14,22 +14,34 @@
     <script src="js/characters.js"></script>
 
     <style>
-        /* ===== 新增：現代化切換按鈕 (Toggle Button) ===== */
+        /* ===== 統一前 4 項篩選器寬度 ===== */
+        .multi-select {
+            width: 90px !important;
+        }
+        .select-box {
+            text-align: center;
+            padding: 5px 4px;
+        }
+
+        /* ===== 現代化切換按鈕 (Toggle Button) ===== */
         .toggle-btn {
             background: #1c1c1c;
             color: #aaa;
             border: 1px solid #444;
-            padding: 5px 10px;
+            padding: 5px 4px;
             border-radius: 4px;
             font-size: 12px;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            justify-content: center;
+            gap: 4px;
             user-select: none;
             transition: all 0.2s ease;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             white-space: nowrap;
+            width: 90px;
+            box-sizing: border-box;
         }
         .toggle-btn:hover {
             border-color: #666;
@@ -48,7 +60,15 @@
             color: #86efac;
         }
 
-        /* ===== 新增：說明按鈕與浮動視窗 (Info Tooltip) ===== */
+        /* ===== 搜尋框寬度設定 ===== */
+        .search-input {
+            width: 110px !important;
+        }
+        .search-input:focus {
+            width: 130px !important;
+        }
+
+        /* ===== 說明按鈕與浮動視窗 (Info Tooltip) ===== */
         .info-help-wrap {
             position: relative;
             display: inline-block;
@@ -154,7 +174,7 @@
             </button>
 
             <!-- 角色名稱搜尋框 -->
-            <input type="text" id="char-search-input" class="search-input" placeholder="搜尋角色...">
+            <input type="text" id="char-search-input" class="search-input" placeholder="搜尋角色">
 
             <!-- 說明 Tooltip -->
             <div class="info-help-wrap">
