@@ -54,7 +54,36 @@ body {
     gap: 10px;
 }
 
+.header-top-right-btns {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
+
+/* 快速跳轉按鈕 (最新 / 最舊) */
+.jump-btn {
+    background: #222;
+    color: #86efac;
+    border: 1px solid #444;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.jump-btn:hover {
+    background: #333;
+    color: #fff;
+    border-color: #86efac;
+}
 
 /* 摺疊切換膠囊按鈕 */
 .toggle-toolbar-btn {
@@ -134,6 +163,30 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     cursor: pointer; 
     width: 90px; 
     accent-color: #666;
+}
+
+/* 📷 匯出截圖按鈕 */
+.export-btn {
+    background: #1c1c1c;
+    color: #93c5fd;
+    border: 1px solid #3b82f6;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    user-select: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.export-btn:hover {
+    background: #1e3a5f;
+    color: #fff;
+    border-color: #60a5fa;
 }
 
 .update-date {
@@ -258,7 +311,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     background: #1c1c1c;
     color: #e0e0e0;
     border: 1px solid #444;
-    padding: 5px 22px 5px 8px; /* 右側預留 ✕ 按鈕的位置 */
+    padding: 5px 22px 5px 8px;
     border-radius: 4px;
     font-size: 12px;
     outline: none;
@@ -268,7 +321,6 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     box-sizing: border-box;
 }
 
-/* 隱藏原生 WebKit 內建 ✕，使用我們手動打造的統一 ✕ */
 .search-input::-webkit-search-cancel-button {
     -webkit-appearance: none;
     appearance: none;
@@ -277,7 +329,6 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 .search-input:hover { border-color: #666; background: #222; }
 .search-input:focus { border-color: #888; background: #222; width: 130px !important; }
 
-/* 搜尋框內部的 ✕ 按鈕 */
 .search-clear-btn {
     position: absolute;
     right: 6px;
@@ -437,6 +488,7 @@ th:first-child, td:first-child {
     text-align: left; 
     box-shadow: 2px 0 5px rgba(0,0,0,0.4); 
     padding: 0; 
+    cursor: help; /* 第一欄提示使用者可以懸浮查看歷史統計數據 */
 }
 
 thead tr:nth-child(1) th:first-child { z-index: 12; top: 0; background: var(--th-bg); }
@@ -547,6 +599,11 @@ thead tr:nth-child(2) th.current-patch-col {
     }
 
     .header-bar { padding: 6px 10px; margin-bottom: 6px; }
+
+    .jump-btn {
+        padding: 3px 6px;
+        font-size: 10px;
+    }
 
     .toolbar-inner {
         display: flex;
