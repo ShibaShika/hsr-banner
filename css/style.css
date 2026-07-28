@@ -43,7 +43,7 @@ body {
     padding: 8px 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     position: relative;
-    z-index: 100; /* 確保下拉選單能浮在表格上方 */
+    z-index: 100;
 }
 
 .header-top-row {
@@ -87,7 +87,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     transform: rotate(180deg);
 }
 
-/* 摺疊面板容器：展開時允許溢出顯示選單 */
+/* 摺疊面板容器 */
 .toolbar-panel {
     max-height: 500px;
     opacity: 1;
@@ -101,7 +101,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 .toolbar-panel.collapsed {
     max-height: 0 !important;
     opacity: 0 !important;
-    overflow: hidden !important; /* 僅在摺疊時隱藏內容 */
+    overflow: hidden !important;
     margin-top: 0 !important;
     padding-top: 0 !important;
     border-top: none !important;
@@ -167,6 +167,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 
 .select-box:hover { border-color: #666; background: #222; }
 
+/* 下拉選單面板：修復左右滑桿與寬度適應 */
 .dropdown-panel {
     display: none;
     position: absolute;
@@ -175,15 +176,15 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     background: #1e1e1e;
     border: 1px solid #555;
     border-radius: 6px;
-    padding: 8px 6px !important;
+    padding: 8px 8px !important;
     z-index: 1000;
-    width: 100% !important;
-    min-width: 100% !important;
+    width: max-content !important;    /* 依內容自動調整寬度 */
+    min-width: 100% !important;        /* 至少與按鈕同寬 */
     box-sizing: border-box !important;
     box-shadow: 0 6px 16px rgba(0,0,0,0.7);
     max-height: 280px;
-    overflow-y: auto;
-    overflow-x: visible !important;
+    overflow-y: auto;                  /* 僅允許上下滾動 */
+    overflow-x: hidden !important;     /* 強制禁止出現左右滑桿 */
 }
 
 .dropdown-panel.show { display: block !important; }
@@ -192,8 +193,8 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     font-size: 12px;
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 3px 2px;
+    gap: 6px;
+    padding: 4px 4px;
     cursor: pointer;
     color: #ccc;
     border-radius: 3px;
