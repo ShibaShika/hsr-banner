@@ -18,7 +18,7 @@
 /* 網頁整體高度精確限制在手機網址列上方 (使用 100svh) */
 html, body {
     height: 100vh;
-    height: 100svh; /* 現代手機瀏覽器專用：精確計算扣除網址列後的可視高度 */
+    height: 100svh;
     margin: 0;
     overflow: hidden; 
     box-sizing: border-box;
@@ -164,9 +164,19 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     text-align: center;
     width: 100%;
     box-sizing: border-box;
+    transition: all 0.2s ease;
 }
 
 .select-box:hover { border-color: #666; background: #222; }
+
+/* 🌟 下拉按鈕有勾選時的高亮質感 (琥珀金) */
+.select-box.active {
+    background: #2a2400;
+    color: #ffd700;
+    border-color: #ffd700;
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+    font-weight: bold;
+}
 
 /* 下拉選單面板 */
 .dropdown-panel {
@@ -203,7 +213,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 }
 
 .dropdown-panel label:hover { color: #fff; background: #2a2a2a; }
-.dropdown-panel input[type="checkbox"] { cursor: pointer; accent-color: #666; width: 14px; height: 14px; }
+.dropdown-panel input[type="checkbox"] { cursor: pointer; accent-color: #ffd700; width: 14px; height: 14px; }
 
 /* 現代化切換按鈕 (礪爍新輝) */
 .toggle-btn {
@@ -253,6 +263,48 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 
 .search-input:hover { border-color: #666; background: #222; }
 .search-input:focus { border-color: #888; background: #222; width: 130px !important; }
+
+/* 🧹 清除篩選按鈕樣式 */
+.reset-btn {
+    background: #2a1a1a;
+    color: #fca5a5;
+    border: 1px solid #fca5a5;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.reset-btn:hover {
+    background: #451a1a;
+    color: #fff;
+    border-color: #f87171;
+}
+
+/* ↺ 查無結果時的重置按鈕樣式 */
+.empty-reset-btn {
+    margin-top: 10px;
+    background: #222;
+    color: #ffd700;
+    border: 1px solid #ffd700;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.empty-reset-btn:hover {
+    background: #ffd700;
+    color: #000;
+}
 
 /* ===== 質感懸浮提示 (CSS Tooltip) ===== */
 .dropdown-panel label[data-tooltip] { position: relative; }
@@ -321,7 +373,7 @@ table {
     text-align: center; 
     font-size: 12px; 
     background: var(--surface); 
-    margin-bottom: 35px; /* 表格底部預留留白，確保最後兩行完全凸顯不被擋住 */
+    margin-bottom: 35px;
 }
 
 th, td { 
@@ -396,9 +448,12 @@ thead tr:nth-child(2) th:first-child { z-index: 12; top: 30px; background: var(-
 .w-high { background-color: #571a1a; color: #eee; }
 .w-crit { background-color: #7f1212; color: #fff; font-weight: bold; }
 
-tr:hover td:not(.img-cell):not(.term-pool-empty):not(.term-shop-empty):not(.collab-empty):not(.collab-text):not(:first-child) { filter: brightness(1.15); transition: all 0.2s; }
-tr:hover td:first-child { filter: none !important; }
-.col-highlight:not(.collab-empty):not(.collab-text) { filter: brightness(1.15); transition: filter 0.15s; }
+/* 🌟 僅在支援游標 Hover 的裝置上啟用懸停高亮，避免手機觸控點擊後殘留 */
+@media (hover: hover) {
+    tr:hover td:not(.img-cell):not(.term-pool-empty):not(.term-shop-empty):not(.collab-empty):not(.collab-text):not(:first-child) { filter: brightness(1.15); transition: all 0.2s; }
+    tr:hover td:first-child { filter: none !important; }
+    .col-highlight:not(.collab-empty):not(.collab-text) { filter: brightness(1.15); transition: filter 0.15s; }
+}
 
 .collab-text {
     background-color: #181818; 
@@ -450,7 +505,7 @@ thead tr:nth-child(2) th.current-patch-col {
 @media (max-width: 768px) {
     body { padding: 4px; }
 
-    /* 標題精簡化：手機端僅顯示「限定躍遷一覽表」，100% 單行不換行 */
+    /* 標題精簡化：手機端僅顯示「限定躍遷一覽表」 */
     h1 {
         font-size: 0 !important;
         margin: 0;
@@ -485,8 +540,14 @@ thead tr:nth-child(2) th.current-patch-col {
     .search-input, .search-input:focus {
         flex: 1 !important;
         width: auto !important;
-        min-width: 100px;
+        min-width: 90px;
         box-sizing: border-box;
+    }
+
+    .reset-btn {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        padding: 5px 8px;
     }
 
     .scale-wrap { display: none !important; }
