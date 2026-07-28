@@ -38,6 +38,48 @@ function getCurrentPatchName() {
     return currentPatch;
 }
 
+// 📊 計算角色歷史復刻數據 (方案 3-B)
+function calculateCharStats(char, patchesList) {
+    if (!char.runs || char.runs.length === 0) {
+        return { totalRuns: 0, currentGap: '無資料', maxGap: '無資料', avgGap: '無資料' };
+    }
+
+    // 找出該角色所有 UP 版本的索引用號 (0 為最早期 1.0)
+    const indices = char.runs.map(p => patchesList.indexOf(p)).filter(idx => idx !== -1).sort((a, b) => a - b);
+    const totalRuns = indices.length;
+    const latestPatchIdx = patchesList.length - 1;
+    const lastRunIdx = indices[indices.length - 1];
+    
+    // 當前等待版本數
+    const currentGap = latestPatchIdx - lastRunIdx;
+
+    if (totalRuns <= 1) {
+        return {
+            totalRuns,
+            currentGap: `${currentGap} 個版本`,
+            maxGap: `${currentGap} 個版本`,
+            avgGap: `${currentGap} 個版本`
+        };
+    }
+
+    // 計算歷次 UP 之間的間隔版本數
+    const gaps = [];
+    for (let i = 1; i < indices.length; i++) {
+        gaps.push(indices[i] - indices[i - 1] - 1);
+    }
+
+    const maxGap = Math.max(...gaps, currentGap);
+    const sumGaps = gaps.reduce((a, b) => a + b, 0);
+    const avgGap = (sumGaps / gaps.length).toFixed(1);
+
+    return {
+        totalRuns: `${totalRuns} 次`,
+        currentGap: `${currentGap} 個版本`,
+        maxGap: `${maxGap} 個版本`,
+        avgGap: `${avgGap} 個版本`
+    };
+}
+
 // 主初始化函式
 async function initTracker() {
     // 1. 動態讀取 characters.js 的更新日期註解
@@ -144,10 +186,14 @@ async function initTracker() {
         }
 
         const hasBuff = char.buffs && char.buffs.length > 0;
+
+        // 📊 計算方案 3-B 的統計小卡數據
+        const stats = calculateCharStats(char, patchesList);
+        const statsTooltip = `【${char.name} - 歷史數據小卡】\n• 目前等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
         
         html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-has-buff="${hasBuff}" data-name="${char.name}">
             <td class="bg-${char.elem}">
-                <div class="char-info-cell">
+                <div class="char-info-cell" title="${statsTooltip}">
                     <span class="char-seq">${seqNum}</span>
                     ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${char.path}">` : '<div class="char-path-icon"></div>'}
                     <img src="${avatarUrl}" class="char-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
@@ -286,6 +332,23 @@ async function initTracker() {
     }
     updateColumnIndices();
 
+    // === 綁定左右快速跳轉按鈕 ===
+    const tableWrap = document.querySelector('.table-wrap');
+    const jumpLatestBtn = document.getElementById('jump-latest-btn');
+    const jumpOldestBtn = document.getElementById('jump-oldest-btn');
+
+    if (jumpLatestBtn && tableWrap) {
+        jumpLatestBtn.addEventListener('click', () => {
+            tableWrap.scrollTo({ left: 0, behavior: 'smooth' });
+        });
+    }
+
+    if (jumpOldestBtn && tableWrap) {
+        jumpOldestBtn.addEventListener('click', () => {
+            tableWrap.scrollTo({ left: tableWrap.scrollWidth, behavior: 'smooth' });
+        });
+    }
+
     // === 綁定篩選器邏輯 ===
     const pathBox = document.getElementById('path-select-box');
     const elemBox = document.getElementById('elem-select-box');
@@ -303,6 +366,7 @@ async function initTracker() {
     const searchInput = document.getElementById('char-search-input');
     const searchClearBtn = document.getElementById('search-clear-btn');
     const resetFiltersBtn = document.getElementById('reset-filters-btn');
+    const exportImgBtn = document.getElementById('export-img-btn');
 
     let onlyBuffs = false;
     buffToggleBtn.addEventListener('click', () => {
@@ -369,29 +433,53 @@ async function initTracker() {
         });
     }
 
+    // 📷 匯出截圖功能 (方案 4-A)
+    if (exportImgBtn && typeof html2canvas !== 'undefined') {
+        exportImgBtn.addEventListener('click', async () => {
+            try {
+                exportImgBtn.textContent = '📷 處理中...';
+                exportImgBtn.disabled = true;
+
+                const canvas = await html2canvas(tableWrap, {
+                    backgroundColor: '#1e1e1e',
+                    scale: 2, // 高解析度
+                    useCORS: true,
+                    logging: false
+                });
+
+                const link = document.createElement('a');
+                link.download = `星穹鐵道_限定躍遷一覽表_${new Date().toISOString().slice(0, 10)}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch (err) {
+                console.error('截圖匯出失敗:', err);
+                alert('截圖失敗，請重試！');
+            } finally {
+                exportImgBtn.textContent = '📷 截圖';
+                exportImgBtn.disabled = false;
+            }
+        });
+    }
+
     function applyFilters() {
         const selectedPaths = Array.from(pathItems).filter(i => i.checked).map(i => i.value);
         const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
         const selectedTypes = Array.from(typeItems).filter(i => i.checked).map(i => i.value);
         const keyword = searchInput.value.trim().toLowerCase();
 
-        // 控制搜尋框內部 ✕ 按鈕的顯示與隱藏
         if (searchClearBtn) {
             searchClearBtn.style.display = searchInput.value !== '' ? 'block' : 'none';
         }
 
-        // 亮燈提示：有勾選時，為按鈕外框加上 active 高亮
         pathBox.classList.toggle('active', selectedPaths.length > 0);
         elemBox.classList.toggle('active', selectedElems.length > 0);
         typeBox.classList.toggle('active', selectedTypes.length > 0);
 
-        // 判斷是否顯示「🧹 清除」按鈕
         const hasActiveFilter = selectedPaths.length > 0 || selectedElems.length > 0 || selectedTypes.length > 0 || keyword !== '' || onlyBuffs;
         if (resetFiltersBtn) {
             resetFiltersBtn.style.display = hasActiveFilter ? 'inline-flex' : 'none';
         }
 
-        // 更新命途 UI 文字
         if (selectedPaths.length === 0) {
             pathBox.textContent = '命途';
         } else if (selectedPaths.length <= 2) {
@@ -400,7 +488,6 @@ async function initTracker() {
             pathBox.textContent = `${selectedPaths[0]} 等 ${selectedPaths.length} 個`;
         }
 
-        // 更新屬性 UI 文字
         if (selectedElems.length === 0) {
             elemBox.textContent = '屬性';
         } else if (selectedElems.length <= 2) {
@@ -409,7 +496,6 @@ async function initTracker() {
             elemBox.textContent = `${selectedElems[0]} 等 ${selectedElems.length} 個`;
         }
 
-        // 更新取得方法 UI 文字
         const typeLabelMap = { 'normal': '限定躍遷', 'pool': '星緣', 'shop': '聚靈', 'collab': '聯動' };
         if (selectedTypes.length === 0) {
             typeBox.textContent = '取得方法';
@@ -508,14 +594,22 @@ async function initTracker() {
         trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
     });
 
-    // 縮放滑桿
+    // 縮放滑桿 (含 LocalStorage 記憶偏好)
     const scaleSlider = document.getElementById('ui-scale-slider');
     const scaleText = document.getElementById('ui-scale-text');
+
+    const savedScale = localStorage.getItem('hsr_ui_scale');
+    if (savedScale) {
+        scaleSlider.value = savedScale;
+        table.style.zoom = savedScale;
+        scaleText.textContent = Math.round(savedScale * 100) + '%';
+    }
 
     scaleSlider.addEventListener('input', (e) => {
         const scaleValue = e.target.value;
         table.style.zoom = scaleValue;
         scaleText.textContent = Math.round(scaleValue * 100) + '%';
+        localStorage.setItem('hsr_ui_scale', scaleValue);
     });
 }
 
