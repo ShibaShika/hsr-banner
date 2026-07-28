@@ -258,7 +258,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     box-shadow: 0 6px 16px rgba(0,0,0,0.7);
     max-height: 280px;
     overflow-y: auto;                  
-    overflow-x: visible !important;    /* 修正點：允許懸浮提示框向右延伸不被裁切 */
+    overflow-x: hidden !important;     /* 保持隱藏，徹底消滅水平捲軸 */
 }
 
 .dropdown-panel.show { display: block !important; }
@@ -276,7 +276,32 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 }
 
 .dropdown-panel label:hover { color: #fff; background: #2a2a2a; }
-.dropdown-panel input[type="checkbox"] { cursor: pointer; accent-color: #ffd700; width: 14px; height: 14px; }
+.dropdown-panel input[type="checkbox"] { cursor: pointer; accent-color: #ffd700; width: 14px; height: 14px; flex-shrink: 0; }
+
+/* 取得方法選單的雙行文字排版 */
+.type-desc-label {
+    align-items: flex-start !important;
+    padding: 6px 4px !important;
+}
+
+.label-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.label-title {
+    color: #ccc;
+    font-size: 12px;
+}
+
+.label-sub {
+    color: #ffd700;
+    font-size: 10px;
+    letter-spacing: 0.3px;
+}
+
+.type-desc-label:hover .label-title { color: #fff; }
 
 .toggle-btn {
     background: #1c1c1c;
@@ -395,30 +420,6 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 }
 
 /* ===== 質感懸浮提示 (CSS Tooltip) ===== */
-.dropdown-panel label[data-tooltip] { position: relative; }
-.dropdown-panel label[data-tooltip]::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    left: calc(100% + 8px);
-    top: 50%;
-    transform: translateY(-50%);
-    background: #1e1e1e;
-    color: #ffd700;
-    border: 1px solid #5575b5;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: normal;
-    white-space: nowrap;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease, visibility 0.2s ease;
-    pointer-events: none;
-    z-index: 2000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.7);
-}
-.dropdown-panel label[data-tooltip]:hover::after { opacity: 1; visibility: visible; }
-
 .toggle-btn[data-tooltip]::after {
     content: attr(data-tooltip);
     position: absolute;
