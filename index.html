@@ -152,62 +152,71 @@
     </style>
 </head>
 <body>
+    <!-- 頂部工具列 (支援摺疊展開) -->
     <div class="header-bar">
-        <div class="header-left">
-            <!-- 命途選單 -->
-            <div class="multi-select" id="path-dropdown">
-                <div class="select-box" id="path-select-box">命途</div>
-                <div class="dropdown-panel" id="path-panel">
-                    <label><input type="checkbox" id="path-all" checked> <b>全部命途</b></label>
-                    <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
-                    <div id="path-items-container"></div>
-                </div>
-            </div>
-            <!-- 屬性選單 -->
-            <div class="multi-select" id="elem-dropdown">
-                <div class="select-box" id="elem-select-box">屬性</div>
-                <div class="dropdown-panel" id="elem-panel">
-                    <label><input type="checkbox" id="elem-all" checked> <b>全部屬性</b></label>
-                    <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
-                    <div id="elem-items-container"></div>
-                </div>
-            </div>
-            <!-- 取得方法選單 -->
-            <div class="multi-select" id="type-dropdown">
-                <div class="select-box" id="type-select-box">取得方法</div>
-                <div class="dropdown-panel" id="type-panel">
-                    <label><input type="checkbox" id="type-all" checked> <b>全部方法</b></label>
-                    <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
-                    <div id="type-items-container">
-                        <label><input type="checkbox" class="type-item" value="normal" checked> 限定躍遷</label>
-                        <label data-tooltip="加入非UP自選池"><input type="checkbox" class="type-item" value="pool" checked> 星緣相邀</label>
-                        <label data-tooltip="加入兌換商店"><input type="checkbox" class="type-item" value="shop" checked> 聚靈鑄星</label>
-                        <label><input type="checkbox" class="type-item" value="collab" checked> 長期聯動</label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 現代化按鈕切換：礪爍新輝 -->
-            <button type="button" id="buff-toggle-btn" class="toggle-btn" data-tooltip="僅顯示加強過的角色">
-                <span class="toggle-icon">▲</span> 礪爍新輝
-            </button>
-
-            <!-- 角色名稱搜尋框 -->
-            <input type="text" id="char-search-input" class="search-input" placeholder="搜尋角色">
-        </div>
-
-        <div class="header-center">
+        <div class="header-top-row">
             <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
+            <button type="button" id="toggle-toolbar-btn" class="toggle-toolbar-btn">
+                <span>🔍 篩選與工具</span>
+                <span id="toggle-arrow" class="arrow">▼</span>
+            </button>
         </div>
 
-        <div class="header-right" style="display: flex; gap: 10px; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #ccc; background: #1c1c1c; border: 1px solid #444; padding: 4px 8px; border-radius: 4px;">
-                <span>介面大小：</span>
-                <input type="range" id="ui-scale-slider" min="0.7" max="1.4" step="0.05" value="1" style="cursor: pointer; width: 90px; accent-color: #666;">
-                <span id="ui-scale-text" style="min-width: 35px; text-align: right;">100%</span>
+        <div id="toolbar-panel" class="toolbar-panel">
+            <div class="toolbar-inner">
+                <div class="header-left">
+                    <!-- 命途選單 -->
+                    <div class="multi-select" id="path-dropdown">
+                        <div class="select-box" id="path-select-box">命途</div>
+                        <div class="dropdown-panel" id="path-panel">
+                            <label><input type="checkbox" id="path-all" checked> <b>全部命途</b></label>
+                            <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
+                            <div id="path-items-container"></div>
+                        </div>
+                    </div>
+                    <!-- 屬性選單 -->
+                    <div class="multi-select" id="elem-dropdown">
+                        <div class="select-box" id="elem-select-box">屬性</div>
+                        <div class="dropdown-panel" id="elem-panel">
+                            <label><input type="checkbox" id="elem-all" checked> <b>全部屬性</b></label>
+                            <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
+                            <div id="elem-items-container"></div>
+                        </div>
+                    </div>
+                    <!-- 取得方法選單 -->
+                    <div class="multi-select" id="type-dropdown">
+                        <div class="select-box" id="type-select-box">取得方法</div>
+                        <div class="dropdown-panel" id="type-panel">
+                            <label><input type="checkbox" id="type-all" checked> <b>全部方法</b></label>
+                            <div style="border-top: 1px solid #444; margin: 4px 0;"></div>
+                            <div id="type-items-container">
+                                <label><input type="checkbox" class="type-item" value="normal" checked> 限定躍遷</label>
+                                <label data-tooltip="加入非UP自選池"><input type="checkbox" class="type-item" value="pool" checked> 星緣相邀</label>
+                                <label data-tooltip="加入兌換商店"><input type="checkbox" class="type-item" value="shop" checked> 聚靈鑄星</label>
+                                <label><input type="checkbox" class="type-item" value="collab" checked> 長期聯動</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 現代化按鈕切換：礪爍新輝 -->
+                    <button type="button" id="buff-toggle-btn" class="toggle-btn" data-tooltip="僅顯示加強過的角色">
+                        <span class="toggle-icon">▲</span> 礪爍新輝
+                    </button>
+
+                    <!-- 角色名稱搜尋框 -->
+                    <input type="text" id="char-search-input" class="search-input" placeholder="搜尋角色">
+                </div>
+
+                <div class="header-right">
+                    <div class="scale-wrap">
+                        <span>介面大小：</span>
+                        <input type="range" id="ui-scale-slider" min="0.7" max="1.4" step="0.05" value="1">
+                        <span id="ui-scale-text">100%</span>
+                    </div>
+                    <!-- 動態填入更新日期 -->
+                    <div class="update-date">更新日期：<span id="update-date-text">載入中...</span></div>
+                </div>
             </div>
-            <!-- 動態填入更新日期 -->
-            <div style="font-size: 12px; color: #888; white-space: nowrap;">更新日期：<span id="update-date-text">載入中...</span></div>
         </div>
     </div>
     
@@ -731,6 +740,28 @@
             });
         }
         
+        // ===== 頂部工具列摺疊切換邏輯 =====
+        const toggleBtn = document.getElementById('toggle-toolbar-btn');
+        const toolbarPanel = document.getElementById('toolbar-panel');
+
+        if (toggleBtn && toolbarPanel) {
+            toggleBtn.addEventListener('click', () => {
+                const isCollapsed = toolbarPanel.classList.toggle('collapsed');
+                toggleBtn.classList.toggle('active', !isCollapsed);
+                localStorage.setItem('hsr_toolbar_collapsed', isCollapsed);
+            });
+
+            // 手機端預設摺疊，電腦端預設展開（並記錄上次選擇）
+            const savedState = localStorage.getItem('hsr_toolbar_collapsed');
+            if (savedState === 'true' || (savedState === null && window.innerWidth <= 768)) {
+                toolbarPanel.classList.add('collapsed');
+                toggleBtn.classList.remove('active');
+            } else {
+                toolbarPanel.classList.remove('collapsed');
+                toggleBtn.classList.add('active');
+            }
+        }
+
         initTracker();
     </script>
 </body>
