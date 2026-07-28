@@ -115,16 +115,14 @@ function calculateCharStats(char, patchesList, activePatchName) {
         .filter(idx => idx !== -1 && idx <= validEndIdx)
         .sort((a, b) => a - b);
 
-    // 🌟 核心修復：將連續小版本 (如 4.1上 + 4.1下) 自動合併為「同一次/同期 UP 活動」
+    // 將連續小版本 (如 4.1上 + 4.1下) 自動合併為「同一次/同期 UP 活動」
     const events = [];
     if (indices.length > 0) {
         let currentEvent = { start: indices[0], end: indices[0] };
         for (let i = 1; i < indices.length; i++) {
             if (indices[i] === currentEvent.end + 1) {
-                // 相鄰接續的小版本，歸為同一期 UP
                 currentEvent.end = indices[i];
             } else {
-                // 間隔開的小版本，視為新的一期 UP
                 events.push(currentEvent);
                 currentEvent = { start: indices[i], end: indices[i] };
             }
@@ -178,7 +176,6 @@ function calculateCharStats(char, patchesList, activePatchName) {
         };
     }
 
-    // 已有 2 期（含）以上 UP 記錄才計算歷史最長間隔與超期警報
     const gaps = [];
     for (let i = 1; i < events.length; i++) {
         gaps.push(events[i].start - events[i - 1].end - 1);
@@ -669,7 +666,7 @@ function setupEventListeners() {
         });
     }
 
-    // 📷 匯出截圖邏輯
+    // 📷 匯出截圖邏輯 (修復角標定位跑位 Bug)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
@@ -767,8 +764,11 @@ function setupEventListeners() {
                     });
                 });
 
+                // 🌟 核心修正：只清除 sticky 定位，確保 td 的 relative 與 .buff-badge 的 absolute 定位不受影響
                 clonedTable.querySelectorAll('*').forEach(el => {
-                    el.style.position = 'static';
+                    if (window.getComputedStyle(el).position === 'sticky') {
+                        el.style.position = 'static';
+                    }
                     el.style.boxShadow = 'none';
                     el.classList.remove('col-highlight');
                 });
