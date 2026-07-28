@@ -265,10 +265,10 @@ function renderTable() {
     const uniquePaths = PATH_ORDER.filter(p => RAW_CHARACTERS.some(c => c.path === p));
     const uniqueElems = ELEM_ORDER.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
 
-    // 動態產生大版本選項
+    // 動態產生大版本選項 (簡化為 1.x, 2.x ...)
     const versionContainer = document.getElementById('version-items-container');
     if (versionContainer && versionContainer.children.length === 0) {
-        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${v}"> ${v} 角色</label>`).join('');
+        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${v}"> ${v}</label>`).join('');
     }
 
     // 動態產生命途選項
@@ -360,15 +360,16 @@ function renderTable() {
         const majorVer = getCharDebutMajorVersion(char, patchesList);
         const debutVer = getCharDebutVersion(char, patchesList);
 
+        // 🌟 更正：「登場版本」簡化/統一改為「實裝版本」
         const stats = calculateCharStats(char, patchesList, activePatchName);
         let statsTooltip = "";
         if (stats.isCollab) {
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 長期聯動角色`;
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 長期聯動角色`;
         } else if (stats.isTermActive) {
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 目前狀態：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 目前狀態：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
         } else {
             const overdueFlag = stats.isOverdue ? " ⚠️ (超期警報!)" : "";
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 目前等待：${stats.currentGap}${overdueFlag}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 目前等待：${stats.currentGap}${overdueFlag}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
         }
         
         html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${majorVer}" data-name="${char.name}">
@@ -651,7 +652,7 @@ function setupEventListeners() {
         });
     }
 
-    // 📷 匯出截圖邏輯 (正向對齊 + 表頭第二行對齊修正)
+    // 📷 匯出截圖邏輯
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
@@ -719,7 +720,6 @@ function setupEventListeners() {
                 allClonedRows.forEach(row => {
                     const cells = Array.from(row.children);
                     
-                    // 🌟 核心修正：表頭第二行 (無 top-left-cell) 的起始欄位索引為 Col 1
                     let colIdx = 0;
                     if (row.parentElement && row.parentElement.tagName.toLowerCase() === 'thead' && !row.querySelector('.top-left-cell')) {
                         colIdx = 1;
@@ -732,7 +732,7 @@ function setupEventListeners() {
 
                         if (cellStart === 0) {
                             colIdx += span;
-                            return; // 保留第 0 欄 (角色欄)
+                            return;
                         }
 
                         const overlapStart = Math.max(cellStart, minActiveCol);
@@ -942,8 +942,9 @@ function applyFilters() {
         resetFiltersBtn.style.display = hasActiveFilter ? 'inline-flex' : 'none';
     }
 
+    // 🌟 更正：頂部按鈕預設提示改為「實裝版本」
     if (versionBox) {
-        if (selectedVersions.length === 0) versionBox.textContent = '大版本';
+        if (selectedVersions.length === 0) versionBox.textContent = '實裝版本';
         else if (selectedVersions.length <= 2) versionBox.textContent = selectedVersions.join(', ');
         else versionBox.textContent = `${selectedVersions[0]} 等 ${selectedVersions.length} 個`;
     }
