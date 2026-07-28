@@ -2,6 +2,16 @@
    崩壞：星穹鐵道 - 限定躍遷一覽表 主應用程式邏輯 (app.js)
    ========================================================================== */
 
+// 🎨 本地 SVG Data URI 備用頭像產生器 (徹底解決未實裝角色/無頭像時截圖黑屏問題)
+function getFallbackAvatar(name) {
+    const text = name ? name.trim().charAt(0) : '?';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+        <rect width="64" height="64" rx="8" fill="#2a2a38"/>
+        <text x="32" y="34" font-size="26" font-weight="bold" fill="#ffd700" dominant-baseline="central" text-anchor="middle" font-family="'Microsoft JhengHei', sans-serif">${text}</text>
+    </svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 // 格式化表頭日期
 function formatHeaderDate(dateStr) {
     const parts = dateStr.split('/');
@@ -36,6 +46,25 @@ function getCurrentPatchName() {
         }
     }
     return currentPatch;
+}
+
+// 🔍 計算角色的精確登場小版本 (如：4.4上)
+function getCharDebutVersion(char, patchesList) {
+    let earliestPatch = null;
+
+    if (char.isCollab) {
+        earliestPatch = char.isCollab;
+    } else if (char.runs && char.runs.length > 0) {
+        const runIndices = char.runs.map(p => patchesList.indexOf(p)).filter(idx => idx !== -1);
+        if (runIndices.length > 0) {
+            const minIdx = Math.min(...runIndices);
+            earliestPatch = patchesList[minIdx];
+        }
+    } else if (char.term && char.term.patch) {
+        earliestPatch = char.term.patch;
+    }
+
+    return earliestPatch || "未登場";
 }
 
 // 🔍 智慧計算角色的首次登場「大版本號」（如：1.x, 2.x, 3.x）
@@ -187,7 +216,7 @@ async function initTracker() {
     const activePatchName = getCurrentPatchName();
     const reversedPatches = [...PATCH_DATA].reverse();
 
-    // 🌟 自動解析資料庫中包含的所有大版本號 (如: 1.x, 2.x, 3.x, 4.x...)
+    // 自動解析資料庫中包含的所有大版本號 (如: 1.x, 2.x, 3.x, 4.x...)
     const versionSet = new Set();
     CHARACTERS.forEach(char => {
         const majorVer = getCharDebutMajorVersion(char, patchesList);
@@ -235,7 +264,7 @@ async function initTracker() {
         html += `<th${colClass}>${formatHeaderDate(p.date)}</th>`;
     });
 
-    // 構建表頭 2 (版本號，左側第一欄已由 rowspan="2" 佔據)
+    // 構建表頭 2 (版本號)
     html += `</tr><tr>`;
     reversedPatches.forEach(p => {
         const isCurrent = (p.patch === activePatchName);
@@ -246,7 +275,7 @@ async function initTracker() {
     
     // 構建表格主體內容
     CHARACTERS.forEach((char, index) => {
-        const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(char.name)}&background=random&color=fff&size=56&bold=true`;
+        const fallbackUrl = getFallbackAvatar(char.name);
         const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
         const pathIconUrl = PATH_ICONS[char.path] || "";
         const seqNum = totalChars - index;
@@ -261,16 +290,17 @@ async function initTracker() {
 
         const hasBuff = char.buffs && char.buffs.length > 0;
         const majorVer = getCharDebutMajorVersion(char, patchesList);
+        const debutVer = getCharDebutVersion(char, patchesList);
 
-        // 📊 生成【躍遷情報檔案】Hover 提示
+        // 📊 生成【躍遷資訊】Hover 提示 (已改用更精確的登場小版本)
         const stats = calculateCharStats(char, patchesList, activePatchName);
         let statsTooltip = "";
         if (stats.isCollab) {
-            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 長期聯動角色\n• 登場大版本：${majorVer}`;
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 長期聯動角色`;
         } else if (stats.isTermActive) {
-            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 登場大版本：${majorVer}\n• 加入${stats.termLabel}時等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 加入${stats.termLabel}時等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
         } else {
-            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 登場大版本：${majorVer}\n• 目前等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 目前等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
         }
         
         html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${majorVer}" data-name="${char.name}">
@@ -416,7 +446,7 @@ async function initTracker() {
 
     // 🔄 登場順序切換邏輯 (最新在上 ↔ 舊角色在上)
     const sortOrderBtn = document.getElementById('sort-order-btn');
-    let isAscending = false; // 預設 false: 最新登場在前 (順序 ⬇)
+    let isAscending = false;
 
     if (sortOrderBtn) {
         sortOrderBtn.addEventListener('click', () => {
@@ -427,7 +457,6 @@ async function initTracker() {
             const charRows = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
             const emptyRow = tbody.querySelector('tr.empty-row');
 
-            // 反轉表格所有角色列
             charRows.reverse().forEach(row => tbody.appendChild(row));
             if (emptyRow) tbody.appendChild(emptyRow);
         });
@@ -551,7 +580,7 @@ async function initTracker() {
         });
     }
 
-    // 📷 匯出圖片 (自動智慧裁切無資料的右側小版本)
+    // 📷 匯出圖片 (智慧裁切右側欄位 & 預載圖片防截圖黑屏)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
@@ -629,6 +658,20 @@ async function initTracker() {
                 cloneContainer.appendChild(clonedTable);
                 document.body.appendChild(cloneContainer);
 
+                // 🌟 預先檢驗並等待所有圖片載入完成，若圖片載入失敗 (404/未實裝) 自動轉為本地 SVG Data URI，徹底解決截圖黑屏問題
+                const imgs = Array.from(clonedTable.querySelectorAll('img'));
+                await Promise.all(imgs.map(img => {
+                    if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
+                    return new Promise(resolve => {
+                        img.onload = resolve;
+                        img.onerror = () => {
+                            const altName = img.alt || '角';
+                            img.src = getFallbackAvatar(altName);
+                            resolve();
+                        };
+                    });
+                }));
+
                 const canvas = await html2canvas(clonedTable, {
                     backgroundColor: '#1e1e1e',
                     scale: 2,
@@ -673,7 +716,6 @@ async function initTracker() {
             resetFiltersBtn.style.display = hasActiveFilter ? 'inline-flex' : 'none';
         }
 
-        // 更新大版本 UI 文字
         if (selectedVersions.length === 0) {
             versionBox.textContent = '大版本';
         } else if (selectedVersions.length <= 2) {
@@ -732,7 +774,7 @@ async function initTracker() {
             }
         });
 
-        // 📊 動態更新左上角角色計數標籤
+        // 動態更新左上角角色計數標籤
         const countBadge = document.getElementById('table-count-badge');
         if (countBadge) {
             if (visibleCount === totalChars) {
