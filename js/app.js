@@ -295,19 +295,9 @@ async function initTracker() {
     const elemPanel = document.getElementById('elem-panel');
     const typePanel = document.getElementById('type-panel');
     
-    const pathAll = document.getElementById('path-all');
-    const elemAll = document.getElementById('elem-all');
-    const typeAll = document.getElementById('type-all');
-    
     const pathItems = pathPanel.querySelectorAll('.path-item');
     const elemItems = elemPanel.querySelectorAll('.elem-item');
     const typeItems = typePanel.querySelectorAll('.type-item');
-    
-    // 初始化時將全選勾選框與取得方法勾選框清空
-    if (pathAll) pathAll.checked = false;
-    if (elemAll) elemAll.checked = false;
-    if (typeAll) typeAll.checked = false;
-    typeItems.forEach(i => i.checked = false);
 
     const buffToggleBtn = document.getElementById('buff-toggle-btn');
     const searchInput = document.getElementById('char-search-input');
@@ -358,7 +348,7 @@ async function initTracker() {
         const selectedTypes = Array.from(typeItems).filter(i => i.checked).map(i => i.value);
         const keyword = searchInput.value.trim().toLowerCase();
 
-        // 更新命途 UI 文字 (0 個勾選 = 預設顯示「命途」代表全部)
+        // 更新命途 UI 文字 (0 個勾選 = 代表顯示全部)
         if (selectedPaths.length === 0) {
             pathBox.textContent = '命途';
         } else if (selectedPaths.length <= 2) {
@@ -395,7 +385,7 @@ async function initTracker() {
             const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
             const rowName = row.getAttribute('data-name').toLowerCase();
 
-            // 💡 核心變革：未勾選任何項目 (length === 0) 時代表「不限制/全顯示」，有勾選才做過濾比對
+            // 未勾選任何項目 (length === 0) 時代表「不限制/全顯示」
             const matchPath = selectedPaths.length === 0 || selectedPaths.includes(rowPath);
             const matchElem = selectedElems.length === 0 || selectedElems.includes(rowElem);
             const matchType = selectedTypes.length === 0 || selectedTypes.includes(rowType);
@@ -427,45 +417,9 @@ async function initTracker() {
         }
     }
 
-    // 當點擊最頂部的「全部/重置」時，自動取消下方所有項目的勾選
-    if (pathAll) {
-        pathAll.addEventListener('change', () => {
-            pathItems.forEach(i => i.checked = false);
-            pathAll.checked = false;
-            applyFilters();
-        });
-    }
-    pathItems.forEach(item => {
-        item.addEventListener('change', () => {
-            applyFilters();
-        });
-    });
-
-    if (elemAll) {
-        elemAll.addEventListener('change', () => {
-            elemItems.forEach(i => i.checked = false);
-            elemAll.checked = false;
-            applyFilters();
-        });
-    }
-    elemItems.forEach(item => {
-        item.addEventListener('change', () => {
-            applyFilters();
-        });
-    });
-
-    if (typeAll) {
-        typeAll.addEventListener('change', () => {
-            typeItems.forEach(i => i.checked = false);
-            typeAll.checked = false;
-            applyFilters();
-        });
-    }
-    typeItems.forEach(item => {
-        item.addEventListener('change', () => {
-            applyFilters();
-        });
-    });
+    pathItems.forEach(item => item.addEventListener('change', applyFilters));
+    elemItems.forEach(item => item.addEventListener('change', applyFilters));
+    typeItems.forEach(item => item.addEventListener('change', applyFilters));
 
     searchInput.addEventListener('input', applyFilters);
 
