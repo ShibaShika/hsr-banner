@@ -90,9 +90,8 @@ function getCharDebutMajorVersion(char, patchesList) {
     return "未知";
 }
 
-// 📊 方案 2 + 方案 3 智慧統計分析演算法
+// 📊 智慧統計分析演算法
 function calculateCharStats(char, patchesList, activePatchName) {
-    // 1. 長期聯動角色
     if (char.isCollab) {
         return { isCollab: true };
     }
@@ -118,7 +117,6 @@ function calculateCharStats(char, patchesList, activePatchName) {
 
     const totalRuns = indices.length;
 
-    // 2. 未實裝 / 0 次 UP 記錄
     if (totalRuns === 0) {
         return {
             totalRuns: '0',
@@ -130,7 +128,6 @@ function calculateCharStats(char, patchesList, activePatchName) {
         };
     }
 
-    // 3. 已加入星緣相邀 / 聚靈鑄星 (自選或商店)
     if (isTermActive) {
         let maxGap = '-';
         if (totalRuns >= 2) {
@@ -153,7 +150,6 @@ function calculateCharStats(char, patchesList, activePatchName) {
     const lastRunIdx = indices[indices.length - 1];
     const currentGap = validEndIdx - lastRunIdx;
 
-    // 4. 僅 UP 過 1 次 (尚未產生過歷史復刻間隔)
     if (totalRuns === 1) {
         return {
             totalRuns: '1',
@@ -165,7 +161,6 @@ function calculateCharStats(char, patchesList, activePatchName) {
         };
     }
 
-    // 5. 已 UP 過 2 次以上 (計算歷史間隔與超期警報)
     const gaps = [];
     for (let i = 1; i < indices.length; i++) {
         gaps.push(indices[i] - indices[i - 1] - 1);
@@ -365,7 +360,6 @@ function renderTable() {
         const majorVer = getCharDebutMajorVersion(char, patchesList);
         const debutVer = getCharDebutVersion(char, patchesList);
 
-        // 🌟 構建簡潔明確的 Tooltip 資訊視窗
         const stats = calculateCharStats(char, patchesList, activePatchName);
         let statsTooltip = "";
         if (stats.isCollab) {
@@ -657,7 +651,7 @@ function setupEventListeners() {
         });
     }
 
-    // 📷 匯出截圖邏輯
+    // 📷 匯出截圖邏輯 (將 collab-text 也排除在最右側邊界外)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
@@ -680,10 +674,12 @@ function setupEventListeners() {
                     let colIdx = 0;
                     cells.forEach(cell => {
                         const span = parseInt(cell.getAttribute('colspan') || '1', 10);
+                        // 🌟 將 collab-text 也納入 isNone，避免說明框把無關的舊版本 (如 2.7下) 扯進截圖
                         const isNone = cell.classList.contains('none') ||
                                        cell.classList.contains('collab-empty') ||
                                        cell.classList.contains('term-pool-empty') ||
-                                       cell.classList.contains('term-shop-empty');
+                                       cell.classList.contains('term-shop-empty') ||
+                                       cell.classList.contains('collab-text');
                         
                         if (!isNone && colIdx > 0) {
                             const start = colIdx;
