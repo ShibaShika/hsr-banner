@@ -117,10 +117,11 @@ function calculateCharStats(char, patchesList, activePatchName) {
 
     const totalRuns = indices.length;
 
+    // 未實裝或無 UP 記錄的角色
     if (totalRuns === 0) {
         return {
-            totalRuns: '0 次',
-            currentGap: isTermActive ? `直接加入${termLabel}` : '未實裝/未登場',
+            totalRuns: '0',
+            currentGap: isTermActive ? `直接加入${termLabel}` : '-',
             maxGap: '-',
             avgGap: '-',
             isTermActive,
@@ -133,10 +134,10 @@ function calculateCharStats(char, patchesList, activePatchName) {
 
     if (totalRuns === 1) {
         return {
-            totalRuns: '1 次',
-            currentGap: `${currentGap} 個小版本`,
-            maxGap: `${currentGap} 個小版本`,
-            avgGap: `${currentGap} 個小版本`,
+            totalRuns: '1',
+            currentGap: `${currentGap}`,
+            maxGap: `${currentGap}`,
+            avgGap: `${currentGap}`,
             isTermActive,
             termLabel
         };
@@ -152,10 +153,10 @@ function calculateCharStats(char, patchesList, activePatchName) {
     const avgGap = (sumGaps / gaps.length).toFixed(1);
 
     return {
-        totalRuns: `${totalRuns} 次`,
-        currentGap: `${currentGap} 個小版本`,
-        maxGap: `${maxGap} 個小版本`,
-        avgGap: `${avgGap} 個小版本`,
+        totalRuns: `${totalRuns}`,
+        currentGap: `${currentGap}`,
+        maxGap: `${maxGap}`,
+        avgGap: `${avgGap}`,
         isTermActive,
         termLabel
     };
@@ -348,9 +349,9 @@ function renderTable() {
         if (stats.isCollab) {
             statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 長期聯動角色`;
         } else if (stats.isTermActive) {
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 加入${stats.termLabel}時等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 加入${stats.termLabel}時等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• 總UP次數：${stats.totalRuns}`;
         } else {
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 目前等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 目前等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• 總UP次數：${stats.totalRuns}`;
         }
         
         html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${majorVer}" data-name="${char.name}">
@@ -449,7 +450,6 @@ function renderTable() {
                 if (parts.length === 3) {
                     dateStr = `${parts[1]}/${parts[2]}`;
                 }
-                // 🌟 時間軸反轉時動態轉換說明文字箭頭方向
                 const arrowText = isPatchAscending ? `${dateStr}後長期開放→` : `←${dateStr}後長期開放`;
                 html += `<td colspan="${cell.count}" class="collab-text${currentColClass}">${buffBadgeHtml}${arrowText}</td>`;
                 return;
@@ -634,7 +634,7 @@ function setupEventListeners() {
         });
     }
 
-    // 📷 匯出截圖邏輯 (雙向無痕精確裁切 & 新分頁開啟)
+    // 📷 匯出截圖邏輯
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
@@ -649,7 +649,6 @@ function setupEventListeners() {
                     return;
                 }
 
-                // 🔍 雙向計算：找出所有可見角色中，最左側與最右側含有實質內容的欄位範圍 [minActiveCol, maxActiveCol]
                 let minActiveCol = Infinity;
                 let maxActiveCol = -1;
 
@@ -695,7 +694,6 @@ function setupEventListeners() {
                     }
                 });
 
-                // ✂️ 雙向無瑕裁切：自動移除範圍外的無效左/右空白欄位
                 const allClonedRows = clonedTable.querySelectorAll('tr');
                 allClonedRows.forEach(row => {
                     const cells = Array.from(row.children);
@@ -707,7 +705,7 @@ function setupEventListeners() {
 
                         if (cellStart === 0) {
                             colIdx += span;
-                            return; // 始終保留左側角色資訊欄位 (Col 0)
+                            return;
                         }
 
                         const overlapStart = Math.max(cellStart, minActiveCol);
@@ -757,7 +755,6 @@ function setupEventListeners() {
 
                 document.body.removeChild(cloneContainer);
 
-                // 🚀 開啟新分頁展示截圖圖片
                 const imgData = canvas.toDataURL('image/png');
                 const newTab = window.open();
                 if (newTab) {
