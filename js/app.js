@@ -97,18 +97,18 @@ async function initTracker() {
     const uniquePaths = PATH_ORDER.filter(p => RAW_CHARACTERS.some(c => c.path === p));
     const uniqueElems = ELEM_ORDER.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
 
-    // 動態產生命途選項
+    // 動態產生命途選項 (預設全部不勾選)
     document.getElementById('path-items-container').innerHTML = uniquePaths.map(p => {
         const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
         const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${p}">` : "";
-        return `<label><input type="checkbox" class="path-item" value="${p}" checked> ${iconHtml}${p}</label>`;
+        return `<label><input type="checkbox" class="path-item" value="${p}"> ${iconHtml}${p}</label>`;
     }).join('');
     
-    // 動態產生屬性選項
+    // 動態產生屬性選項 (預設全部不勾選)
     document.getElementById('elem-items-container').innerHTML = uniqueElems.map(e => {
         const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
         const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${e}">` : "";
-        return `<label><input type="checkbox" class="elem-item" value="${e}" checked> ${iconHtml}${e}</label>`;
+        return `<label><input type="checkbox" class="elem-item" value="${e}"> ${iconHtml}${e}</label>`;
     }).join('');
 
     // 構建表頭 1 (日期)
@@ -303,6 +303,12 @@ async function initTracker() {
     const elemItems = elemPanel.querySelectorAll('.elem-item');
     const typeItems = typePanel.querySelectorAll('.type-item');
     
+    // 初始化時將全選勾選框與取得方法勾選框清空
+    if (pathAll) pathAll.checked = false;
+    if (elemAll) elemAll.checked = false;
+    if (typeAll) typeAll.checked = false;
+    typeItems.forEach(i => i.checked = false);
+
     const buffToggleBtn = document.getElementById('buff-toggle-btn');
     const searchInput = document.getElementById('char-search-input');
 
@@ -352,31 +358,28 @@ async function initTracker() {
         const selectedTypes = Array.from(typeItems).filter(i => i.checked).map(i => i.value);
         const keyword = searchInput.value.trim().toLowerCase();
 
-        if (selectedPaths.length === pathItems.length) {
+        // 更新命途 UI 文字 (0 個勾選 = 預設顯示「命途」代表全部)
+        if (selectedPaths.length === 0) {
             pathBox.textContent = '命途';
-        } else if (selectedPaths.length === 0) {
-            pathBox.textContent = '未選命途';
         } else if (selectedPaths.length <= 2) {
             pathBox.textContent = selectedPaths.join(', ');
         } else {
             pathBox.textContent = `${selectedPaths[0]} 等 ${selectedPaths.length} 個`;
         }
 
-        if (selectedElems.length === elemItems.length) {
+        // 更新屬性 UI 文字
+        if (selectedElems.length === 0) {
             elemBox.textContent = '屬性';
-        } else if (selectedElems.length === 0) {
-            elemBox.textContent = '未選屬性';
         } else if (selectedElems.length <= 2) {
             elemBox.textContent = selectedElems.join(', ');
         } else {
             elemBox.textContent = `${selectedElems[0]} 等 ${selectedElems.length} 個`;
         }
 
+        // 更新取得方法 UI 文字
         const typeLabelMap = { 'normal': '限定躍遷', 'pool': '星緣', 'shop': '聚靈', 'collab': '聯動' };
-        if (selectedTypes.length === typeItems.length) {
+        if (selectedTypes.length === 0) {
             typeBox.textContent = '取得方法';
-        } else if (selectedTypes.length === 0) {
-            typeBox.textContent = '未選方法';
         } else if (selectedTypes.length <= 2) {
             typeBox.textContent = selectedTypes.map(t => typeLabelMap[t]).join(', ');
         } else {
@@ -392,9 +395,10 @@ async function initTracker() {
             const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
             const rowName = row.getAttribute('data-name').toLowerCase();
 
-            const matchPath = selectedPaths.includes(rowPath);
-            const matchElem = selectedElems.includes(rowElem);
-            const matchType = selectedTypes.includes(rowType);
+            // 💡 核心變革：未勾選任何項目 (length === 0) 時代表「不限制/全顯示」，有勾選才做過濾比對
+            const matchPath = selectedPaths.length === 0 || selectedPaths.includes(rowPath);
+            const matchElem = selectedElems.length === 0 || selectedElems.includes(rowElem);
+            const matchType = selectedTypes.length === 0 || selectedTypes.includes(rowType);
             const matchName = keyword === '' || rowName.includes(keyword);
             const matchBuff = !onlyBuffs || hasBuffAttr;
 
@@ -423,44 +427,42 @@ async function initTracker() {
         }
     }
 
-    pathAll.addEventListener('change', () => {
-        pathItems.forEach(i => i.checked = pathAll.checked);
-        applyFilters();
-    });
+    // 當點擊最頂部的「全部/重置」時，自動取消下方所有項目的勾選
+    if (pathAll) {
+        pathAll.addEventListener('change', () => {
+            pathItems.forEach(i => i.checked = false);
+            pathAll.checked = false;
+            applyFilters();
+        });
+    }
     pathItems.forEach(item => {
         item.addEventListener('change', () => {
-            const allChecked = Array.from(pathItems).every(i => i.checked);
-            const noneChecked = Array.from(pathItems).every(i => !i.checked);
-            pathAll.checked = allChecked;
-            pathAll.indeterminate = !allChecked && !noneChecked;
             applyFilters();
         });
     });
 
-    elemAll.addEventListener('change', () => {
-        elemItems.forEach(i => i.checked = elemAll.checked);
-        applyFilters();
-    });
+    if (elemAll) {
+        elemAll.addEventListener('change', () => {
+            elemItems.forEach(i => i.checked = false);
+            elemAll.checked = false;
+            applyFilters();
+        });
+    }
     elemItems.forEach(item => {
         item.addEventListener('change', () => {
-            const allChecked = Array.from(elemItems).every(i => i.checked);
-            const noneChecked = Array.from(elemItems).every(i => !i.checked);
-            elemAll.checked = allChecked;
-            elemAll.indeterminate = !allChecked && !noneChecked;
             applyFilters();
         });
     });
 
-    typeAll.addEventListener('change', () => {
-        typeItems.forEach(i => i.checked = typeAll.checked);
-        applyFilters();
-    });
+    if (typeAll) {
+        typeAll.addEventListener('change', () => {
+            typeItems.forEach(i => i.checked = false);
+            typeAll.checked = false;
+            applyFilters();
+        });
+    }
     typeItems.forEach(item => {
         item.addEventListener('change', () => {
-            const allChecked = Array.from(typeItems).every(i => i.checked);
-            const noneChecked = Array.from(typeItems).every(i => !i.checked);
-            typeAll.checked = allChecked;
-            typeAll.indeterminate = !allChecked && !noneChecked;
             applyFilters();
         });
     });
