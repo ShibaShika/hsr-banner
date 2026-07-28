@@ -335,7 +335,7 @@ function renderTable() {
         <div class="top-left-widget">
             <div class="btn-group">
                 <button type="button" id="sort-char-btn" class="table-sort-btn" title="切換角色登場順序">角色 ${isCharAscending ? '▲' : '▼'}</button>
-                <button type="button" id="sort-patch-btn" class="table-sort-btn" title="切換時間軸順序">版本 ${isPatchAscending ? '▶' : '◀'}</button>
+                <button type="button" id="sort-patch-btn" class="table-sort-btn" title="切換時間軸順序">版本 ${isPatchAscending ? '◀' : '▶'}</button>
             </div>
             <div class="table-count-badge" id="table-count-badge" title="符合條件的角色數量 / 總角色數量">共 ${totalChars} 位</div>
         </div>
