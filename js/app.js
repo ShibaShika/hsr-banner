@@ -452,14 +452,43 @@ async function initTracker() {
         });
     }
 
-    // 📷 匯出 100% 全尺寸長圖 PNG 截圖功能 (自動解開滾動限制與靜態渲染)
+    // 📷 匯出圖片 (自動智慧裁切無資料的右側版本)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
-                exportImgBtn.textContent = '📷 繪製長圖中...';
+                exportImgBtn.textContent = '📷 繪製中...';
                 exportImgBtn.disabled = true;
 
-                // 1. 建立背景離線隱藏容器
+                // 1. 取得目前所有可見的角色列
+                const visibleRows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)')).filter(r => r.style.display !== 'none');
+
+                if (visibleRows.length === 0) {
+                    alert('目前沒有符合條件的角色可供截圖！');
+                    return;
+                }
+
+                // 2. 自動計算目前所有可見角色中，最遠有資料的小版本直欄號碼 (maxActiveCol)
+                let maxActiveCol = 1; // 第一欄為角色資訊，至少保留 1 個小版本欄
+                visibleRows.forEach(row => {
+                    const cells = row.children;
+                    let colIndex = 0;
+                    for (let c = 0; c < cells.length; c++) {
+                        const cell = cells[c];
+                        const span = parseInt(cell.getAttribute('colspan') || '1', 10);
+                        const isNone = cell.classList.contains('none');
+                        
+                        // 只要該格子不是無資料 (none)，且為版本欄位 (colIndex > 0)
+                        if (!isNone && colIndex > 0) {
+                            const endCol = colIndex + span - 1;
+                            if (endCol > maxActiveCol) {
+                                maxActiveCol = endCol;
+                            }
+                        }
+                        colIndex += span;
+                    }
+                });
+
+                // 3. 建立背景離線隱藏容器
                 const cloneContainer = document.createElement('div');
                 cloneContainer.style.position = 'absolute';
                 cloneContainer.style.left = '-9999px';
@@ -469,10 +498,37 @@ async function initTracker() {
                 cloneContainer.style.padding = '12px';
                 cloneContainer.style.zIndex = '-9999';
 
-                // 2. 複製一份完整的表格 DOM
+                // 4. 複製一份完整的表格 DOM 並清理隱藏列
                 const clonedTable = table.cloneNode(true);
                 
-                // 3. 解開複製表格中所有 sticky 釘選與高亮外框，還原為原生 HTML 表格完美全寬/全高展開狀態
+                clonedTable.querySelectorAll('tbody tr').forEach(r => {
+                    if (r.style.display === 'none' || r.classList.contains('empty-row')) {
+                        r.remove();
+                    }
+                });
+
+                // 5. 智慧裁切超出 maxActiveCol 的右側無資料欄位
+                const allClonedRows = clonedTable.querySelectorAll('tr');
+                allClonedRows.forEach(row => {
+                    const cells = Array.from(row.children);
+                    let colIndex = 0;
+                    cells.forEach(cell => {
+                        const span = parseInt(cell.getAttribute('colspan') || '1', 10);
+                        const endCol = colIndex + span - 1;
+
+                        if (colIndex > maxActiveCol) {
+                            // 完全超出有資料範圍的欄位，直接移除
+                            cell.remove();
+                        } else if (endCol > maxActiveCol) {
+                            // 跨欄位 (colspan) 涵蓋到了無資料範圍，縮減其 colspan
+                            const newSpan = maxActiveCol - colIndex + 1;
+                            cell.setAttribute('colspan', newSpan);
+                        }
+                        colIndex += span;
+                    });
+                });
+
+                // 6. 解開複製表格中所有 sticky 釘選與高亮外框，還原為原生 HTML 表格完美展開狀態
                 clonedTable.querySelectorAll('*').forEach(el => {
                     el.style.position = 'static';
                     el.style.boxShadow = 'none';
@@ -483,7 +539,7 @@ async function initTracker() {
                 cloneContainer.appendChild(clonedTable);
                 document.body.appendChild(cloneContainer);
 
-                // 4. 執行全尺寸長圖繪製
+                // 7. 執行長圖繪製
                 const canvas = await html2canvas(clonedTable, {
                     backgroundColor: '#1e1e1e',
                     scale: 2, // 雙倍高畫質
@@ -491,10 +547,10 @@ async function initTracker() {
                     logging: false
                 });
 
-                // 5. 移除臨時離線容器
+                // 8. 移除臨時離線容器
                 document.body.removeChild(cloneContainer);
 
-                // 6. 觸發長圖 PNG 下載
+                // 9. 觸發圖片 PNG 下載
                 const link = document.createElement('a');
                 link.download = `星穹鐵道_限定躍遷一覽表_${new Date().toISOString().slice(0, 10)}.png`;
                 link.href = canvas.toDataURL('image/png');
