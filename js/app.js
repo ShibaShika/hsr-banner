@@ -2,7 +2,7 @@
    崩壞：星穹鐵道 - 限定躍遷一覽表 主應用程式邏輯 (app.js)
    ========================================================================== */
 
-// 格式化表頭日期 (例如 26/04/26 -> 2026<br>04/26)
+// 格式化表頭日期
 function formatHeaderDate(dateStr) {
     const parts = dateStr.split('/');
     if (parts.length === 3) {
@@ -286,7 +286,7 @@ async function initTracker() {
     }
     updateColumnIndices();
 
-    // 綁定篩選器邏輯
+    // === 綁定篩選器邏輯 ===
     const pathBox = document.getElementById('path-select-box');
     const elemBox = document.getElementById('elem-select-box');
     const typeBox = document.getElementById('type-select-box');
@@ -313,6 +313,7 @@ async function initTracker() {
         applyFilters();
     });
 
+    // 下拉選單點擊展開/隱藏
     pathBox.addEventListener('click', (e) => {
         e.stopPropagation();
         elemPanel.classList.remove('show');
@@ -334,6 +335,7 @@ async function initTracker() {
         typePanel.classList.toggle('show');
     });
 
+    // 點擊空白處自動收合所有選單
     document.addEventListener('click', () => {
         pathPanel.classList.remove('show');
         elemPanel.classList.remove('show');
