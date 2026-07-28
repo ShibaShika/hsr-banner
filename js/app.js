@@ -38,6 +38,30 @@ function getCurrentPatchName() {
     return currentPatch;
 }
 
+// 🔍 智慧計算角色的首次登場「大版本號」（如：1.x, 2.x, 3.x）
+function getCharDebutMajorVersion(char, patchesList) {
+    let earliestPatch = null;
+
+    if (char.isCollab) {
+        earliestPatch = char.isCollab;
+    } else if (char.runs && char.runs.length > 0) {
+        // 在 PATCH_DATA 中搜尋該角色所有 UP 版本，取最早期（索引號最小）者
+        const runIndices = char.runs.map(p => patchesList.indexOf(p)).filter(idx => idx !== -1);
+        if (runIndices.length > 0) {
+            const minIdx = Math.min(...runIndices);
+            earliestPatch = patchesList[minIdx];
+        }
+    } else if (char.term && char.term.patch) {
+        earliestPatch = char.term.patch;
+    }
+
+    if (earliestPatch) {
+        const majorNum = earliestPatch.split('.')[0];
+        return `${majorNum}.x`;
+    }
+    return "未知";
+}
+
 // 📊 以【當前小版本】或【加入星緣/聚靈時的小版本】為基準計算角色歷史數據
 function calculateCharStats(char, patchesList, activePatchName) {
     if (char.isCollab) {
@@ -59,7 +83,6 @@ function calculateCharStats(char, patchesList, activePatchName) {
         }
     }
 
-    // 僅計算截至「目標終點小版本」為止的歷次 UP
     const indices = (char.runs || [])
         .map(p => patchesList.indexOf(p))
         .filter(idx => idx !== -1 && idx <= validEndIdx)
@@ -92,7 +115,6 @@ function calculateCharStats(char, patchesList, activePatchName) {
         };
     }
 
-    // 計算歷史各次 UP 之間的間隔小版本數
     const gaps = [];
     for (let i = 1; i < indices.length; i++) {
         gaps.push(indices[i] - indices[i - 1] - 1);
@@ -167,9 +189,24 @@ async function initTracker() {
     const activePatchName = getCurrentPatchName();
     const reversedPatches = [...PATCH_DATA].reverse();
 
+    // 🌟 自動解析資料庫中包含的所有大版本號 (如: 1.x, 2.x, 3.x, 4.x...)
+    const versionSet = new Set();
+    CHARACTERS.forEach(char => {
+        const majorVer = getCharDebutMajorVersion(char, patchesList);
+        if (majorVer !== "未知") {
+            versionSet.add(majorVer);
+        }
+    });
+    const uniqueVersions = Array.from(versionSet).sort((a, b) => parseFloat(a) - parseFloat(b));
+
     const PATH_ORDER = ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
     const uniquePaths = PATH_ORDER.filter(p => RAW_CHARACTERS.some(c => c.path === p));
     const uniqueElems = ELEM_ORDER.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
+
+    // 動態產生大版本選項
+    document.getElementById('version-items-container').innerHTML = uniqueVersions.map(v => {
+        return `<label><input type="checkbox" class="version-item" value="${v}"> ${v} 角色</label>`;
+    }).join('');
 
     // 動態產生命途選項
     document.getElementById('path-items-container').innerHTML = uniquePaths.map(p => {
@@ -218,19 +255,20 @@ async function initTracker() {
         }
 
         const hasBuff = char.buffs && char.buffs.length > 0;
+        const majorVer = getCharDebutMajorVersion(char, patchesList);
 
-        // 📊 生成【躍遷情報檔案】Hover 提示 (已加入星緣/聚靈凍結點判斷)
+        // 📊 生成【躍遷情報檔案】Hover 提示
         const stats = calculateCharStats(char, patchesList, activePatchName);
         let statsTooltip = "";
         if (stats.isCollab) {
-            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 長期聯動角色`;
+            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 長期聯動角色\n• 登場大版本：${majorVer}`;
         } else if (stats.isTermActive) {
-            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 加入${stats.termLabel}時等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
+            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 登場大版本：${majorVer}\n• 加入${stats.termLabel}時等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
         } else {
-            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 目前等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
+            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 登場大版本：${majorVer}\n• 目前等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
         }
         
-        html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-has-buff="${hasBuff}" data-name="${char.name}">
+        html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${majorVer}" data-name="${char.name}">
             <td class="bg-${char.elem}">
                 <div class="char-info-cell" title="${statsTooltip}">
                     <span class="char-seq">${seqNum}</span>
@@ -389,14 +427,17 @@ async function initTracker() {
     }
 
     // === 綁定篩選器邏輯 ===
+    const versionBox = document.getElementById('version-select-box');
     const pathBox = document.getElementById('path-select-box');
     const elemBox = document.getElementById('elem-select-box');
     const typeBox = document.getElementById('type-select-box');
     
+    const versionPanel = document.getElementById('version-panel');
     const pathPanel = document.getElementById('path-panel');
     const elemPanel = document.getElementById('elem-panel');
     const typePanel = document.getElementById('type-panel');
     
+    const versionItems = versionPanel.querySelectorAll('.version-item');
     const pathItems = pathPanel.querySelectorAll('.path-item');
     const elemItems = elemPanel.querySelectorAll('.elem-item');
     const typeItems = typePanel.querySelectorAll('.type-item');
@@ -414,9 +455,18 @@ async function initTracker() {
         applyFilters();
     });
 
-    // 下拉選單點擊展開/隱藏
+    // 下拉選單點擊展開/隱藏 (互斥收合)
+    versionBox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pathPanel.classList.remove('show');
+        elemPanel.classList.remove('show');
+        typePanel.classList.remove('show');
+        versionPanel.classList.toggle('show');
+    });
+
     pathBox.addEventListener('click', (e) => {
         e.stopPropagation();
+        versionPanel.classList.remove('show');
         elemPanel.classList.remove('show');
         typePanel.classList.remove('show');
         pathPanel.classList.toggle('show');
@@ -424,6 +474,7 @@ async function initTracker() {
 
     elemBox.addEventListener('click', (e) => {
         e.stopPropagation();
+        versionPanel.classList.remove('show');
         pathPanel.classList.remove('show');
         typePanel.classList.remove('show');
         elemPanel.classList.toggle('show');
@@ -431,6 +482,7 @@ async function initTracker() {
 
     typeBox.addEventListener('click', (e) => {
         e.stopPropagation();
+        versionPanel.classList.remove('show');
         pathPanel.classList.remove('show');
         elemPanel.classList.remove('show');
         typePanel.classList.toggle('show');
@@ -438,17 +490,20 @@ async function initTracker() {
 
     // 點擊空白處自動收合所有選單
     document.addEventListener('click', () => {
+        versionPanel.classList.remove('show');
         pathPanel.classList.remove('show');
         elemPanel.classList.remove('show');
         typePanel.classList.remove('show');
     });
 
+    versionPanel.addEventListener('click', (e) => e.stopPropagation());
     pathPanel.addEventListener('click', (e) => e.stopPropagation());
     elemPanel.addEventListener('click', (e) => e.stopPropagation());
     typePanel.addEventListener('click', (e) => e.stopPropagation());
 
     // 🧹 清除所有篩選條件
     function clearAllFilters() {
+        versionItems.forEach(i => i.checked = false);
         pathItems.forEach(i => i.checked = false);
         elemItems.forEach(i => i.checked = false);
         typeItems.forEach(i => i.checked = false);
@@ -479,7 +534,6 @@ async function initTracker() {
                 exportImgBtn.textContent = '📷 繪製中...';
                 exportImgBtn.disabled = true;
 
-                // 1. 取得目前所有可見的角色列
                 const visibleRows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)')).filter(r => r.style.display !== 'none');
 
                 if (visibleRows.length === 0) {
@@ -487,7 +541,6 @@ async function initTracker() {
                     return;
                 }
 
-                // 2. 自動計算目前所有可見角色中，最遠有資料的小版本直欄號碼 (maxActiveCol)
                 let maxActiveCol = 1;
                 visibleRows.forEach(row => {
                     const cells = row.children;
@@ -507,7 +560,6 @@ async function initTracker() {
                     }
                 });
 
-                // 3. 建立背景離線隱藏容器
                 const cloneContainer = document.createElement('div');
                 cloneContainer.style.position = 'absolute';
                 cloneContainer.style.left = '-9999px';
@@ -517,7 +569,6 @@ async function initTracker() {
                 cloneContainer.style.padding = '12px';
                 cloneContainer.style.zIndex = '-9999';
 
-                // 4. 複製一份完整的表格 DOM 並清理隱藏列
                 const clonedTable = table.cloneNode(true);
                 
                 clonedTable.querySelectorAll('tbody tr').forEach(r => {
@@ -526,7 +577,6 @@ async function initTracker() {
                     }
                 });
 
-                // 5. 智慧裁切超出 maxActiveCol 的右側無資料欄位
                 const allClonedRows = clonedTable.querySelectorAll('tr');
                 allClonedRows.forEach(row => {
                     const cells = Array.from(row.children);
@@ -545,7 +595,6 @@ async function initTracker() {
                     });
                 });
 
-                // 6. 解開複製表格中所有 sticky 釘選與高亮外框，還原為原生 HTML 表格完美展開狀態
                 clonedTable.querySelectorAll('*').forEach(el => {
                     el.style.position = 'static';
                     el.style.boxShadow = 'none';
@@ -556,7 +605,6 @@ async function initTracker() {
                 cloneContainer.appendChild(clonedTable);
                 document.body.appendChild(cloneContainer);
 
-                // 7. 執行長圖繪製
                 const canvas = await html2canvas(clonedTable, {
                     backgroundColor: '#1e1e1e',
                     scale: 2,
@@ -564,10 +612,8 @@ async function initTracker() {
                     logging: false
                 });
 
-                // 8. 移除臨時離線容器
                 document.body.removeChild(cloneContainer);
 
-                // 9. 觸發圖片 PNG 下載
                 const link = document.createElement('a');
                 link.download = `星穹鐵道_限定躍遷一覽表_${new Date().toISOString().slice(0, 10)}.png`;
                 link.href = canvas.toDataURL('image/png');
@@ -583,6 +629,7 @@ async function initTracker() {
     }
 
     function applyFilters() {
+        const selectedVersions = Array.from(versionItems).filter(i => i.checked).map(i => i.value);
         const selectedPaths = Array.from(pathItems).filter(i => i.checked).map(i => i.value);
         const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
         const selectedTypes = Array.from(typeItems).filter(i => i.checked).map(i => i.value);
@@ -592,13 +639,23 @@ async function initTracker() {
             searchClearBtn.style.display = searchInput.value !== '' ? 'block' : 'none';
         }
 
+        versionBox.classList.toggle('active', selectedVersions.length > 0);
         pathBox.classList.toggle('active', selectedPaths.length > 0);
         elemBox.classList.toggle('active', selectedElems.length > 0);
         typeBox.classList.toggle('active', selectedTypes.length > 0);
 
-        const hasActiveFilter = selectedPaths.length > 0 || selectedElems.length > 0 || selectedTypes.length > 0 || keyword !== '' || onlyBuffs;
+        const hasActiveFilter = selectedVersions.length > 0 || selectedPaths.length > 0 || selectedElems.length > 0 || selectedTypes.length > 0 || keyword !== '' || onlyBuffs;
         if (resetFiltersBtn) {
             resetFiltersBtn.style.display = hasActiveFilter ? 'inline-flex' : 'none';
+        }
+
+        // 更新大版本 UI 文字
+        if (selectedVersions.length === 0) {
+            versionBox.textContent = '大版本';
+        } else if (selectedVersions.length <= 2) {
+            versionBox.textContent = selectedVersions.join(', ');
+        } else {
+            versionBox.textContent = `${selectedVersions[0]} 等 ${selectedVersions.length} 個`;
         }
 
         if (selectedPaths.length === 0) {
@@ -629,19 +686,21 @@ async function initTracker() {
         const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
         let visibleCount = 0;
         rows.forEach(row => {
+            const rowMajorVer = row.getAttribute('data-major-version');
             const rowPath = row.getAttribute('data-path');
             const rowElem = row.getAttribute('data-elem');
             const rowType = row.getAttribute('data-type');
             const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
             const rowName = row.getAttribute('data-name').toLowerCase();
 
+            const matchVersion = selectedVersions.length === 0 || selectedVersions.includes(rowMajorVer);
             const matchPath = selectedPaths.length === 0 || selectedPaths.includes(rowPath);
             const matchElem = selectedElems.length === 0 || selectedElems.includes(rowElem);
             const matchType = selectedTypes.length === 0 || selectedTypes.includes(rowType);
             const matchName = keyword === '' || rowName.includes(keyword);
             const matchBuff = !onlyBuffs || hasBuffAttr;
 
-            if (matchPath && matchElem && matchType && matchName && matchBuff) {
+            if (matchVersion && matchPath && matchElem && matchType && matchName && matchBuff) {
                 row.style.display = '';
                 visibleCount++;
             } else {
@@ -671,6 +730,7 @@ async function initTracker() {
         }
     }
 
+    versionItems.forEach(item => item.addEventListener('change', applyFilters));
     pathItems.forEach(item => item.addEventListener('change', applyFilters));
     elemItems.forEach(item => item.addEventListener('change', applyFilters));
     typeItems.forEach(item => item.addEventListener('change', applyFilters));
