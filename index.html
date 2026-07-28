@@ -8,7 +8,10 @@
     <!-- 1. 載入全套視覺與樣式表 -->
     <link rel="stylesheet" href="css/style.css">
 
-    <!-- 2. 載入資料庫與配置文檔 -->
+    <!-- 2. 載入 html2canvas 圖片匯出函式庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- 3. 載入資料庫與配置文檔 -->
     <script src="js/patches.js"></script>
     <script src="js/paths.js"></script>
     <script src="js/elements.js"></script>
@@ -20,10 +23,18 @@
     <div class="header-bar">
         <div class="header-top-row">
             <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
-            <button type="button" id="toggle-toolbar-btn" class="toggle-toolbar-btn">
-                <span>🔍 篩選與工具</span>
-                <span id="toggle-arrow" class="arrow">▼</span>
-            </button>
+            
+            <div class="header-top-right-btns">
+                <!-- 左右版本快速跳轉按鈕 -->
+                <button type="button" id="jump-latest-btn" class="jump-btn" title="快速滾動至最新版本">◀ 最新</button>
+                <button type="button" id="jump-oldest-btn" class="jump-btn" title="快速滾動至最早期版本">最舊 ▶</button>
+
+                <!-- 工具列摺疊切換按鈕 -->
+                <button type="button" id="toggle-toolbar-btn" class="toggle-toolbar-btn">
+                    <span>🔍 篩選與工具</span>
+                    <span id="toggle-arrow" class="arrow">▼</span>
+                </button>
+            </div>
         </div>
 
         <div id="toolbar-panel" class="toolbar-panel">
@@ -79,6 +90,8 @@
                         <input type="range" id="ui-scale-slider" min="0.7" max="1.4" step="0.05" value="1">
                         <span id="ui-scale-text">100%</span>
                     </div>
+                    <!-- 📷 匯出圖片按鈕 -->
+                    <button type="button" id="export-img-btn" class="export-btn" title="將目前的表格狀態下載為 PNG 圖片">📷 截圖</button>
                     <!-- 更新日期 -->
                     <div class="update-date">更新日期：<span id="update-date-text">載入中...</span></div>
                 </div>
@@ -91,7 +104,7 @@
         <table id="tracker"></table>
     </div>
 
-    <!-- 3. 載入核心應用程式邏輯 -->
+    <!-- 4. 載入核心應用程式邏輯 -->
     <script src="js/app.js"></script>
 </body>
 </html>
