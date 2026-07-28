@@ -666,7 +666,7 @@ function setupEventListeners() {
         });
     }
 
-    // 📷 匯出截圖邏輯 (修復角標定位跑位 Bug)
+    // 📷 匯出截圖邏輯 (修復 html2canvas sticky 錯位毀滅性 Bug)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
@@ -764,18 +764,29 @@ function setupEventListeners() {
                     });
                 });
 
-                // 🌟 核心修正：只清除 sticky 定位，確保 td 的 relative 與 .buff-badge 的 absolute 定位不受影響
-                clonedTable.querySelectorAll('*').forEach(el => {
-                    if (window.getComputedStyle(el).position === 'sticky') {
+                // 🌟 關鍵修復：先掛載到 DOM 樹上，才能正常操作與繪製
+                cloneContainer.appendChild(clonedTable);
+                document.body.appendChild(cloneContainer);
+
+                // 🌟 關鍵修復：強行取消所有凍結視窗 (sticky) 避免 html2canvas 算錯座標把表頭/角色欄甩出去
+                clonedTable.querySelectorAll('th, td, thead, tr, div, span').forEach(el => {
+                    if (el.classList.contains('buff-badge')) {
+                        el.style.position = 'absolute';
+                    } else {
                         el.style.position = 'static';
                     }
                     el.style.boxShadow = 'none';
                     el.classList.remove('col-highlight');
                 });
-                clonedTable.style.zoom = '1';
 
-                cloneContainer.appendChild(clonedTable);
-                document.body.appendChild(cloneContainer);
+                // 🌟 確保包含角標的儲存格有 relative 作為定位基準
+                clonedTable.querySelectorAll('td, th').forEach(cell => {
+                    if (cell.querySelector('.buff-badge')) {
+                        cell.style.position = 'relative';
+                    }
+                });
+
+                clonedTable.style.zoom = '1';
 
                 const imgs = Array.from(clonedTable.querySelectorAll('img'));
                 await Promise.all(imgs.map(img => {
