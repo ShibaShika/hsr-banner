@@ -234,7 +234,6 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 
 .select-box:hover { border-color: #666; background: #222; }
 
-/* 下拉按鈕 active 高亮 */
 .select-box.active {
     background: #2a2400;
     color: #ffd700;
@@ -243,7 +242,6 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     font-weight: bold;
 }
 
-/* 下拉選單面板 */
 .dropdown-panel {
     display: none;
     position: absolute;
@@ -280,7 +278,6 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 .dropdown-panel label:hover { color: #fff; background: #2a2a2a; }
 .dropdown-panel input[type="checkbox"] { cursor: pointer; accent-color: #ffd700; width: 14px; height: 14px; }
 
-/* 現代化切換按鈕 (礪爍新輝) */
 .toggle-btn {
     background: #1c1c1c;
     color: #aaa;
@@ -357,7 +354,6 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 
 .search-clear-btn:hover { color: #fff; }
 
-/* 🧹 清除篩選按鈕樣式 */
 .reset-btn {
     background: #2a1a1a;
     color: #fca5a5;
@@ -503,8 +499,54 @@ th:first-child, td:first-child {
     cursor: help;
 }
 
-thead tr:nth-child(1) th:first-child { z-index: 12; top: 0; background: var(--th-bg); }
-thead tr:nth-child(2) th:first-child { z-index: 12; top: 30px; background: var(--th-bg); }
+/* 🌟 表格左上角控制區域控制項 */
+thead th.top-left-cell {
+    z-index: 20 !important;
+    top: 0;
+    left: 0;
+    background: #181818 !important;
+    padding: 2px 4px !important;
+    vertical-align: middle;
+}
+
+.top-left-widget {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 100%;
+}
+
+.table-sort-btn {
+    background: #252525;
+    color: #ffd700;
+    border: 1px solid #555;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.table-sort-btn:hover {
+    background: #333;
+    border-color: #ffd700;
+    box-shadow: 0 0 6px rgba(255, 215, 0, 0.4);
+    color: #fff;
+}
+
+.table-count-badge {
+    font-size: 10px;
+    color: #aaa;
+    white-space: nowrap;
+    user-select: none;
+    letter-spacing: 0.5px;
+}
 
 .char-info-cell { display: flex; align-items: center; padding: 3px 6px; color: #000; font-weight: 600; }
 .char-seq { width: 22px; text-align: center; font-size: 13px; opacity: 0.8; }
