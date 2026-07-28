@@ -90,7 +90,7 @@ function getCharDebutMajorVersion(char, patchesList) {
     return "未知";
 }
 
-// 📊 智慧統計分析演算法
+// 📊 智慧統計分析演算法 (含連續小版本自動合併邏輯)
 function calculateCharStats(char, patchesList, activePatchName) {
     if (char.isCollab) {
         return { isCollab: true };
@@ -115,7 +115,24 @@ function calculateCharStats(char, patchesList, activePatchName) {
         .filter(idx => idx !== -1 && idx <= validEndIdx)
         .sort((a, b) => a - b);
 
-    const totalRuns = indices.length;
+    // 🌟 核心修復：將連續小版本 (如 4.1上 + 4.1下) 自動合併為「同一次/同期 UP 活動」
+    const events = [];
+    if (indices.length > 0) {
+        let currentEvent = { start: indices[0], end: indices[0] };
+        for (let i = 1; i < indices.length; i++) {
+            if (indices[i] === currentEvent.end + 1) {
+                // 相鄰接續的小版本，歸為同一期 UP
+                currentEvent.end = indices[i];
+            } else {
+                // 間隔開的小版本，視為新的一期 UP
+                events.push(currentEvent);
+                currentEvent = { start: indices[i], end: indices[i] };
+            }
+        }
+        events.push(currentEvent);
+    }
+
+    const totalRuns = events.length;
 
     if (totalRuns === 0) {
         return {
@@ -128,12 +145,15 @@ function calculateCharStats(char, patchesList, activePatchName) {
         };
     }
 
+    const lastEvent = events[events.length - 1];
+    const currentGap = validEndIdx - lastEvent.end;
+
     if (isTermActive) {
         let maxGap = '-';
         if (totalRuns >= 2) {
             const gaps = [];
-            for (let i = 1; i < indices.length; i++) {
-                gaps.push(indices[i] - indices[i - 1] - 1);
+            for (let i = 1; i < events.length; i++) {
+                gaps.push(events[i].start - events[i - 1].end - 1);
             }
             maxGap = `${Math.max(...gaps)}`;
         }
@@ -147,9 +167,6 @@ function calculateCharStats(char, patchesList, activePatchName) {
         };
     }
 
-    const lastRunIdx = indices[indices.length - 1];
-    const currentGap = validEndIdx - lastRunIdx;
-
     if (totalRuns === 1) {
         return {
             totalRuns: '1',
@@ -161,9 +178,10 @@ function calculateCharStats(char, patchesList, activePatchName) {
         };
     }
 
+    // 已有 2 期（含）以上 UP 記錄才計算歷史最長間隔與超期警報
     const gaps = [];
-    for (let i = 1; i < indices.length; i++) {
-        gaps.push(indices[i] - indices[i - 1] - 1);
+    for (let i = 1; i < events.length; i++) {
+        gaps.push(events[i].start - events[i - 1].end - 1);
     }
     const maxHistoricalGap = Math.max(...gaps);
     const isOverdue = currentGap > maxHistoricalGap;
@@ -265,7 +283,7 @@ function renderTable() {
     const uniquePaths = PATH_ORDER.filter(p => RAW_CHARACTERS.some(c => c.path === p));
     const uniqueElems = ELEM_ORDER.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
 
-    // 動態產生大版本選項 (簡化為 1.x, 2.x ...)
+    // 動態產生大版本選項
     const versionContainer = document.getElementById('version-items-container');
     if (versionContainer && versionContainer.children.length === 0) {
         versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${v}"> ${v}</label>`).join('');
@@ -360,7 +378,6 @@ function renderTable() {
         const majorVer = getCharDebutMajorVersion(char, patchesList);
         const debutVer = getCharDebutVersion(char, patchesList);
 
-        // 🌟 更正：「登場版本」簡化/統一改為「實裝版本」
         const stats = calculateCharStats(char, patchesList, activePatchName);
         let statsTooltip = "";
         if (stats.isCollab) {
@@ -942,7 +959,6 @@ function applyFilters() {
         resetFiltersBtn.style.display = hasActiveFilter ? 'inline-flex' : 'none';
     }
 
-    // 🌟 更正：頂部按鈕預設提示改為「實裝版本」
     if (versionBox) {
         if (selectedVersions.length === 0) versionBox.textContent = '實裝版本';
         else if (selectedVersions.length <= 2) versionBox.textContent = selectedVersions.join(', ');
