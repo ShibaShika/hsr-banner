@@ -15,7 +15,7 @@
     --elem-unknown: #64748b;   /* 未知：暗灰藍 */
 }
 
-/* 網頁整體改為彈性高度，鎖定最大高度防止雙重滾動條 */
+/* 網頁整體改為彈性高度 */
 html, body {
     height: 100vh;
     margin: 0;
@@ -29,19 +29,21 @@ body {
     color: var(--text); 
     padding: 8px; 
     display: flex;
-    flex-direction: column; /* 垂直彈性佈局 */
+    flex-direction: column; 
     position: relative; 
 }
 
 /* ===== 頂部質感工具列容器與摺疊樣式 ===== */
 .header-bar {
-    flex-shrink: 0; /* 防止工具列被壓縮 */
+    flex-shrink: 0;
     margin-bottom: 8px;
     background: #181818;
     border: 1px solid #333;
     border-radius: 8px;
     padding: 8px 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    position: relative;
+    z-index: 100; /* 確保下拉選單能浮在表格上方 */
 }
 
 .header-top-row {
@@ -85,11 +87,11 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     transform: rotate(180deg);
 }
 
-/* 摺疊面板容器與平滑過渡動畫 */
+/* 摺疊面板容器：展開時允許溢出顯示選單 */
 .toolbar-panel {
     max-height: 500px;
     opacity: 1;
-    overflow: hidden;
+    overflow: visible; 
     transition: max-height 0.3s cubic-bezier(0, 1, 0, 1), opacity 0.25s ease, margin-top 0.25s ease;
     margin-top: 8px;
     border-top: 1px dashed #333;
@@ -99,6 +101,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 .toolbar-panel.collapsed {
     max-height: 0 !important;
     opacity: 0 !important;
+    overflow: hidden !important; /* 僅在摺疊時隱藏內容 */
     margin-top: 0 !important;
     padding-top: 0 !important;
     border-top: none !important;
@@ -183,7 +186,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     overflow-x: visible !important;
 }
 
-.dropdown-panel.show { display: block; }
+.dropdown-panel.show { display: block !important; }
 
 .dropdown-panel label {
     font-size: 12px;
@@ -297,14 +300,16 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 }
 .toggle-btn[data-tooltip]:hover::after { opacity: 1; visibility: visible; }
 
-/* ===== 表格核心樣式 (動態自動填滿剩餘高度) ===== */
+/* ===== 表格核心樣式 ===== */
 .table-wrap { 
-    flex: 1;               /* 自動往下延伸，填滿畫面所有剩餘空間 */
-    min-height: 0;         /* 確保出現滾動條時不會撐破頁面 */
+    flex: 1;               
+    min-height: 0;         
     overflow: auto; 
     border: 1px solid var(--border); 
     box-shadow: 0 4px 6px rgba(0,0,0,0.5); 
     background: var(--surface);
+    position: relative;
+    z-index: 1;
 }
 
 table { 
