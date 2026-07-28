@@ -453,6 +453,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     background: var(--surface);
     position: relative;
     z-index: 1;
+    padding-right: 24px; /* 🌟 方案 A：為表格最右側加上舒適的呼吸空間 */
 }
 
 table { 
