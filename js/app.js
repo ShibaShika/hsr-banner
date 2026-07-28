@@ -162,7 +162,7 @@ function calculateCharStats(char, patchesList, activePatchName) {
 }
 
 // 狀態控制變數
-let isCharAscending = false;   // 角色順序 (false: 最新在前 ⬇, true: 最舊在前 ⬆)
+let isCharAscending = false;   // 角色順序 (false: 最新在前 ▼, true: 最舊在前 ▲)
 let isPatchAscending = false;  // 版本順序 (false: 最新在左 ◀, true: 最舊在左 ▶)
 
 // 主表格渲染與初始化
@@ -274,7 +274,7 @@ function renderTable() {
         }).join('');
     }
 
-    // 動態產生取得方法選項 (使用內嵌副標題呈現，避免手機懸浮問題與水平捲軸)
+    // 動態產生取得方法選項
     const typeContainer = document.getElementById('type-items-container');
     if (typeContainer && typeContainer.children.length === 0) {
         typeContainer.innerHTML = `
@@ -302,8 +302,8 @@ function renderTable() {
     html += `<th rowspan="2" class="top-left-cell">
         <div class="top-left-widget">
             <div class="btn-group">
-                <button type="button" id="sort-char-btn" class="table-sort-btn" title="切換角色登場順序">角色 ${isCharAscending ? '⬆' : '⬇'}</button>
-                <button type="button" id="sort-patch-btn" class="table-sort-btn" title="切換時間軸小版本順序">版本 ${isPatchAscending ? '▶' : '◀'}</button>
+                <button type="button" id="sort-char-btn" class="table-sort-btn" title="切換角色登場順序">角色 ${isCharAscending ? '▲' : '▼'}</button>
+                <button type="button" id="sort-patch-btn" class="table-sort-btn" title="切換時間軸順序">版本 ${isPatchAscending ? '▶' : '◀'}</button>
             </div>
             <div class="table-count-badge" id="table-count-badge" title="符合條件的角色數量 / 總角色數量">共 ${totalChars} 位</div>
         </div>
@@ -449,7 +449,9 @@ function renderTable() {
                 if (parts.length === 3) {
                     dateStr = `${parts[1]}/${parts[2]}`;
                 }
-                html += `<td colspan="${cell.count}" class="collab-text${currentColClass}">${buffBadgeHtml}←${dateStr}後長期開放</td>`;
+                // 🌟 時間軸反轉時動態轉換說明文字箭頭方向
+                const arrowText = isPatchAscending ? `${dateStr}後長期開放→` : `←${dateStr}後長期開放`;
+                html += `<td colspan="${cell.count}" class="collab-text${currentColClass}">${buffBadgeHtml}${arrowText}</td>`;
                 return;
             }
 
@@ -632,6 +634,7 @@ function setupEventListeners() {
         });
     }
 
+    // 📷 匯出截圖邏輯 (雙向無痕精確裁切 & 新分頁開啟)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
@@ -646,24 +649,34 @@ function setupEventListeners() {
                     return;
                 }
 
-                let maxActiveCol = 1;
+                // 🔍 雙向計算：找出所有可見角色中，最左側與最右側含有實質內容的欄位範圍 [minActiveCol, maxActiveCol]
+                let minActiveCol = Infinity;
+                let maxActiveCol = -1;
+
                 visibleRows.forEach(row => {
-                    const cells = row.children;
-                    let colIndex = 0;
-                    for (let c = 0; c < cells.length; c++) {
-                        const cell = cells[c];
+                    const cells = Array.from(row.children);
+                    let colIdx = 0;
+                    cells.forEach(cell => {
                         const span = parseInt(cell.getAttribute('colspan') || '1', 10);
-                        const isNone = cell.classList.contains('none');
+                        const isNone = cell.classList.contains('none') ||
+                                       cell.classList.contains('collab-empty') ||
+                                       cell.classList.contains('term-pool-empty') ||
+                                       cell.classList.contains('term-shop-empty');
                         
-                        if (!isNone && colIndex > 0) {
-                            const endCol = colIndex + span - 1;
-                            if (endCol > maxActiveCol) {
-                                maxActiveCol = endCol;
-                            }
+                        if (!isNone && colIdx > 0) {
+                            const start = colIdx;
+                            const end = colIdx + span - 1;
+                            if (start < minActiveCol) minActiveCol = start;
+                            if (end > maxActiveCol) maxActiveCol = end;
                         }
-                        colIndex += span;
-                    }
+                        colIdx += span;
+                    });
                 });
+
+                if (minActiveCol === Infinity || maxActiveCol === -1) {
+                    minActiveCol = 1;
+                    maxActiveCol = 1;
+                }
 
                 const cloneContainer = document.createElement('div');
                 cloneContainer.style.position = 'absolute';
@@ -682,21 +695,33 @@ function setupEventListeners() {
                     }
                 });
 
+                // ✂️ 雙向無瑕裁切：自動移除範圍外的無效左/右空白欄位
                 const allClonedRows = clonedTable.querySelectorAll('tr');
                 allClonedRows.forEach(row => {
                     const cells = Array.from(row.children);
-                    let colIndex = 0;
+                    let colIdx = 0;
                     cells.forEach(cell => {
                         const span = parseInt(cell.getAttribute('colspan') || '1', 10);
-                        const endCol = colIndex + span - 1;
+                        const cellStart = colIdx;
+                        const cellEnd = colIdx + span - 1;
 
-                        if (colIndex > maxActiveCol) {
-                            cell.remove();
-                        } else if (endCol > maxActiveCol) {
-                            const newSpan = maxActiveCol - colIndex + 1;
-                            cell.setAttribute('colspan', newSpan);
+                        if (cellStart === 0) {
+                            colIdx += span;
+                            return; // 始終保留左側角色資訊欄位 (Col 0)
                         }
-                        colIndex += span;
+
+                        const overlapStart = Math.max(cellStart, minActiveCol);
+                        const overlapEnd = Math.min(cellEnd, maxActiveCol);
+
+                        if (overlapStart <= overlapEnd) {
+                            const newSpan = overlapEnd - overlapStart + 1;
+                            if (newSpan !== span) {
+                                cell.setAttribute('colspan', newSpan);
+                            }
+                        } else {
+                            cell.remove();
+                        }
+                        colIdx += span;
                     });
                 });
 
@@ -732,12 +757,46 @@ function setupEventListeners() {
 
                 document.body.removeChild(cloneContainer);
 
-                const link = document.createElement('a');
-                link.download = `星穹鐵道_限定躍遷一覽表_${new Date().toISOString().slice(0, 10)}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
+                // 🚀 開啟新分頁展示截圖圖片
+                const imgData = canvas.toDataURL('image/png');
+                const newTab = window.open();
+                if (newTab) {
+                    newTab.document.write(`
+                        <!DOCTYPE html>
+                        <html lang="zh-TW">
+                        <head>
+                            <meta charset="UTF-8">
+                            <title>星穹鐵道_限定躍遷一覽表_${new Date().toISOString().slice(0, 10)}</title>
+                            <style>
+                                body {
+                                    margin: 0;
+                                    background: #121212;
+                                    display: flex;
+                                    justify-content: center;
+                                    align-items: flex-start;
+                                    min-height: 100vh;
+                                    padding: 20px;
+                                    box-sizing: border-box;
+                                }
+                                img {
+                                    max-width: 100%;
+                                    height: auto;
+                                    border-radius: 8px;
+                                    box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <img src="${imgData}" alt="限定躍遷一覽表截圖">
+                        </body>
+                        </html>
+                    `);
+                    newTab.document.close();
+                } else {
+                    alert('新分頁被瀏覽器阻擋，請允許彈出視窗後重試！');
+                }
             } catch (err) {
-                console.error('截圖匯出失敗:', err);
+                console.error('截圖繪製失敗:', err);
                 alert('截圖失敗，請重試！');
             } finally {
                 exportImgBtn.textContent = '📷 截圖';
