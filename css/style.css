@@ -165,24 +165,67 @@ tr:hover td:first-child { filter: none !important; }
 .search-input:hover { border-color: #666; background: #222; }
 .search-input:focus { border-color: #888; background: #222; width: 110px; }
 
+/* ===== 📱 手機端極致優化：隱藏名稱，僅保留「命途+頭像」 ===== */
 @media (max-width: 768px) {
+    body {
+        padding: 4px;
+    }
+
+    /* 頂部工具列瘦身 */
     .header-bar {
         flex-direction: column;
         align-items: stretch;
-        gap: 10px;
+        gap: 6px;
+        margin-bottom: 6px;
     }
-    .header-left, .header-right {
-        justify-content: center;
+    .header-left {
+        justify-content: flex-start;
         width: 100%;
+        gap: 4px;
     }
     .header-center {
         order: -1;
     }
     h1 {
-        font-size: 18px;
+        font-size: 15px;
+        margin-bottom: 2px;
     }
+
+    /* 隱藏介面縮放滑桿，僅保留更新日期並靠右對齊 */
+    .header-right {
+        width: 100%;
+        justify-content: flex-end;
+        font-size: 11px;
+    }
+    .header-right > div:first-child {
+        display: none !important;
+    }
+
+    /* 表格容器釋放最大垂直高度 */
     .table-wrap {
-        max-height: calc(100vh - 140px);
+        max-height: calc(100vh - 105px);
+    }
+
+    /* ===== 第一欄極致極簡：隱藏序號與文字名稱 ===== */
+    .char-seq { 
+        display: none !important; 
+    }
+    .char-name { 
+        display: none !important; /* 隱藏文字名稱，釋放最大視野空間 */
+    }
+    .char-info-cell { 
+        padding: 3px 4px; 
+        justify-content: center;   /* 圖示與頭像置中 */
+    }
+    .char-avatar { 
+        width: 24px; 
+        height: 24px; 
+        margin-right: 0;           /* 移除右邊距 */
+    }
+    .char-path-icon { 
+        width: 16px; 
+        height: 16px; 
+        margin-right: 3px; 
     }
 }
 
