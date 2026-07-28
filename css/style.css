@@ -258,7 +258,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     box-shadow: 0 6px 16px rgba(0,0,0,0.7);
     max-height: 280px;
     overflow-y: auto;                  
-    overflow-x: hidden !important;     
+    overflow-x: visible !important;    /* 修正點：允許懸浮提示框向右延伸不被裁切 */
 }
 
 .dropdown-panel.show { display: block !important; }
