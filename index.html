@@ -63,8 +63,11 @@
                         <span class="toggle-icon">▲</span> 礪爍新輝
                     </button>
 
-                    <!-- 原生搜尋框 (type="search") -->
-                    <input type="search" id="char-search-input" class="search-input" placeholder="搜尋角色">
+                    <!-- 角色搜尋框 (含全平台相容內建 ✕ 按鈕) -->
+                    <div class="search-wrap">
+                        <input type="search" id="char-search-input" class="search-input" placeholder="搜尋角色">
+                        <span id="search-clear-btn" class="search-clear-btn" style="display: none;">✕</span>
+                    </div>
 
                     <!-- 一鍵清除篩選按鈕 (預設隱藏) -->
                     <button type="button" id="reset-filters-btn" class="reset-btn" style="display: none;">🧹 清除</button>
