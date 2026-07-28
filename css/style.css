@@ -55,7 +55,7 @@ body {
     position: relative;
 }
 
-/* 正中央置中的最新/最舊跳轉按鈕容器 (電腦端) */
+/* 正中央置中的跳轉按鈕容器 (電腦端) */
 .header-top-center-btns {
     position: absolute;
     left: 50%;
@@ -74,7 +74,7 @@ body {
 
 h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 
-/* 快速跳轉按鈕 (最新 / 最舊) */
+/* 快速跳轉按鈕 */
 .jump-btn {
     background: #222;
     color: #86efac;
@@ -499,7 +499,7 @@ th:first-child, td:first-child {
     cursor: help;
 }
 
-/* 表格左上角控制區域控制項 */
+/* 🌟 表格左上角【雙軸控制面板】控制項 */
 thead th.top-left-cell {
     z-index: 20 !important;
     top: 0;
@@ -518,13 +518,19 @@ thead th.top-left-cell {
     height: 100%;
 }
 
+.btn-group {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
 .table-sort-btn {
     background: #252525;
     color: #ffd700;
     border: 1px solid #555;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
+    padding: 2px 5px;
+    border-radius: 10px;
+    font-size: 10px;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -641,7 +647,6 @@ thead tr:nth-child(2) th.current-patch-col {
 
     .header-bar { padding: 6px 8px; margin-bottom: 6px; }
 
-    /* 手機版頂部首行：取消絕對定位，改為自然彈性排列避免重疊 */
     .header-top-row {
         display: flex;
         align-items: center;
