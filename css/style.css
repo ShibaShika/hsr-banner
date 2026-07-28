@@ -15,10 +15,27 @@
     --elem-unknown: #64748b;   /* 未知：暗灰藍 */
 }
 
-body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; position: relative; }
+/* 網頁整體改為彈性高度，鎖定最大高度防止雙重滾動條 */
+html, body {
+    height: 100vh;
+    margin: 0;
+    overflow: hidden; 
+    box-sizing: border-box;
+}
+
+body { 
+    font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; 
+    background: var(--bg); 
+    color: var(--text); 
+    padding: 8px; 
+    display: flex;
+    flex-direction: column; /* 垂直彈性佈局 */
+    position: relative; 
+}
 
 /* ===== 頂部質感工具列容器與摺疊樣式 ===== */
 .header-bar {
+    flex-shrink: 0; /* 防止工具列被壓縮 */
     margin-bottom: 8px;
     background: #181818;
     border: 1px solid #333;
@@ -280,8 +297,15 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 }
 .toggle-btn[data-tooltip]:hover::after { opacity: 1; visibility: visible; }
 
-/* ===== 表格核心樣式 ===== */
-.table-wrap { overflow-x: auto; max-height: calc(100vh - 120px); border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
+/* ===== 表格核心樣式 (動態自動填滿剩餘高度) ===== */
+.table-wrap { 
+    flex: 1;               /* 自動往下延伸，填滿畫面所有剩餘空間 */
+    min-height: 0;         /* 確保出現滾動條時不會撐破頁面 */
+    overflow: auto; 
+    border: 1px solid var(--border); 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.5); 
+    background: var(--surface);
+}
 
 table { 
     border-collapse: separate; 
@@ -447,8 +471,6 @@ thead tr:nth-child(2) th.current-patch-col {
     }
     
     .scale-wrap { display: none !important; }
-
-    .table-wrap { max-height: calc(100vh - 65px); }
 
     .char-seq { display: none !important; }
     .char-name { display: none !important; }
