@@ -13,7 +13,7 @@ function formatHeaderDate(dateStr) {
     return dateStr;
 }
 
-// 自動對照 PATCH_DATA 與今日日期，找出當前進行中的卡池版本名稱
+// 自動對照 PATCH_DATA 與今日日期，找出當前進行中的卡池小版本名稱
 function getCurrentPatchName() {
     if (typeof PATCH_DATA === 'undefined' || !PATCH_DATA || PATCH_DATA.length === 0) return "";
     const today = new Date();
@@ -38,31 +38,45 @@ function getCurrentPatchName() {
     return currentPatch;
 }
 
-// 📊 計算角色歷史復刻數據 (方案 3-B)
-function calculateCharStats(char, patchesList) {
-    if (!char.runs || char.runs.length === 0) {
-        return { totalRuns: 0, currentGap: '無資料', maxGap: '無資料', avgGap: '無資料' };
+// 📊 以【當前進行中的小版本】為基準計算角色歷史數據 (躍遷情報檔案)
+function calculateCharStats(char, patchesList, activePatchName) {
+    if (char.isCollab) {
+        return { isCollab: true };
     }
 
-    // 找出該角色所有 UP 版本的索引用號 (0 為最早期 1.0)
-    const indices = char.runs.map(p => patchesList.indexOf(p)).filter(idx => idx !== -1).sort((a, b) => a - b);
-    const totalRuns = indices.length;
-    const latestPatchIdx = patchesList.length - 1;
-    const lastRunIdx = indices[indices.length - 1];
-    
-    // 當前等待版本數
-    const currentGap = latestPatchIdx - lastRunIdx;
+    const currentPatchIdx = patchesList.indexOf(activePatchName);
+    const validCurrentIdx = currentPatchIdx !== -1 ? currentPatchIdx : patchesList.length - 1;
 
-    if (totalRuns <= 1) {
+    // 僅計算截至「當前小版本」為止的歷次 UP (自動排除未來的預先填入版本)
+    const indices = (char.runs || [])
+        .map(p => patchesList.indexOf(p))
+        .filter(idx => idx !== -1 && idx <= validCurrentIdx)
+        .sort((a, b) => a - b);
+
+    const totalRuns = indices.length;
+
+    if (totalRuns === 0) {
         return {
-            totalRuns,
-            currentGap: `${currentGap} 個版本`,
-            maxGap: `${currentGap} 個版本`,
-            avgGap: `${currentGap} 個版本`
+            totalRuns: '0 次',
+            currentGap: '未實裝/未登場',
+            maxGap: '-',
+            avgGap: '-'
         };
     }
 
-    // 計算歷次 UP 之間的間隔版本數
+    const lastRunIdx = indices[indices.length - 1];
+    const currentGap = validCurrentIdx - lastRunIdx;
+
+    if (totalRuns === 1) {
+        return {
+            totalRuns: '1 次',
+            currentGap: `${currentGap} 個小版本`,
+            maxGap: `${currentGap} 個小版本`,
+            avgGap: `${currentGap} 個小版本`
+        };
+    }
+
+    // 計算歷史各次 UP 之間的間隔小版本數
     const gaps = [];
     for (let i = 1; i < indices.length; i++) {
         gaps.push(indices[i] - indices[i - 1] - 1);
@@ -74,9 +88,9 @@ function calculateCharStats(char, patchesList) {
 
     return {
         totalRuns: `${totalRuns} 次`,
-        currentGap: `${currentGap} 個版本`,
-        maxGap: `${maxGap} 個版本`,
-        avgGap: `${avgGap} 個版本`
+        currentGap: `${currentGap} 個小版本`,
+        maxGap: `${maxGap} 個小版本`,
+        avgGap: `${avgGap} 個小版本`
     };
 }
 
@@ -139,14 +153,14 @@ async function initTracker() {
     const uniquePaths = PATH_ORDER.filter(p => RAW_CHARACTERS.some(c => c.path === p));
     const uniqueElems = ELEM_ORDER.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
 
-    // 動態產生命途選項 (預設全部不勾選)
+    // 動態產生命途選項
     document.getElementById('path-items-container').innerHTML = uniquePaths.map(p => {
         const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
         const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${p}">` : "";
         return `<label><input type="checkbox" class="path-item" value="${p}"> ${iconHtml}${p}</label>`;
     }).join('');
     
-    // 動態產生屬性選項 (預設全部不勾選)
+    // 動態產生屬性選項
     document.getElementById('elem-items-container').innerHTML = uniqueElems.map(e => {
         const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
         const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${e}">` : "";
@@ -187,9 +201,14 @@ async function initTracker() {
 
         const hasBuff = char.buffs && char.buffs.length > 0;
 
-        // 📊 計算方案 3-B 的統計小卡數據
-        const stats = calculateCharStats(char, patchesList);
-        const statsTooltip = `【${char.name} - 歷史數據小卡】\n• 目前等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
+        // 📊 生成【躍遷情報檔案】Hover 提示
+        const stats = calculateCharStats(char, patchesList, activePatchName);
+        let statsTooltip = "";
+        if (stats.isCollab) {
+            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 長期聯動角色`;
+        } else {
+            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 目前等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
+        }
         
         html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-has-buff="${hasBuff}" data-name="${char.name}">
             <td class="bg-${char.elem}">
@@ -433,20 +452,49 @@ async function initTracker() {
         });
     }
 
-    // 📷 匯出截圖功能 (方案 4-A)
+    // 📷 匯出 100% 全尺寸長圖 PNG 截圖功能 (自動解開滾動限制與靜態渲染)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
-                exportImgBtn.textContent = '📷 處理中...';
+                exportImgBtn.textContent = '📷 繪製長圖中...';
                 exportImgBtn.disabled = true;
 
-                const canvas = await html2canvas(tableWrap, {
+                // 1. 建立背景離線隱藏容器
+                const cloneContainer = document.createElement('div');
+                cloneContainer.style.position = 'absolute';
+                cloneContainer.style.left = '-9999px';
+                cloneContainer.style.top = '-9999px';
+                cloneContainer.style.width = 'max-content';
+                cloneContainer.style.background = '#1e1e1e';
+                cloneContainer.style.padding = '12px';
+                cloneContainer.style.zIndex = '-9999';
+
+                // 2. 複製一份完整的表格 DOM
+                const clonedTable = table.cloneNode(true);
+                
+                // 3. 解開複製表格中所有 sticky 釘選與高亮外框，還原為原生 HTML 表格完美全寬/全高展開狀態
+                clonedTable.querySelectorAll('*').forEach(el => {
+                    el.style.position = 'static';
+                    el.style.boxShadow = 'none';
+                    el.classList.remove('col-highlight');
+                });
+                clonedTable.style.zoom = '1';
+
+                cloneContainer.appendChild(clonedTable);
+                document.body.appendChild(cloneContainer);
+
+                // 4. 執行全尺寸長圖繪製
+                const canvas = await html2canvas(clonedTable, {
                     backgroundColor: '#1e1e1e',
-                    scale: 2, // 高解析度
+                    scale: 2, // 雙倍高畫質
                     useCORS: true,
                     logging: false
                 });
 
+                // 5. 移除臨時離線容器
+                document.body.removeChild(cloneContainer);
+
+                // 6. 觸發長圖 PNG 下載
                 const link = document.createElement('a');
                 link.download = `星穹鐵道_限定躍遷一覽表_${new Date().toISOString().slice(0, 10)}.png`;
                 link.href = canvas.toDataURL('image/png');
