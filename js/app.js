@@ -45,7 +45,6 @@ function getCharDebutMajorVersion(char, patchesList) {
     if (char.isCollab) {
         earliestPatch = char.isCollab;
     } else if (char.runs && char.runs.length > 0) {
-        // 在 PATCH_DATA 中搜尋該角色所有 UP 版本，取最早期（索引號最小）者
         const runIndices = char.runs.map(p => patchesList.indexOf(p)).filter(idx => idx !== -1);
         if (runIndices.length > 0) {
             const minIdx = Math.min(...runIndices);
@@ -71,7 +70,6 @@ function calculateCharStats(char, patchesList, activePatchName) {
     const currentPatchIdx = patchesList.indexOf(activePatchName);
     let validEndIdx = currentPatchIdx !== -1 ? currentPatchIdx : patchesList.length - 1;
 
-    // 若角色已加入星緣/聚靈，且加入小版本 <= 當前小版本，計算終點自動凍結在加入時的小版本
     let isTermActive = false;
     let termLabel = '';
     if (char.term && char.term.patch) {
@@ -222,16 +220,23 @@ async function initTracker() {
         return `<label><input type="checkbox" class="elem-item" value="${e}"> ${iconHtml}${e}</label>`;
     }).join('');
 
-    // 構建表頭 1 (日期)
-    let html = '<thead><tr><th></th>';
+    // 構建表頭 1 (合併左上角單元格，放置順序按鈕與角色計數)
+    let html = '<thead><tr>';
+    html += `<th rowspan="2" class="top-left-cell">
+        <div class="top-left-widget">
+            <button type="button" id="sort-order-btn" class="table-sort-btn" title="點擊切換登場順序 (最新/最舊)">順序 ⬇</button>
+            <div class="table-count-badge" id="table-count-badge" title="符合條件的角色數量 / 總角色數量">共 ${totalChars} 位</div>
+        </div>
+    </th>`;
+
     reversedPatches.forEach(p => {
         const isCurrent = (p.patch === activePatchName);
         const colClass = isCurrent ? ' class="current-patch-col"' : '';
         html += `<th${colClass}>${formatHeaderDate(p.date)}</th>`;
     });
 
-    // 構建表頭 2 (版本號)
-    html += `</tr><tr><th><div style="text-align:center; padding: 0 4px;">&nbsp;</div></th>`;
+    // 構建表頭 2 (版本號，左側第一欄已由 rowspan="2" 佔據)
+    html += `</tr><tr>`;
     reversedPatches.forEach(p => {
         const isCurrent = (p.patch === activePatchName);
         const colClass = isCurrent ? ' class="current-patch-col"' : '';
@@ -408,6 +413,25 @@ async function initTracker() {
         }
     }
     updateColumnIndices();
+
+    // 🔄 登場順序切換邏輯 (最新在上 ↔ 舊角色在上)
+    const sortOrderBtn = document.getElementById('sort-order-btn');
+    let isAscending = false; // 預設 false: 最新登場在前 (順序 ⬇)
+
+    if (sortOrderBtn) {
+        sortOrderBtn.addEventListener('click', () => {
+            isAscending = !isAscending;
+            sortOrderBtn.textContent = isAscending ? '順序 ⬆' : '順序 ⬇';
+
+            const tbody = table.querySelector('tbody');
+            const charRows = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
+            const emptyRow = tbody.querySelector('tr.empty-row');
+
+            // 反轉表格所有角色列
+            charRows.reverse().forEach(row => tbody.appendChild(row));
+            if (emptyRow) tbody.appendChild(emptyRow);
+        });
+    }
 
     // === 綁定左右快速跳轉按鈕 ===
     const tableWrap = document.querySelector('.table-wrap');
@@ -707,6 +731,16 @@ async function initTracker() {
                 row.style.display = 'none';
             }
         });
+
+        // 📊 動態更新左上角角色計數標籤
+        const countBadge = document.getElementById('table-count-badge');
+        if (countBadge) {
+            if (visibleCount === totalChars) {
+                countBadge.textContent = `共 ${totalChars} 位`;
+            } else {
+                countBadge.textContent = `${visibleCount}/${totalChars} 位`;
+            }
+        }
 
         let emptyRow = table.querySelector('tbody tr.empty-row');
         const totalCols = PATCH_DATA.length + 1;
