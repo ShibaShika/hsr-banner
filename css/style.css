@@ -169,7 +169,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 
 .select-box:hover { border-color: #666; background: #222; }
 
-/* 🌟 下拉按鈕有勾選時的高亮質感 (琥珀金) */
+/* 下拉按鈕 active 高亮 */
 .select-box.active {
     background: #2a2400;
     color: #ffd700;
@@ -247,22 +247,52 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 }
 .toggle-btn .toggle-icon { font-size: 10px; color: #86efac; }
 
-/* 角色搜尋框樣式 (電腦端) */
+/* ===== 角色搜尋框與跨平台內建 ✕ 清除按鈕 ===== */
+.search-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
 .search-input {
     background: #1c1c1c;
     color: #e0e0e0;
     border: 1px solid #444;
-    padding: 5px 8px;
+    padding: 5px 22px 5px 8px; /* 右側預留 ✕ 按鈕的位置 */
     border-radius: 4px;
     font-size: 12px;
     outline: none;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     width: 110px !important;
     transition: all 0.2s;
+    box-sizing: border-box;
+}
+
+/* 隱藏原生 WebKit 內建 ✕，使用我們手動打造的統一 ✕ */
+.search-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 .search-input:hover { border-color: #666; background: #222; }
 .search-input:focus { border-color: #888; background: #222; width: 130px !important; }
+
+/* 搜尋框內部的 ✕ 按鈕 */
+.search-clear-btn {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #888;
+    font-size: 12px;
+    cursor: pointer;
+    line-height: 1;
+    user-select: none;
+    padding: 2px;
+    transition: color 0.15s;
+}
+
+.search-clear-btn:hover { color: #fff; }
 
 /* 🧹 清除篩選按鈕樣式 */
 .reset-btn {
@@ -288,7 +318,6 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     border-color: #f87171;
 }
 
-/* ↺ 查無結果時的重置按鈕樣式 */
 .empty-reset-btn {
     margin-top: 10px;
     background: #222;
@@ -448,7 +477,6 @@ thead tr:nth-child(2) th:first-child { z-index: 12; top: 30px; background: var(-
 .w-high { background-color: #571a1a; color: #eee; }
 .w-crit { background-color: #7f1212; color: #fff; font-weight: bold; }
 
-/* 🌟 僅在支援游標 Hover 的裝置上啟用懸停高亮，避免手機觸控點擊後殘留 */
 @media (hover: hover) {
     tr:hover td:not(.img-cell):not(.term-pool-empty):not(.term-shop-empty):not(.collab-empty):not(.collab-text):not(:first-child) { filter: brightness(1.15); transition: all 0.2s; }
     tr:hover td:first-child { filter: none !important; }
@@ -505,7 +533,6 @@ thead tr:nth-child(2) th.current-patch-col {
 @media (max-width: 768px) {
     body { padding: 4px; }
 
-    /* 標題精簡化：手機端僅顯示「限定躍遷一覽表」 */
     h1 {
         font-size: 0 !important;
         margin: 0;
@@ -537,10 +564,13 @@ thead tr:nth-child(2) th.current-patch-col {
         box-sizing: border-box;
     }
 
-    .search-input, .search-input:focus {
+    .search-wrap {
         flex: 1 !important;
-        width: auto !important;
         min-width: 90px;
+    }
+
+    .search-input, .search-input:focus {
+        width: 100% !important;
         box-sizing: border-box;
     }
 
