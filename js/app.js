@@ -274,13 +274,25 @@ function renderTable() {
         }).join('');
     }
 
-    // 動態補全取得方法選項 (包含 data-tooltip 懸浮說明)
+    // 動態產生取得方法選項 (使用內嵌副標題呈現，避免手機懸浮問題與水平捲軸)
     const typeContainer = document.getElementById('type-items-container');
     if (typeContainer && typeContainer.children.length === 0) {
         typeContainer.innerHTML = `
             <label><input type="checkbox" class="type-item" value="normal"> 限定躍遷</label>
-            <label data-tooltip="加入非UP自選池"><input type="checkbox" class="type-item" value="pool"> 星緣相邀</label>
-            <label data-tooltip="加入兌換商店"><input type="checkbox" class="type-item" value="shop"> 聚靈鑄星</label>
+            <label class="type-desc-label">
+                <input type="checkbox" class="type-item" value="pool">
+                <span class="label-stack">
+                    <span class="label-title">星緣相邀</span>
+                    <span class="label-sub">加入非UP自選池</span>
+                </span>
+            </label>
+            <label class="type-desc-label">
+                <input type="checkbox" class="type-item" value="shop">
+                <span class="label-stack">
+                    <span class="label-title">聚靈鑄星</span>
+                    <span class="label-sub">加入兌換商店</span>
+                </span>
+            </label>
             <label><input type="checkbox" class="type-item" value="collab"> 長期聯動</label>
         `;
     }
