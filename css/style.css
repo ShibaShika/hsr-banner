@@ -55,7 +55,7 @@ body {
     position: relative;
 }
 
-/* 正中央置中的最新/最舊跳轉按鈕容器 */
+/* 正中央置中的最新/最舊跳轉按鈕容器 (電腦端) */
 .header-top-center-btns {
     position: absolute;
     left: 50%;
@@ -499,7 +499,7 @@ th:first-child, td:first-child {
     cursor: help;
 }
 
-/* 🌟 表格左上角控制區域控制項 */
+/* 表格左上角控制區域控制項 */
 thead th.top-left-cell {
     z-index: 20 !important;
     top: 0;
@@ -639,24 +639,53 @@ thead tr:nth-child(2) th.current-patch-col {
 @media (max-width: 768px) {
     body { padding: 4px; }
 
+    .header-bar { padding: 6px 8px; margin-bottom: 6px; }
+
+    /* 手機版頂部首行：取消絕對定位，改為自然彈性排列避免重疊 */
+    .header-top-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+        width: 100%;
+    }
+
+    .header-top-center-btns {
+        position: static !important;
+        transform: none !important;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        flex-shrink: 0;
+    }
+
+    .header-top-right-btns {
+        flex-shrink: 0;
+    }
+
     h1 {
         font-size: 0 !important;
         margin: 0;
         line-height: 1;
+        flex-shrink: 1;
+        overflow: hidden;
     }
     h1::after {
-        content: "限定躍遷一覽表";
-        font-size: 14px;
+        content: "限定躍遷";
+        font-size: 13px;
         font-weight: bold;
         color: var(--text);
         white-space: nowrap;
     }
 
-    .header-bar { padding: 6px 10px; margin-bottom: 6px; }
-
     .jump-btn {
-        padding: 3px 6px;
-        font-size: 10px;
+        padding: 3px 5px !important;
+        font-size: 10px !important;
+    }
+
+    .toggle-toolbar-btn {
+        padding: 3px 6px !important;
+        font-size: 11px !important;
     }
 
     .toolbar-inner {
