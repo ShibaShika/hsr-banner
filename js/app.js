@@ -90,8 +90,9 @@ function getCharDebutMajorVersion(char, patchesList) {
     return "未知";
 }
 
-// 📊 以【當前小版本】或【加入星緣/聚靈時的小版本】為基準計算角色歷史數據
+// 📊 方案 2 + 方案 3 智慧統計分析演算法
 function calculateCharStats(char, patchesList, activePatchName) {
+    // 1. 長期聯動角色
     if (char.isCollab) {
         return { isCollab: true };
     }
@@ -117,14 +118,34 @@ function calculateCharStats(char, patchesList, activePatchName) {
 
     const totalRuns = indices.length;
 
-    // 未實裝或無 UP 記錄的角色
+    // 2. 未實裝 / 0 次 UP 記錄
     if (totalRuns === 0) {
         return {
             totalRuns: '0',
-            currentGap: isTermActive ? `直接加入${termLabel}` : '-',
+            currentGap: '-',
             maxGap: '-',
-            avgGap: '-',
-            isTermActive,
+            isOverdue: false,
+            isTermActive: false,
+            termLabel: ''
+        };
+    }
+
+    // 3. 已加入星緣相邀 / 聚靈鑄星 (自選或商店)
+    if (isTermActive) {
+        let maxGap = '-';
+        if (totalRuns >= 2) {
+            const gaps = [];
+            for (let i = 1; i < indices.length; i++) {
+                gaps.push(indices[i] - indices[i - 1] - 1);
+            }
+            maxGap = `${Math.max(...gaps)}`;
+        }
+        return {
+            totalRuns: `${totalRuns}`,
+            currentGap: `已加入${termLabel}`,
+            maxGap: maxGap,
+            isOverdue: false,
+            isTermActive: true,
             termLabel
         };
     }
@@ -132,33 +153,33 @@ function calculateCharStats(char, patchesList, activePatchName) {
     const lastRunIdx = indices[indices.length - 1];
     const currentGap = validEndIdx - lastRunIdx;
 
+    // 4. 僅 UP 過 1 次 (尚未產生過歷史復刻間隔)
     if (totalRuns === 1) {
         return {
             totalRuns: '1',
             currentGap: `${currentGap}`,
-            maxGap: `${currentGap}`,
-            avgGap: `${currentGap}`,
-            isTermActive,
-            termLabel
+            maxGap: '-',
+            isOverdue: false,
+            isTermActive: false,
+            termLabel: ''
         };
     }
 
+    // 5. 已 UP 過 2 次以上 (計算歷史間隔與超期警報)
     const gaps = [];
     for (let i = 1; i < indices.length; i++) {
         gaps.push(indices[i] - indices[i - 1] - 1);
     }
-
-    const maxGap = Math.max(...gaps, currentGap);
-    const sumGaps = gaps.reduce((a, b) => a + b, 0);
-    const avgGap = (sumGaps / gaps.length).toFixed(1);
+    const maxHistoricalGap = Math.max(...gaps);
+    const isOverdue = currentGap > maxHistoricalGap;
 
     return {
         totalRuns: `${totalRuns}`,
         currentGap: `${currentGap}`,
-        maxGap: `${maxGap}`,
-        avgGap: `${avgGap}`,
-        isTermActive,
-        termLabel
+        maxGap: `${maxHistoricalGap}`,
+        isOverdue,
+        isTermActive: false,
+        termLabel: ''
     };
 }
 
@@ -344,14 +365,16 @@ function renderTable() {
         const majorVer = getCharDebutMajorVersion(char, patchesList);
         const debutVer = getCharDebutVersion(char, patchesList);
 
+        // 🌟 構建簡潔明確的 Tooltip 資訊視窗
         const stats = calculateCharStats(char, patchesList, activePatchName);
         let statsTooltip = "";
         if (stats.isCollab) {
             statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 長期聯動角色`;
         } else if (stats.isTermActive) {
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 加入${stats.termLabel}時等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• 總UP次數：${stats.totalRuns}`;
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 目前狀態：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
         } else {
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 目前等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• 總UP次數：${stats.totalRuns}`;
+            const overdueFlag = stats.isOverdue ? " ⚠️ (超期警報!)" : "";
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 登場版本：${debutVer}\n• 目前等待：${stats.currentGap}${overdueFlag}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
         }
         
         html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${majorVer}" data-name="${char.name}">
