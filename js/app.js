@@ -651,7 +651,7 @@ function setupEventListeners() {
         });
     }
 
-    // 📷 匯出截圖邏輯 (將 collab-text 也排除在最右側邊界外)
+    // 📷 匯出截圖邏輯 (正向對齊 + 表頭第二行對齊修正)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
@@ -674,14 +674,16 @@ function setupEventListeners() {
                     let colIdx = 0;
                     cells.forEach(cell => {
                         const span = parseInt(cell.getAttribute('colspan') || '1', 10);
-                        // 🌟 將 collab-text 也納入 isNone，避免說明框把無關的舊版本 (如 2.7下) 扯進截圖
-                        const isNone = cell.classList.contains('none') ||
-                                       cell.classList.contains('collab-empty') ||
-                                       cell.classList.contains('term-pool-empty') ||
-                                       cell.classList.contains('term-shop-empty') ||
-                                       cell.classList.contains('collab-text');
                         
-                        if (!isNone && colIdx > 0) {
+                        const isActiveCell = cell.classList.contains('img-cell') ||
+                                             cell.classList.contains('w-low') ||
+                                             cell.classList.contains('w-med') ||
+                                             cell.classList.contains('w-high') ||
+                                             cell.classList.contains('w-crit') ||
+                                             cell.classList.contains('term-pool') ||
+                                             cell.classList.contains('term-shop');
+                        
+                        if (isActiveCell && colIdx > 0) {
                             const start = colIdx;
                             const end = colIdx + span - 1;
                             if (start < minActiveCol) minActiveCol = start;
@@ -716,7 +718,13 @@ function setupEventListeners() {
                 const allClonedRows = clonedTable.querySelectorAll('tr');
                 allClonedRows.forEach(row => {
                     const cells = Array.from(row.children);
+                    
+                    // 🌟 核心修正：表頭第二行 (無 top-left-cell) 的起始欄位索引為 Col 1
                     let colIdx = 0;
+                    if (row.parentElement && row.parentElement.tagName.toLowerCase() === 'thead' && !row.querySelector('.top-left-cell')) {
+                        colIdx = 1;
+                    }
+
                     cells.forEach(cell => {
                         const span = parseInt(cell.getAttribute('colspan') || '1', 10);
                         const cellStart = colIdx;
@@ -724,7 +732,7 @@ function setupEventListeners() {
 
                         if (cellStart === 0) {
                             colIdx += span;
-                            return;
+                            return; // 保留第 0 欄 (角色欄)
                         }
 
                         const overlapStart = Math.max(cellStart, minActiveCol);
