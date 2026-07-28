@@ -301,6 +301,7 @@ async function initTracker() {
 
     const buffToggleBtn = document.getElementById('buff-toggle-btn');
     const searchInput = document.getElementById('char-search-input');
+    const searchClearBtn = document.getElementById('search-clear-btn');
     const resetFiltersBtn = document.getElementById('reset-filters-btn');
 
     let onlyBuffs = false;
@@ -343,7 +344,7 @@ async function initTracker() {
     elemPanel.addEventListener('click', (e) => e.stopPropagation());
     typePanel.addEventListener('click', (e) => e.stopPropagation());
 
-    // 🧹 清除所有篩選條件的統一函式
+    // 🧹 清除所有篩選條件
     function clearAllFilters() {
         pathItems.forEach(i => i.checked = false);
         elemItems.forEach(i => i.checked = false);
@@ -358,13 +359,28 @@ async function initTracker() {
         resetFiltersBtn.addEventListener('click', clearAllFilters);
     }
 
+    // 點擊搜尋框內部的 ✕ 清空文字
+    if (searchClearBtn) {
+        searchClearBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            searchInput.value = '';
+            applyFilters();
+            searchInput.focus();
+        });
+    }
+
     function applyFilters() {
         const selectedPaths = Array.from(pathItems).filter(i => i.checked).map(i => i.value);
         const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
         const selectedTypes = Array.from(typeItems).filter(i => i.checked).map(i => i.value);
         const keyword = searchInput.value.trim().toLowerCase();
 
-        // 🌟 亮燈提示：有勾選時，為按鈕外框加上 active 高亮
+        // 控制搜尋框內部 ✕ 按鈕的顯示與隱藏
+        if (searchClearBtn) {
+            searchClearBtn.style.display = searchInput.value !== '' ? 'block' : 'none';
+        }
+
+        // 亮燈提示：有勾選時，為按鈕外框加上 active 高亮
         pathBox.classList.toggle('active', selectedPaths.length > 0);
         elemBox.classList.toggle('active', selectedElems.length > 0);
         typeBox.classList.toggle('active', selectedTypes.length > 0);
@@ -440,7 +456,6 @@ async function initTracker() {
             } else {
                 emptyRow.style.display = '';
             }
-            // 綁定空畫面中的重置按鈕點擊事件
             document.getElementById('empty-reset-btn')?.addEventListener('click', clearAllFilters);
         } else {
             if (emptyRow) {
@@ -453,7 +468,6 @@ async function initTracker() {
     elemItems.forEach(item => item.addEventListener('change', applyFilters));
     typeItems.forEach(item => item.addEventListener('change', applyFilters));
 
-    // 監聽 input 與原生 search (點擊手機/瀏覽器搜尋框右側 ✕) 事件
     searchInput.addEventListener('input', applyFilters);
     searchInput.addEventListener('search', applyFilters);
 
@@ -461,7 +475,6 @@ async function initTracker() {
     const trackerTable = document.getElementById('tracker');
 
     trackerTable.addEventListener('mouseover', (e) => {
-        // 如果是觸控裝置（不支援 mouse hover），直接跳出不執行高亮，避免手機上殘留
         if (window.matchMedia && window.matchMedia('(hover: none)').matches) return;
 
         const cell = e.target.closest('td, th');
