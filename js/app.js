@@ -38,19 +38,31 @@ function getCurrentPatchName() {
     return currentPatch;
 }
 
-// 📊 以【當前進行中的小版本】為基準計算角色歷史數據 (躍遷情報檔案)
+// 📊 以【當前小版本】或【加入星緣/聚靈時的小版本】為基準計算角色歷史數據
 function calculateCharStats(char, patchesList, activePatchName) {
     if (char.isCollab) {
         return { isCollab: true };
     }
 
     const currentPatchIdx = patchesList.indexOf(activePatchName);
-    const validCurrentIdx = currentPatchIdx !== -1 ? currentPatchIdx : patchesList.length - 1;
+    let validEndIdx = currentPatchIdx !== -1 ? currentPatchIdx : patchesList.length - 1;
 
-    // 僅計算截至「當前小版本」為止的歷次 UP (自動排除未來的預先填入版本)
+    // 若角色已加入星緣/聚靈，且加入小版本 <= 當前小版本，計算終點自動凍結在加入時的小版本
+    let isTermActive = false;
+    let termLabel = '';
+    if (char.term && char.term.patch) {
+        const termIdx = patchesList.indexOf(char.term.patch);
+        if (termIdx !== -1 && termIdx <= validEndIdx) {
+            validEndIdx = termIdx;
+            isTermActive = true;
+            termLabel = char.term.type === 'pool' ? '星緣' : '聚靈';
+        }
+    }
+
+    // 僅計算截至「目標終點小版本」為止的歷次 UP
     const indices = (char.runs || [])
         .map(p => patchesList.indexOf(p))
-        .filter(idx => idx !== -1 && idx <= validCurrentIdx)
+        .filter(idx => idx !== -1 && idx <= validEndIdx)
         .sort((a, b) => a - b);
 
     const totalRuns = indices.length;
@@ -58,21 +70,25 @@ function calculateCharStats(char, patchesList, activePatchName) {
     if (totalRuns === 0) {
         return {
             totalRuns: '0 次',
-            currentGap: '未實裝/未登場',
+            currentGap: isTermActive ? `直接加入${termLabel}` : '未實裝/未登場',
             maxGap: '-',
-            avgGap: '-'
+            avgGap: '-',
+            isTermActive,
+            termLabel
         };
     }
 
     const lastRunIdx = indices[indices.length - 1];
-    const currentGap = validCurrentIdx - lastRunIdx;
+    const currentGap = validEndIdx - lastRunIdx;
 
     if (totalRuns === 1) {
         return {
             totalRuns: '1 次',
             currentGap: `${currentGap} 個小版本`,
             maxGap: `${currentGap} 個小版本`,
-            avgGap: `${currentGap} 個小版本`
+            avgGap: `${currentGap} 個小版本`,
+            isTermActive,
+            termLabel
         };
     }
 
@@ -90,7 +106,9 @@ function calculateCharStats(char, patchesList, activePatchName) {
         totalRuns: `${totalRuns} 次`,
         currentGap: `${currentGap} 個小版本`,
         maxGap: `${maxGap} 個小版本`,
-        avgGap: `${avgGap} 個小版本`
+        avgGap: `${avgGap} 個小版本`,
+        isTermActive,
+        termLabel
     };
 }
 
@@ -201,11 +219,13 @@ async function initTracker() {
 
         const hasBuff = char.buffs && char.buffs.length > 0;
 
-        // 📊 生成【躍遷情報檔案】Hover 提示
+        // 📊 生成【躍遷情報檔案】Hover 提示 (已加入星緣/聚靈凍結點判斷)
         const stats = calculateCharStats(char, patchesList, activePatchName);
         let statsTooltip = "";
         if (stats.isCollab) {
             statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 長期聯動角色`;
+        } else if (stats.isTermActive) {
+            statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 加入${stats.termLabel}時等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
         } else {
             statsTooltip = `【${char.name} - 躍遷情報檔案】\n• 目前等待：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 平均復刻週期：${stats.avgGap}\n• UP 登場總次數：${stats.totalRuns}`;
         }
@@ -452,7 +472,7 @@ async function initTracker() {
         });
     }
 
-    // 📷 匯出圖片 (自動智慧裁切無資料的右側版本)
+    // 📷 匯出圖片 (自動智慧裁切無資料的右側小版本)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
@@ -468,7 +488,7 @@ async function initTracker() {
                 }
 
                 // 2. 自動計算目前所有可見角色中，最遠有資料的小版本直欄號碼 (maxActiveCol)
-                let maxActiveCol = 1; // 第一欄為角色資訊，至少保留 1 個小版本欄
+                let maxActiveCol = 1;
                 visibleRows.forEach(row => {
                     const cells = row.children;
                     let colIndex = 0;
@@ -477,7 +497,6 @@ async function initTracker() {
                         const span = parseInt(cell.getAttribute('colspan') || '1', 10);
                         const isNone = cell.classList.contains('none');
                         
-                        // 只要該格子不是無資料 (none)，且為版本欄位 (colIndex > 0)
                         if (!isNone && colIndex > 0) {
                             const endCol = colIndex + span - 1;
                             if (endCol > maxActiveCol) {
@@ -517,10 +536,8 @@ async function initTracker() {
                         const endCol = colIndex + span - 1;
 
                         if (colIndex > maxActiveCol) {
-                            // 完全超出有資料範圍的欄位，直接移除
                             cell.remove();
                         } else if (endCol > maxActiveCol) {
-                            // 跨欄位 (colspan) 涵蓋到了無資料範圍，縮減其 colspan
                             const newSpan = maxActiveCol - colIndex + 1;
                             cell.setAttribute('colspan', newSpan);
                         }
@@ -542,7 +559,7 @@ async function initTracker() {
                 // 7. 執行長圖繪製
                 const canvas = await html2canvas(clonedTable, {
                     backgroundColor: '#1e1e1e',
-                    scale: 2, // 雙倍高畫質
+                    scale: 2,
                     useCORS: true,
                     logging: false
                 });
