@@ -52,7 +52,7 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    position: relative; /* 供正中央跳轉按鈕定位 */
+    position: relative;
 }
 
 /* 正中央置中的最新/最舊跳轉按鈕容器 */
