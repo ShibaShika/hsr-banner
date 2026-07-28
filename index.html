@@ -24,7 +24,7 @@
         <div class="header-top-row">
             <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
             
-            <!-- 左右版本快速跳轉按鈕 (完美置中) -->
+            <!-- 左右版本快速跳轉按鈕 (正中央置中) -->
             <div class="header-top-center-btns">
                 <button type="button" id="jump-latest-btn" class="jump-btn" title="快速滾動至最新小版本">◀ 最新</button>
                 <button type="button" id="jump-oldest-btn" class="jump-btn" title="快速滾動至最早期小版本">最舊 ▶</button>
@@ -42,6 +42,14 @@
         <div id="toolbar-panel" class="toolbar-panel">
             <div class="toolbar-inner">
                 <div class="header-left">
+                    <!-- 大版本選單 -->
+                    <div class="multi-select" id="version-dropdown">
+                        <div class="select-box" id="version-select-box">大版本</div>
+                        <div class="dropdown-panel" id="version-panel">
+                            <div id="version-items-container"></div>
+                        </div>
+                    </div>
+
                     <!-- 命途選單 -->
                     <div class="multi-select" id="path-dropdown">
                         <div class="select-box" id="path-select-box">命途</div>
