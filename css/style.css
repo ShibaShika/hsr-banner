@@ -447,7 +447,20 @@ thead tr:nth-child(2) th.current-patch-col {
 /* ===== 📱 手機端極致優化 ===== */
 @media (max-width: 768px) {
     body { padding: 4px; }
-    h1 { font-size: 14px; }
+
+    /* 標題精簡化：手機端僅顯示「限定躍遷一覽表」，100% 單行不換行 */
+    h1 {
+        font-size: 0 !important;
+        margin: 0;
+        line-height: 1;
+    }
+    h1::after {
+        content: "限定躍遷一覽表";
+        font-size: 14px;
+        font-weight: bold;
+        color: var(--text);
+        white-space: nowrap;
+    }
 
     .header-bar { padding: 6px 10px; margin-bottom: 6px; }
 
