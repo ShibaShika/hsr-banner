@@ -52,6 +52,18 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    position: relative; /* 供正中央跳轉按鈕定位 */
+}
+
+/* 正中央置中的最新/最舊跳轉按鈕容器 */
+.header-top-center-btns {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 5;
 }
 
 .header-top-right-btns {
@@ -488,7 +500,7 @@ th:first-child, td:first-child {
     text-align: left; 
     box-shadow: 2px 0 5px rgba(0,0,0,0.4); 
     padding: 0; 
-    cursor: help; /* 第一欄提示使用者可以懸浮查看歷史統計數據 */
+    cursor: help;
 }
 
 thead tr:nth-child(1) th:first-child { z-index: 12; top: 0; background: var(--th-bg); }
