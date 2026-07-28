@@ -301,6 +301,7 @@ async function initTracker() {
 
     const buffToggleBtn = document.getElementById('buff-toggle-btn');
     const searchInput = document.getElementById('char-search-input');
+    const resetFiltersBtn = document.getElementById('reset-filters-btn');
 
     let onlyBuffs = false;
     buffToggleBtn.addEventListener('click', () => {
@@ -342,13 +343,39 @@ async function initTracker() {
     elemPanel.addEventListener('click', (e) => e.stopPropagation());
     typePanel.addEventListener('click', (e) => e.stopPropagation());
 
+    // 🧹 清除所有篩選條件的統一函式
+    function clearAllFilters() {
+        pathItems.forEach(i => i.checked = false);
+        elemItems.forEach(i => i.checked = false);
+        typeItems.forEach(i => i.checked = false);
+        searchInput.value = '';
+        onlyBuffs = false;
+        buffToggleBtn.classList.remove('active');
+        applyFilters();
+    }
+
+    if (resetFiltersBtn) {
+        resetFiltersBtn.addEventListener('click', clearAllFilters);
+    }
+
     function applyFilters() {
         const selectedPaths = Array.from(pathItems).filter(i => i.checked).map(i => i.value);
         const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
         const selectedTypes = Array.from(typeItems).filter(i => i.checked).map(i => i.value);
         const keyword = searchInput.value.trim().toLowerCase();
 
-        // 更新命途 UI 文字 (0 個勾選 = 代表顯示全部)
+        // 🌟 亮燈提示：有勾選時，為按鈕外框加上 active 高亮
+        pathBox.classList.toggle('active', selectedPaths.length > 0);
+        elemBox.classList.toggle('active', selectedElems.length > 0);
+        typeBox.classList.toggle('active', selectedTypes.length > 0);
+
+        // 判斷是否顯示「🧹 清除」按鈕
+        const hasActiveFilter = selectedPaths.length > 0 || selectedElems.length > 0 || selectedTypes.length > 0 || keyword !== '' || onlyBuffs;
+        if (resetFiltersBtn) {
+            resetFiltersBtn.style.display = hasActiveFilter ? 'inline-flex' : 'none';
+        }
+
+        // 更新命途 UI 文字
         if (selectedPaths.length === 0) {
             pathBox.textContent = '命途';
         } else if (selectedPaths.length <= 2) {
@@ -385,7 +412,6 @@ async function initTracker() {
             const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
             const rowName = row.getAttribute('data-name').toLowerCase();
 
-            // 未勾選任何項目 (length === 0) 時代表「不限制/全顯示」
             const matchPath = selectedPaths.length === 0 || selectedPaths.includes(rowPath);
             const matchElem = selectedElems.length === 0 || selectedElems.includes(rowElem);
             const matchType = selectedTypes.length === 0 || selectedTypes.includes(rowType);
@@ -406,10 +432,16 @@ async function initTracker() {
             if (!emptyRow) {
                 emptyRow = document.createElement('tr');
                 emptyRow.className = 'empty-row';
-                emptyRow.innerHTML = `<td colspan="${totalCols}" style="text-align: center; padding: 25px; color: #888; background: #161616; font-size: 13px;">沒有符合條件的角色</td>`;
+                emptyRow.innerHTML = `<td colspan="${totalCols}" style="text-align: center; padding: 25px; color: #888; background: #161616; font-size: 13px;">
+                    沒有符合條件的角色<br>
+                    <button type="button" id="empty-reset-btn" class="empty-reset-btn">↺ 清除所有條件</button>
+                </td>`;
                 table.querySelector('tbody').appendChild(emptyRow);
+            } else {
+                emptyRow.style.display = '';
             }
-            emptyRow.style.display = '';
+            // 綁定空畫面中的重置按鈕點擊事件
+            document.getElementById('empty-reset-btn')?.addEventListener('click', clearAllFilters);
         } else {
             if (emptyRow) {
                 emptyRow.style.display = 'none';
@@ -421,12 +453,17 @@ async function initTracker() {
     elemItems.forEach(item => item.addEventListener('change', applyFilters));
     typeItems.forEach(item => item.addEventListener('change', applyFilters));
 
+    // 監聽 input 與原生 search (點擊手機/瀏覽器搜尋框右側 ✕) 事件
     searchInput.addEventListener('input', applyFilters);
+    searchInput.addEventListener('search', applyFilters);
 
     // 十字高亮邏輯
     const trackerTable = document.getElementById('tracker');
 
     trackerTable.addEventListener('mouseover', (e) => {
+        // 如果是觸控裝置（不支援 mouse hover），直接跳出不執行高亮，避免手機上殘留
+        if (window.matchMedia && window.matchMedia('(hover: none)').matches) return;
+
         const cell = e.target.closest('td, th');
         if (!cell || cell.closest('tr')?.classList.contains('empty-row')) return;
 
