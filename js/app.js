@@ -214,22 +214,22 @@ async function initTracker() {
     setupEventListeners();
 }
 
-// 🔄 核心渲染表格邏輯 (支援雙軸獨立動態翻轉)
+// 🔄 核心渲染表格邏輯
 function renderTable() {
     const table = document.getElementById('tracker');
     const patchesList = PATCH_DATA.map(p => p.patch);
 
     // 1. 決定角色陣列順序
-    let CHARACTERS = [...RAW_CHARACTERS].reverse(); // 預設最新實裝角色在最前面
+    let CHARACTERS = [...RAW_CHARACTERS].reverse();
     if (isCharAscending) {
-        CHARACTERS.reverse(); // 切換為始祖 1.0 角色在最前面
+        CHARACTERS.reverse();
     }
     const totalChars = CHARACTERS.length;
 
     // 2. 決定小版本陣列順序
-    let displayPatches = [...PATCH_DATA].reverse(); // 預設最新版本在最左邊
+    let displayPatches = [...PATCH_DATA].reverse();
     if (isPatchAscending) {
-        displayPatches.reverse(); // 切換為最舊版本 1.0 在最左邊
+        displayPatches.reverse();
     }
 
     const activePatchName = getCurrentPatchName();
@@ -272,6 +272,17 @@ function renderTable() {
             const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${e}">` : "";
             return `<label><input type="checkbox" class="elem-item" value="${e}"> ${iconHtml}${e}</label>`;
         }).join('');
+    }
+
+    // 動態補全取得方法選項 (包含 data-tooltip 懸浮說明)
+    const typeContainer = document.getElementById('type-items-container');
+    if (typeContainer && typeContainer.children.length === 0) {
+        typeContainer.innerHTML = `
+            <label><input type="checkbox" class="type-item" value="normal"> 限定躍遷</label>
+            <label data-tooltip="加入非UP自選池"><input type="checkbox" class="type-item" value="pool"> 星緣相邀</label>
+            <label data-tooltip="加入兌換商店"><input type="checkbox" class="type-item" value="shop"> 聚靈鑄星</label>
+            <label><input type="checkbox" class="type-item" value="collab"> 長期聯動</label>
+        `;
     }
 
     // 構建表頭 1 (雙軸控制控制項)
@@ -402,7 +413,6 @@ function renderTable() {
             }
         });
 
-        // 依據時間軸是否翻轉，繪製歷史單元格
         let finalHistory = history.reverse();
         if (isPatchAscending) {
             finalHistory.reverse();
@@ -461,7 +471,6 @@ function renderTable() {
     
     table.innerHTML = html;
 
-    // 精確直欄座標對應
     function updateColumnIndices() {
         const rows = table.rows;
         for (let r = 0; r < rows.length; r++) {
@@ -477,18 +486,15 @@ function renderTable() {
     }
     updateColumnIndices();
 
-    // 🌟 更新頂部跳轉按鈕的文字與動態指向 (與版本順序動態連動)
     const jumpLatestBtn = document.getElementById('jump-latest-btn');
     const jumpOldestBtn = document.getElementById('jump-oldest-btn');
     if (jumpLatestBtn && jumpOldestBtn) {
         if (!isPatchAscending) {
-            // 最新卡池在最左側
             jumpLatestBtn.textContent = '◀ 最新';
             jumpLatestBtn.title = '快速滾動至最新卡池 (最左側)';
             jumpOldestBtn.textContent = '最舊 ▶';
             jumpOldestBtn.title = '快速滾動至最舊卡池 (最右側)';
         } else {
-            // 最舊卡池在最左側
             jumpLatestBtn.textContent = '◀ 最舊';
             jumpLatestBtn.title = '快速滾動至最舊卡池 (最左側)';
             jumpOldestBtn.textContent = '最新 ▶';
@@ -496,13 +502,10 @@ function renderTable() {
         }
     }
 
-    // 重新設定並應用當前已選的篩選器條件
     rebindControlListeners();
 }
 
-// 綁定事件監聽器
 function setupEventListeners() {
-    // 綁定左上角雙軸控制按鈕
     document.addEventListener('click', (e) => {
         if (e.target && e.target.id === 'sort-char-btn') {
             isCharAscending = !isCharAscending;
@@ -513,7 +516,6 @@ function setupEventListeners() {
         }
     });
 
-    // === 綁定頂部左右快速跳轉按鈕 (適應捲軸座標) ===
     const tableWrap = document.querySelector('.table-wrap');
     const jumpLatestBtn = document.getElementById('jump-latest-btn');
     const jumpOldestBtn = document.getElementById('jump-oldest-btn');
@@ -530,7 +532,6 @@ function setupEventListeners() {
         });
     }
 
-    // 下拉選單開關
     const versionBox = document.getElementById('version-select-box');
     const pathBox = document.getElementById('path-select-box');
     const elemBox = document.getElementById('elem-select-box');
@@ -619,7 +620,6 @@ function setupEventListeners() {
         });
     }
 
-    // 📷 匯出圖片 (支援智慧雙向裁切)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
@@ -737,7 +737,6 @@ function setupEventListeners() {
     searchInput?.addEventListener('input', applyFilters);
     searchInput?.addEventListener('search', applyFilters);
 
-    // 十字高亮邏輯
     const trackerTable = document.getElementById('tracker');
     trackerTable?.addEventListener('mouseover', (e) => {
         if (window.matchMedia && window.matchMedia('(hover: none)').matches) return;
@@ -773,7 +772,6 @@ function setupEventListeners() {
         trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
     });
 
-    // 縮放滑桿 (含 LocalStorage 記憶偏好)
     const scaleSlider = document.getElementById('ui-scale-slider');
     const scaleText = document.getElementById('ui-scale-text');
 
@@ -794,7 +792,6 @@ function setupEventListeners() {
     });
 }
 
-// 重新綁定控制項事件並應用篩選
 function rebindControlListeners() {
     const versionItems = document.querySelectorAll('.version-item');
     const pathItems = document.querySelectorAll('.path-item');
