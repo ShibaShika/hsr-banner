@@ -167,7 +167,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 
 .select-box:hover { border-color: #666; background: #222; }
 
-/* 下拉選單面板：修復左右滑桿與寬度適應 */
+/* 下拉選單面板 */
 .dropdown-panel {
     display: none;
     position: absolute;
@@ -178,13 +178,13 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
     border-radius: 6px;
     padding: 8px 8px !important;
     z-index: 1000;
-    width: max-content !important;    /* 依內容自動調整寬度 */
-    min-width: 100% !important;        /* 至少與按鈕同寬 */
+    width: max-content !important;    
+    min-width: 100% !important;        
     box-sizing: border-box !important;
     box-shadow: 0 6px 16px rgba(0,0,0,0.7);
     max-height: 280px;
-    overflow-y: auto;                  /* 僅允許上下滾動 */
-    overflow-x: hidden !important;     /* 強制禁止出現左右滑桿 */
+    overflow-y: auto;                  
+    overflow-x: hidden !important;     
 }
 
 .dropdown-panel.show { display: block !important; }
@@ -236,7 +236,7 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 }
 .toggle-btn .toggle-icon { font-size: 10px; color: #86efac; }
 
-/* 角色搜尋框樣式 */
+/* 角色搜尋框樣式 (電腦端) */
 .search-input {
     background: #1c1c1c;
     color: #e0e0e0;
@@ -452,32 +452,44 @@ thead tr:nth-child(2) th.current-patch-col {
     .header-bar { padding: 6px 10px; margin-bottom: 6px; }
 
     .toolbar-inner {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-    }
-
-    .header-left {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
         gap: 6px;
-        width: 100%;
     }
 
-    .search-input {
-        grid-column: span 2;
-        width: 100% !important;
+    /* 解開中間容器外殼，讓所有元素直接參與 Flex 排版 */
+    .header-left, .header-right {
+        display: contents;
+    }
+
+    /* 上方 4 個按鈕：前兩列 2x2 平分寬度 */
+    .multi-select, .toggle-btn {
+        width: calc(50% - 3px) !important;
         box-sizing: border-box;
     }
 
-    .header-right {
-        width: 100%;
-        justify-content: flex-end;
-        font-size: 11px;
+    /* 搜尋框：與更新日期同行，自動吃滿左側剩餘所有空間 */
+    .search-input, .search-input:focus {
+        flex: 1 !important;
+        width: auto !important;
+        min-width: 100px;
+        box-sizing: border-box;
     }
-    
+
+    /* 隱藏介面縮放滑桿 */
     .scale-wrap { display: none !important; }
 
+    /* 更新日期：與搜尋框同行，自動靠最右側對齊 */
+    .update-date {
+        margin-left: auto;
+        white-space: nowrap;
+        font-size: 11px;
+        color: #888;
+        padding-left: 4px;
+    }
+
+    /* 第一欄極致瘦身：隱藏序號與文字名稱 */
     .char-seq { display: none !important; }
     .char-name { display: none !important; }
     .char-info-cell { padding: 3px 4px; justify-content: center; }
