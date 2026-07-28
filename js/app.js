@@ -2,7 +2,7 @@
    崩壞：星穹鐵道 - 限定躍遷一覽表 主應用程式邏輯 (app.js)
    ========================================================================== */
 
-// 🎨 本地 SVG Data URI 備用頭像產生器 (徹底解決未實裝角色/無頭像時截圖黑屏問題)
+// 🎨 本地 SVG Data URI 備用頭像產生器
 function getFallbackAvatar(name) {
     const text = name ? name.trim().charAt(0) : '?';
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
@@ -161,9 +161,12 @@ function calculateCharStats(char, patchesList, activePatchName) {
     };
 }
 
-// 主初始化函式
+// 狀態控制變數
+let isCharAscending = false;   // 角色順序 (false: 最新在前 ⬇, true: 最舊在前 ⬆)
+let isPatchAscending = false;  // 版本順序 (false: 最新在左 ◀, true: 最舊在左 ▶)
+
+// 主表格渲染與初始化
 async function initTracker() {
-    // 1. 動態讀取 characters.js 的更新日期註解
     try {
         const resDate = await fetch('js/characters.js');
         if (resDate.ok) {
@@ -180,7 +183,6 @@ async function initTracker() {
         document.getElementById('update-date-text').textContent = "未知";
     }
 
-    // 2. 抓取 StarRailRes 官方頭像庫
     try {
         const res = await fetch('https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/cht/characters.json');
         if (res.ok) {
@@ -208,15 +210,31 @@ async function initTracker() {
         console.warn("頭像庫連線失敗，將使用備用頭像：", error);
     }
 
-    const CHARACTERS = [...RAW_CHARACTERS].reverse();
+    renderTable();
+    setupEventListeners();
+}
+
+// 🔄 核心渲染表格邏輯 (支援雙軸獨立動態翻轉)
+function renderTable() {
     const table = document.getElementById('tracker');
     const patchesList = PATCH_DATA.map(p => p.patch);
-    const totalChars = CHARACTERS.length;
-    
-    const activePatchName = getCurrentPatchName();
-    const reversedPatches = [...PATCH_DATA].reverse();
 
-    // 自動解析資料庫中包含的所有大版本號 (如: 1.x, 2.x, 3.x, 4.x...)
+    // 1. 決定角色陣列順序
+    let CHARACTERS = [...RAW_CHARACTERS].reverse(); // 預設最新實裝角色在最前面
+    if (isCharAscending) {
+        CHARACTERS.reverse(); // 切換為始祖 1.0 角色在最前面
+    }
+    const totalChars = CHARACTERS.length;
+
+    // 2. 決定小版本陣列順序
+    let displayPatches = [...PATCH_DATA].reverse(); // 預設最新版本在最左邊
+    if (isPatchAscending) {
+        displayPatches.reverse(); // 切換為最舊版本 1.0 在最左邊
+    }
+
+    const activePatchName = getCurrentPatchName();
+
+    // 解析大版本選單
     const versionSet = new Set();
     CHARACTERS.forEach(char => {
         const majorVer = getCharDebutMajorVersion(char, patchesList);
@@ -231,34 +249,44 @@ async function initTracker() {
     const uniqueElems = ELEM_ORDER.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
 
     // 動態產生大版本選項
-    document.getElementById('version-items-container').innerHTML = uniqueVersions.map(v => {
-        return `<label><input type="checkbox" class="version-item" value="${v}"> ${v} 角色</label>`;
-    }).join('');
+    const versionContainer = document.getElementById('version-items-container');
+    if (versionContainer && versionContainer.children.length === 0) {
+        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${v}"> ${v} 角色</label>`).join('');
+    }
 
     // 動態產生命途選項
-    document.getElementById('path-items-container').innerHTML = uniquePaths.map(p => {
-        const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
-        const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${p}">` : "";
-        return `<label><input type="checkbox" class="path-item" value="${p}"> ${iconHtml}${p}</label>`;
-    }).join('');
+    const pathContainer = document.getElementById('path-items-container');
+    if (pathContainer && pathContainer.children.length === 0) {
+        pathContainer.innerHTML = uniquePaths.map(p => {
+            const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
+            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${p}">` : "";
+            return `<label><input type="checkbox" class="path-item" value="${p}"> ${iconHtml}${p}</label>`;
+        }).join('');
+    }
     
     // 動態產生屬性選項
-    document.getElementById('elem-items-container').innerHTML = uniqueElems.map(e => {
-        const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
-        const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${e}">` : "";
-        return `<label><input type="checkbox" class="elem-item" value="${e}"> ${iconHtml}${e}</label>`;
-    }).join('');
+    const elemContainer = document.getElementById('elem-items-container');
+    if (elemContainer && elemContainer.children.length === 0) {
+        elemContainer.innerHTML = uniqueElems.map(e => {
+            const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
+            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${e}">` : "";
+            return `<label><input type="checkbox" class="elem-item" value="${e}"> ${iconHtml}${e}</label>`;
+        }).join('');
+    }
 
-    // 構建表頭 1 (合併左上角單元格，放置順序按鈕與角色計數)
+    // 構建表頭 1 (雙軸控制控制項)
     let html = '<thead><tr>';
     html += `<th rowspan="2" class="top-left-cell">
         <div class="top-left-widget">
-            <button type="button" id="sort-order-btn" class="table-sort-btn" title="點擊切換登場順序 (最新/最舊)">順序 ⬇</button>
+            <div class="btn-group">
+                <button type="button" id="sort-char-btn" class="table-sort-btn" title="切換角色登場順序">角色 ${isCharAscending ? '⬆' : '⬇'}</button>
+                <button type="button" id="sort-patch-btn" class="table-sort-btn" title="切換時間軸小版本順序">版本 ${isPatchAscending ? '▶' : '◀'}</button>
+            </div>
             <div class="table-count-badge" id="table-count-badge" title="符合條件的角色數量 / 總角色數量">共 ${totalChars} 位</div>
         </div>
     </th>`;
 
-    reversedPatches.forEach(p => {
+    displayPatches.forEach(p => {
         const isCurrent = (p.patch === activePatchName);
         const colClass = isCurrent ? ' class="current-patch-col"' : '';
         html += `<th${colClass}>${formatHeaderDate(p.date)}</th>`;
@@ -266,7 +294,7 @@ async function initTracker() {
 
     // 構建表頭 2 (版本號)
     html += `</tr><tr>`;
-    reversedPatches.forEach(p => {
+    displayPatches.forEach(p => {
         const isCurrent = (p.patch === activePatchName);
         const colClass = isCurrent ? ' class="current-patch-col"' : '';
         html += `<th${colClass}>${p.patch}</th>`;
@@ -278,7 +306,7 @@ async function initTracker() {
         const fallbackUrl = getFallbackAvatar(char.name);
         const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
         const pathIconUrl = PATH_ICONS[char.path] || "";
-        const seqNum = totalChars - index;
+        const seqNum = isCharAscending ? (index + 1) : (totalChars - index);
         
         let charType = 'normal';
         if (char.isCollab) {
@@ -292,7 +320,6 @@ async function initTracker() {
         const majorVer = getCharDebutMajorVersion(char, patchesList);
         const debutVer = getCharDebutVersion(char, patchesList);
 
-        // 📊 生成【躍遷資訊】Hover 提示 (已改用更精確的登場小版本)
         const stats = calculateCharStats(char, patchesList, activePatchName);
         let statsTooltip = "";
         if (stats.isCollab) {
@@ -375,8 +402,14 @@ async function initTracker() {
             }
         });
 
-        history.reverse().forEach((cell, cellIdx) => {
-            const patchObj = reversedPatches[cellIdx];
+        // 依據時間軸是否翻轉，繪製歷史單元格
+        let finalHistory = history.reverse();
+        if (isPatchAscending) {
+            finalHistory.reverse();
+        }
+
+        finalHistory.forEach((cell, cellIdx) => {
+            const patchObj = displayPatches[cellIdx];
             const isCurrentCol = patchObj && (patchObj.patch === activePatchName);
             const currentColClass = isCurrentCol ? ' current-patch-col' : '';
 
@@ -444,25 +477,43 @@ async function initTracker() {
     }
     updateColumnIndices();
 
-    // 🔄 登場順序切換邏輯 (最新在上 ↔ 舊角色在上)
-    const sortOrderBtn = document.getElementById('sort-order-btn');
-    let isAscending = false;
-
-    if (sortOrderBtn) {
-        sortOrderBtn.addEventListener('click', () => {
-            isAscending = !isAscending;
-            sortOrderBtn.textContent = isAscending ? '順序 ⬆' : '順序 ⬇';
-
-            const tbody = table.querySelector('tbody');
-            const charRows = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
-            const emptyRow = tbody.querySelector('tr.empty-row');
-
-            charRows.reverse().forEach(row => tbody.appendChild(row));
-            if (emptyRow) tbody.appendChild(emptyRow);
-        });
+    // 🌟 更新頂部跳轉按鈕的文字與動態指向 (與版本順序動態連動)
+    const jumpLatestBtn = document.getElementById('jump-latest-btn');
+    const jumpOldestBtn = document.getElementById('jump-oldest-btn');
+    if (jumpLatestBtn && jumpOldestBtn) {
+        if (!isPatchAscending) {
+            // 最新卡池在最左側
+            jumpLatestBtn.textContent = '◀ 最新';
+            jumpLatestBtn.title = '快速滾動至最新卡池 (最左側)';
+            jumpOldestBtn.textContent = '最舊 ▶';
+            jumpOldestBtn.title = '快速滾動至最舊卡池 (最右側)';
+        } else {
+            // 最舊卡池在最左側
+            jumpLatestBtn.textContent = '◀ 最舊';
+            jumpLatestBtn.title = '快速滾動至最舊卡池 (最左側)';
+            jumpOldestBtn.textContent = '最新 ▶';
+            jumpOldestBtn.title = '快速滾動至最新卡池 (最右側)';
+        }
     }
 
-    // === 綁定左右快速跳轉按鈕 ===
+    // 重新設定並應用當前已選的篩選器條件
+    rebindControlListeners();
+}
+
+// 綁定事件監聽器
+function setupEventListeners() {
+    // 綁定左上角雙軸控制按鈕
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'sort-char-btn') {
+            isCharAscending = !isCharAscending;
+            renderTable();
+        } else if (e.target && e.target.id === 'sort-patch-btn') {
+            isPatchAscending = !isPatchAscending;
+            renderTable();
+        }
+    });
+
+    // === 綁定頂部左右快速跳轉按鈕 (適應捲軸座標) ===
     const tableWrap = document.querySelector('.table-wrap');
     const jumpLatestBtn = document.getElementById('jump-latest-btn');
     const jumpOldestBtn = document.getElementById('jump-oldest-btn');
@@ -479,7 +530,7 @@ async function initTracker() {
         });
     }
 
-    // === 綁定篩選器邏輯 ===
+    // 下拉選單開關
     const versionBox = document.getElementById('version-select-box');
     const pathBox = document.getElementById('path-select-box');
     const elemBox = document.getElementById('elem-select-box');
@@ -489,11 +540,6 @@ async function initTracker() {
     const pathPanel = document.getElementById('path-panel');
     const elemPanel = document.getElementById('elem-panel');
     const typePanel = document.getElementById('type-panel');
-    
-    const versionItems = versionPanel.querySelectorAll('.version-item');
-    const pathItems = pathPanel.querySelectorAll('.path-item');
-    const elemItems = elemPanel.querySelectorAll('.elem-item');
-    const typeItems = typePanel.querySelectorAll('.type-item');
 
     const buffToggleBtn = document.getElementById('buff-toggle-btn');
     const searchInput = document.getElementById('char-search-input');
@@ -502,14 +548,13 @@ async function initTracker() {
     const exportImgBtn = document.getElementById('export-img-btn');
 
     let onlyBuffs = false;
-    buffToggleBtn.addEventListener('click', () => {
+    buffToggleBtn?.addEventListener('click', () => {
         onlyBuffs = !onlyBuffs;
         buffToggleBtn.classList.toggle('active', onlyBuffs);
         applyFilters();
     });
 
-    // 下拉選單點擊展開/隱藏 (互斥收合)
-    versionBox.addEventListener('click', (e) => {
+    versionBox?.addEventListener('click', (e) => {
         e.stopPropagation();
         pathPanel.classList.remove('show');
         elemPanel.classList.remove('show');
@@ -517,7 +562,7 @@ async function initTracker() {
         versionPanel.classList.toggle('show');
     });
 
-    pathBox.addEventListener('click', (e) => {
+    pathBox?.addEventListener('click', (e) => {
         e.stopPropagation();
         versionPanel.classList.remove('show');
         elemPanel.classList.remove('show');
@@ -525,7 +570,7 @@ async function initTracker() {
         pathPanel.classList.toggle('show');
     });
 
-    elemBox.addEventListener('click', (e) => {
+    elemBox?.addEventListener('click', (e) => {
         e.stopPropagation();
         versionPanel.classList.remove('show');
         pathPanel.classList.remove('show');
@@ -533,7 +578,7 @@ async function initTracker() {
         elemPanel.classList.toggle('show');
     });
 
-    typeBox.addEventListener('click', (e) => {
+    typeBox?.addEventListener('click', (e) => {
         e.stopPropagation();
         versionPanel.classList.remove('show');
         pathPanel.classList.remove('show');
@@ -541,28 +586,23 @@ async function initTracker() {
         typePanel.classList.toggle('show');
     });
 
-    // 點擊空白處自動收合所有選單
     document.addEventListener('click', () => {
-        versionPanel.classList.remove('show');
-        pathPanel.classList.remove('show');
-        elemPanel.classList.remove('show');
-        typePanel.classList.remove('show');
+        versionPanel?.classList.remove('show');
+        pathPanel?.classList.remove('show');
+        elemPanel?.classList.remove('show');
+        typePanel?.classList.remove('show');
     });
 
-    versionPanel.addEventListener('click', (e) => e.stopPropagation());
-    pathPanel.addEventListener('click', (e) => e.stopPropagation());
-    elemPanel.addEventListener('click', (e) => e.stopPropagation());
-    typePanel.addEventListener('click', (e) => e.stopPropagation());
+    versionPanel?.addEventListener('click', (e) => e.stopPropagation());
+    pathPanel?.addEventListener('click', (e) => e.stopPropagation());
+    elemPanel?.addEventListener('click', (e) => e.stopPropagation());
+    typePanel?.addEventListener('click', (e) => e.stopPropagation());
 
-    // 🧹 清除所有篩選條件
     function clearAllFilters() {
-        versionItems.forEach(i => i.checked = false);
-        pathItems.forEach(i => i.checked = false);
-        elemItems.forEach(i => i.checked = false);
-        typeItems.forEach(i => i.checked = false);
-        searchInput.value = '';
+        document.querySelectorAll('.version-item, .path-item, .elem-item, .type-item').forEach(i => i.checked = false);
+        if (searchInput) searchInput.value = '';
         onlyBuffs = false;
-        buffToggleBtn.classList.remove('active');
+        buffToggleBtn?.classList.remove('active');
         applyFilters();
     }
 
@@ -570,23 +610,23 @@ async function initTracker() {
         resetFiltersBtn.addEventListener('click', clearAllFilters);
     }
 
-    // 點擊搜尋框內部的 ✕ 清空文字
     if (searchClearBtn) {
         searchClearBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            searchInput.value = '';
+            if (searchInput) searchInput.value = '';
             applyFilters();
-            searchInput.focus();
+            searchInput?.focus();
         });
     }
 
-    // 📷 匯出圖片 (智慧裁切右側欄位 & 預載圖片防截圖黑屏)
+    // 📷 匯出圖片 (支援智慧雙向裁切)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
             try {
                 exportImgBtn.textContent = '📷 繪製中...';
                 exportImgBtn.disabled = true;
 
+                const table = document.getElementById('tracker');
                 const visibleRows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)')).filter(r => r.style.display !== 'none');
 
                 if (visibleRows.length === 0) {
@@ -658,7 +698,6 @@ async function initTracker() {
                 cloneContainer.appendChild(clonedTable);
                 document.body.appendChild(cloneContainer);
 
-                // 🌟 預先檢驗並等待所有圖片載入完成，若圖片載入失敗 (404/未實裝) 自動轉為本地 SVG Data URI，徹底解決截圖黑屏問題
                 const imgs = Array.from(clonedTable.querySelectorAll('img'));
                 await Promise.all(imgs.map(img => {
                     if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
@@ -695,129 +734,12 @@ async function initTracker() {
         });
     }
 
-    function applyFilters() {
-        const selectedVersions = Array.from(versionItems).filter(i => i.checked).map(i => i.value);
-        const selectedPaths = Array.from(pathItems).filter(i => i.checked).map(i => i.value);
-        const selectedElems = Array.from(elemItems).filter(i => i.checked).map(i => i.value);
-        const selectedTypes = Array.from(typeItems).filter(i => i.checked).map(i => i.value);
-        const keyword = searchInput.value.trim().toLowerCase();
-
-        if (searchClearBtn) {
-            searchClearBtn.style.display = searchInput.value !== '' ? 'block' : 'none';
-        }
-
-        versionBox.classList.toggle('active', selectedVersions.length > 0);
-        pathBox.classList.toggle('active', selectedPaths.length > 0);
-        elemBox.classList.toggle('active', selectedElems.length > 0);
-        typeBox.classList.toggle('active', selectedTypes.length > 0);
-
-        const hasActiveFilter = selectedVersions.length > 0 || selectedPaths.length > 0 || selectedElems.length > 0 || selectedTypes.length > 0 || keyword !== '' || onlyBuffs;
-        if (resetFiltersBtn) {
-            resetFiltersBtn.style.display = hasActiveFilter ? 'inline-flex' : 'none';
-        }
-
-        if (selectedVersions.length === 0) {
-            versionBox.textContent = '大版本';
-        } else if (selectedVersions.length <= 2) {
-            versionBox.textContent = selectedVersions.join(', ');
-        } else {
-            versionBox.textContent = `${selectedVersions[0]} 等 ${selectedVersions.length} 個`;
-        }
-
-        if (selectedPaths.length === 0) {
-            pathBox.textContent = '命途';
-        } else if (selectedPaths.length <= 2) {
-            pathBox.textContent = selectedPaths.join(', ');
-        } else {
-            pathBox.textContent = `${selectedPaths[0]} 等 ${selectedPaths.length} 個`;
-        }
-
-        if (selectedElems.length === 0) {
-            elemBox.textContent = '屬性';
-        } else if (selectedElems.length <= 2) {
-            elemBox.textContent = selectedElems.join(', ');
-        } else {
-            elemBox.textContent = `${selectedElems[0]} 等 ${selectedElems.length} 個`;
-        }
-
-        const typeLabelMap = { 'normal': '限定躍遷', 'pool': '星緣', 'shop': '聚靈', 'collab': '聯動' };
-        if (selectedTypes.length === 0) {
-            typeBox.textContent = '取得方法';
-        } else if (selectedTypes.length <= 2) {
-            typeBox.textContent = selectedTypes.map(t => typeLabelMap[t]).join(', ');
-        } else {
-            typeBox.textContent = `${typeLabelMap[selectedTypes[0]]} 等 ${selectedTypes.length} 個`;
-        }
-
-        const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
-        let visibleCount = 0;
-        rows.forEach(row => {
-            const rowMajorVer = row.getAttribute('data-major-version');
-            const rowPath = row.getAttribute('data-path');
-            const rowElem = row.getAttribute('data-elem');
-            const rowType = row.getAttribute('data-type');
-            const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
-            const rowName = row.getAttribute('data-name').toLowerCase();
-
-            const matchVersion = selectedVersions.length === 0 || selectedVersions.includes(rowMajorVer);
-            const matchPath = selectedPaths.length === 0 || selectedPaths.includes(rowPath);
-            const matchElem = selectedElems.length === 0 || selectedElems.includes(rowElem);
-            const matchType = selectedTypes.length === 0 || selectedTypes.includes(rowType);
-            const matchName = keyword === '' || rowName.includes(keyword);
-            const matchBuff = !onlyBuffs || hasBuffAttr;
-
-            if (matchVersion && matchPath && matchElem && matchType && matchName && matchBuff) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // 動態更新左上角角色計數標籤
-        const countBadge = document.getElementById('table-count-badge');
-        if (countBadge) {
-            if (visibleCount === totalChars) {
-                countBadge.textContent = `共 ${totalChars} 位`;
-            } else {
-                countBadge.textContent = `${visibleCount}/${totalChars} 位`;
-            }
-        }
-
-        let emptyRow = table.querySelector('tbody tr.empty-row');
-        const totalCols = PATCH_DATA.length + 1;
-        if (visibleCount === 0) {
-            if (!emptyRow) {
-                emptyRow = document.createElement('tr');
-                emptyRow.className = 'empty-row';
-                emptyRow.innerHTML = `<td colspan="${totalCols}" style="text-align: center; padding: 25px; color: #888; background: #161616; font-size: 13px;">
-                    沒有符合條件的角色<br>
-                    <button type="button" id="empty-reset-btn" class="empty-reset-btn">↺ 清除所有條件</button>
-                </td>`;
-                table.querySelector('tbody').appendChild(emptyRow);
-            } else {
-                emptyRow.style.display = '';
-            }
-            document.getElementById('empty-reset-btn')?.addEventListener('click', clearAllFilters);
-        } else {
-            if (emptyRow) {
-                emptyRow.style.display = 'none';
-            }
-        }
-    }
-
-    versionItems.forEach(item => item.addEventListener('change', applyFilters));
-    pathItems.forEach(item => item.addEventListener('change', applyFilters));
-    elemItems.forEach(item => item.addEventListener('change', applyFilters));
-    typeItems.forEach(item => item.addEventListener('change', applyFilters));
-
-    searchInput.addEventListener('input', applyFilters);
-    searchInput.addEventListener('search', applyFilters);
+    searchInput?.addEventListener('input', applyFilters);
+    searchInput?.addEventListener('search', applyFilters);
 
     // 十字高亮邏輯
     const trackerTable = document.getElementById('tracker');
-
-    trackerTable.addEventListener('mouseover', (e) => {
+    trackerTable?.addEventListener('mouseover', (e) => {
         if (window.matchMedia && window.matchMedia('(hover: none)').matches) return;
 
         const cell = e.target.closest('td, th');
@@ -847,7 +769,7 @@ async function initTracker() {
         });
     });
 
-    trackerTable.addEventListener('mouseleave', () => {
+    trackerTable?.addEventListener('mouseleave', () => {
         trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
     });
 
@@ -856,18 +778,164 @@ async function initTracker() {
     const scaleText = document.getElementById('ui-scale-text');
 
     const savedScale = localStorage.getItem('hsr_ui_scale');
-    if (savedScale) {
+    if (savedScale && scaleSlider && scaleText) {
         scaleSlider.value = savedScale;
-        table.style.zoom = savedScale;
+        const table = document.getElementById('tracker');
+        if (table) table.style.zoom = savedScale;
         scaleText.textContent = Math.round(savedScale * 100) + '%';
     }
 
-    scaleSlider.addEventListener('input', (e) => {
+    scaleSlider?.addEventListener('input', (e) => {
         const scaleValue = e.target.value;
-        table.style.zoom = scaleValue;
-        scaleText.textContent = Math.round(scaleValue * 100) + '%';
+        const table = document.getElementById('tracker');
+        if (table) table.style.zoom = scaleValue;
+        if (scaleText) scaleText.textContent = Math.round(scaleValue * 100) + '%';
         localStorage.setItem('hsr_ui_scale', scaleValue);
     });
+}
+
+// 重新綁定控制項事件並應用篩選
+function rebindControlListeners() {
+    const versionItems = document.querySelectorAll('.version-item');
+    const pathItems = document.querySelectorAll('.path-item');
+    const elemItems = document.querySelectorAll('.elem-item');
+    const typeItems = document.querySelectorAll('.type-item');
+
+    versionItems.forEach(item => item.removeEventListener('change', applyFilters));
+    pathItems.forEach(item => item.removeEventListener('change', applyFilters));
+    elemItems.forEach(item => item.removeEventListener('change', applyFilters));
+    typeItems.forEach(item => item.removeEventListener('change', applyFilters));
+
+    versionItems.forEach(item => item.addEventListener('change', applyFilters));
+    pathItems.forEach(item => item.addEventListener('change', applyFilters));
+    elemItems.forEach(item => item.addEventListener('change', applyFilters));
+    typeItems.forEach(item => item.addEventListener('change', applyFilters));
+
+    applyFilters();
+}
+
+function applyFilters() {
+    const table = document.getElementById('tracker');
+    if (!table) return;
+
+    const selectedVersions = Array.from(document.querySelectorAll('.version-item')).filter(i => i.checked).map(i => i.value);
+    const selectedPaths = Array.from(document.querySelectorAll('.path-item')).filter(i => i.checked).map(i => i.value);
+    const selectedElems = Array.from(document.querySelectorAll('.elem-item')).filter(i => i.checked).map(i => i.value);
+    const selectedTypes = Array.from(document.querySelectorAll('.type-item')).filter(i => i.checked).map(i => i.value);
+    
+    const searchInput = document.getElementById('char-search-input');
+    const searchClearBtn = document.getElementById('search-clear-btn');
+    const resetFiltersBtn = document.getElementById('reset-filters-btn');
+    const buffToggleBtn = document.getElementById('buff-toggle-btn');
+    
+    const keyword = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    const onlyBuffs = buffToggleBtn ? buffToggleBtn.classList.contains('active') : false;
+
+    if (searchClearBtn) {
+        searchClearBtn.style.display = keyword !== '' ? 'block' : 'none';
+    }
+
+    const versionBox = document.getElementById('version-select-box');
+    const pathBox = document.getElementById('path-select-box');
+    const elemBox = document.getElementById('elem-select-box');
+    const typeBox = document.getElementById('type-select-box');
+
+    if (versionBox) versionBox.classList.toggle('active', selectedVersions.length > 0);
+    if (pathBox) pathBox.classList.toggle('active', selectedPaths.length > 0);
+    if (elemBox) elemBox.classList.toggle('active', selectedElems.length > 0);
+    if (typeBox) typeBox.classList.toggle('active', selectedTypes.length > 0);
+
+    const hasActiveFilter = selectedVersions.length > 0 || selectedPaths.length > 0 || selectedElems.length > 0 || selectedTypes.length > 0 || keyword !== '' || onlyBuffs;
+    if (resetFiltersBtn) {
+        resetFiltersBtn.style.display = hasActiveFilter ? 'inline-flex' : 'none';
+    }
+
+    if (versionBox) {
+        if (selectedVersions.length === 0) versionBox.textContent = '大版本';
+        else if (selectedVersions.length <= 2) versionBox.textContent = selectedVersions.join(', ');
+        else versionBox.textContent = `${selectedVersions[0]} 等 ${selectedVersions.length} 個`;
+    }
+
+    if (pathBox) {
+        if (selectedPaths.length === 0) pathBox.textContent = '命途';
+        else if (selectedPaths.length <= 2) pathBox.textContent = selectedPaths.join(', ');
+        else pathBox.textContent = `${selectedPaths[0]} 等 ${selectedPaths.length} 個`;
+    }
+
+    if (elemBox) {
+        if (selectedElems.length === 0) elemBox.textContent = '屬性';
+        else if (selectedElems.length <= 2) elemBox.textContent = selectedElems.join(', ');
+        else elemBox.textContent = `${selectedElems[0]} 等 ${selectedElems.length} 個`;
+    }
+
+    const typeLabelMap = { 'normal': '限定躍遷', 'pool': '星緣', 'shop': '聚靈', 'collab': '聯動' };
+    if (typeBox) {
+        if (selectedTypes.length === 0) typeBox.textContent = '取得方法';
+        else if (selectedTypes.length <= 2) typeBox.textContent = selectedTypes.map(t => typeLabelMap[t]).join(', ');
+        else typeBox.textContent = `${typeLabelMap[selectedTypes[0]]} 等 ${selectedTypes.length} 個`;
+    }
+
+    const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
+    let visibleCount = 0;
+    const totalChars = RAW_CHARACTERS.length;
+
+    rows.forEach(row => {
+        const rowMajorVer = row.getAttribute('data-major-version');
+        const rowPath = row.getAttribute('data-path');
+        const rowElem = row.getAttribute('data-elem');
+        const rowType = row.getAttribute('data-type');
+        const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
+        const rowName = row.getAttribute('data-name').toLowerCase();
+
+        const matchVersion = selectedVersions.length === 0 || selectedVersions.includes(rowMajorVer);
+        const matchPath = selectedPaths.length === 0 || selectedPaths.includes(rowPath);
+        const matchElem = selectedElems.length === 0 || selectedElems.includes(rowElem);
+        const matchType = selectedTypes.length === 0 || selectedTypes.includes(rowType);
+        const matchName = keyword === '' || rowName.includes(keyword);
+        const matchBuff = !onlyBuffs || hasBuffAttr;
+
+        if (matchVersion && matchPath && matchElem && matchType && matchName && matchBuff) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    const countBadge = document.getElementById('table-count-badge');
+    if (countBadge) {
+        if (visibleCount === totalChars) {
+            countBadge.textContent = `共 ${totalChars} 位`;
+        } else {
+            countBadge.textContent = `${visibleCount}/${totalChars} 位`;
+        }
+    }
+
+    let emptyRow = table.querySelector('tbody tr.empty-row');
+    const totalCols = PATCH_DATA.length + 1;
+    if (visibleCount === 0) {
+        if (!emptyRow) {
+            emptyRow = document.createElement('tr');
+            emptyRow.className = 'empty-row';
+            emptyRow.innerHTML = `<td colspan="${totalCols}" style="text-align: center; padding: 25px; color: #888; background: #161616; font-size: 13px;">
+                沒有符合條件的角色<br>
+                <button type="button" id="empty-reset-btn" class="empty-reset-btn">↺ 清除所有條件</button>
+            </td>`;
+            table.querySelector('tbody').appendChild(emptyRow);
+        } else {
+            emptyRow.style.display = '';
+        }
+        document.getElementById('empty-reset-btn')?.addEventListener('click', () => {
+            document.querySelectorAll('.version-item, .path-item, .elem-item, .type-item').forEach(i => i.checked = false);
+            if (searchInput) searchInput.value = '';
+            if (buffToggleBtn) buffToggleBtn.classList.remove('active');
+            applyFilters();
+        });
+    } else {
+        if (emptyRow) {
+            emptyRow.style.display = 'none';
+        }
+    }
 }
 
 // 頂部工具列摺疊邏輯
