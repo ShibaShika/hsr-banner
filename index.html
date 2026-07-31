@@ -1,132 +1,165 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>崩壞：星穹鐵道 - 限定躍遷一覽表</title>
-
-    <!-- 1. 載入全套視覺與樣式表 -->
-    <link rel="stylesheet" href="css/style.css">
-
-    <!-- 2. 載入 html2canvas 圖片匯出函式庫 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
-    <!-- 3. 載入資料庫與配置文檔 -->
-    <script src="js/patches.js"></script>
-    <script src="js/paths.js"></script>
-    <script src="js/elements.js"></script>
-    <script src="js/characters.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>崩壞：星穹鐵道 - 限定躍遷歷史檢視器</title>
+  
+  <!-- 字體與圖標 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- 樣式表 -->
+  <link rel="stylesheet" href="css/style.css">
+  
+  <!-- html2canvas 用於生成社群分享長圖 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
-    <!-- 頂部工具列 (支援摺疊展開) -->
-    <div class="header-bar">
-        <div class="header-top-row">
-            <h1>崩壞：星穹鐵道 - 限定躍遷一覽表</h1>
-            
-            <!-- 左右版本快速跳轉按鈕 (支援與版本順序動態連動) -->
-            <div class="header-top-center-btns">
-                <button type="button" id="jump-latest-btn" class="jump-btn" title="快速滾動至最左側小版本">◀ 最新</button>
-                <button type="button" id="jump-oldest-btn" class="jump-btn" title="快速滾動至最右側小版本">最舊 ▶</button>
-            </div>
+  <!-- 🌌 動態星空背景 Canvas -->
+  <canvas id="starfield-canvas"></canvas>
 
-            <div class="header-top-right-btns">
-                <!-- 工具列摺疊切換按鈕 -->
-                <button type="button" id="toggle-toolbar-btn" class="toggle-toolbar-btn">
-                    <span>🔍 篩選與工具</span>
-                    <span id="toggle-arrow" class="arrow">▼</span>
-                </button>
-            </div>
-        </div>
-
-        <div id="toolbar-panel" class="toolbar-panel">
-            <div class="toolbar-inner">
-                <div class="header-left">
-                    <!-- 實裝版本選單 -->
-                    <div class="multi-select" id="version-dropdown">
-                        <div class="select-box" id="version-select-box">實裝版本</div>
-                        <div class="dropdown-panel" id="version-panel">
-                            <div id="version-items-container"></div>
-                        </div>
-                    </div>
-
-                    <!-- 命途選單 -->
-                    <div class="multi-select" id="path-dropdown">
-                        <div class="select-box" id="path-select-box">命途</div>
-                        <div class="dropdown-panel" id="path-panel">
-                            <div id="path-items-container"></div>
-                        </div>
-                    </div>
-
-                    <!-- 屬性選單 -->
-                    <div class="multi-select" id="elem-dropdown">
-                        <div class="select-box" id="elem-select-box">屬性</div>
-                        <div class="dropdown-panel" id="elem-panel">
-                            <div id="elem-items-container"></div>
-                        </div>
-                    </div>
-
-                    <!-- 取得方法選單 -->
-                    <div class="multi-select" id="type-dropdown">
-                        <div class="select-box" id="type-select-box">取得方法</div>
-                        <div class="dropdown-panel" id="type-panel">
-                            <div id="type-items-container">
-                                <label><input type="checkbox" class="type-item" value="normal"> 限定躍遷</label>
-                                <label class="type-desc-label">
-                                    <input type="checkbox" class="type-item" value="pool">
-                                    <span class="label-stack">
-                                        <span class="label-title">星緣相邀</span>
-                                        <span class="label-sub">加入非UP自選池</span>
-                                    </span>
-                                </label>
-                                <label class="type-desc-label">
-                                    <input type="checkbox" class="type-item" value="shop">
-                                    <span class="label-stack">
-                                        <span class="label-title">聚靈鑄星</span>
-                                        <span class="label-sub">加入兌換商店</span>
-                                    </span>
-                                </label>
-                                <label><input type="checkbox" class="type-item" value="collab"> 長期聯動</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 礪爍新輝切換按鈕 -->
-                    <button type="button" id="buff-toggle-btn" class="toggle-btn" data-tooltip="僅顯示加強過的角色">
-                        <span class="toggle-icon">▲</span> 礪爍新輝
-                    </button>
-
-                    <!-- 角色搜尋框 (含全平台相容內建 ✕ 按鈕) -->
-                    <div class="search-wrap">
-                        <input type="search" id="char-search-input" class="search-input" placeholder="搜尋角色">
-                        <span id="search-clear-btn" class="search-clear-btn" style="display: none;">✕</span>
-                    </div>
-
-                    <!-- 一鍵清除篩選按鈕 (預設隱藏) -->
-                    <button type="button" id="reset-filters-btn" class="reset-btn" style="display: none;">🧹 清除</button>
-                </div>
-
-                <div class="header-right">
-                    <div class="scale-wrap">
-                        <span>介面大小：</span>
-                        <input type="range" id="ui-scale-slider" min="0.7" max="1.4" step="0.05" value="1">
-                        <span id="ui-scale-text">100%</span>
-                    </div>
-                    <!-- 📷 匯出全尺寸圖片按鈕 -->
-                    <button type="button" id="export-img-btn" class="export-btn" title="將當前完整的表格輸出為全尺寸 PNG 圖片">📷 截圖</button>
-                    <!-- 更新日期 -->
-                    <div class="update-date">更新日期：<span id="update-date-text">載入中...</span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 表格主要容器 -->
-    <div class="table-wrap">
-        <table id="tracker"></table>
+  <!-- 🚀 頂部玻璃導覽列 -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <i class="fa-solid fa-compass-drafting brand-icon"></i>
+      <span class="brand-title">HSR WARP TRACKER</span>
+      <span class="brand-badge">PRO MAX</span>
     </div>
 
-    <!-- 4. 載入核心應用程式邏輯 -->
-    <script src="js/app.js"></script>
+    <!-- 搜尋與快選 -->
+    <div class="nav-search">
+      <i class="fa-solid fa-magnifying-glass search-icon"></i>
+      <input type="text" id="global-search" placeholder="搜尋角色、光錐或版本號 (如：黃泉, 2.1)...">
+    </div>
+
+    <!-- 功能按鈕區 -->
+    <div class="nav-actions">
+      <button id="btn-toggle-stats" class="btn btn-secondary" title="數據統計分析">
+        <i class="fa-solid fa-chart-pie"></i> <span class="btn-text">躍遷統計</span>
+      </button>
+      <button id="btn-export-image" class="btn btn-primary" title="匯出高質感圖卡">
+        <i class="fa-solid fa-share-nodes"></i> <span class="btn-text">分享長圖</span>
+      </button>
+      <button id="btn-mobile-filter" class="btn btn-mobile-only" title="篩選">
+        <i class="fa-solid fa-filter"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- 📍 版本快捷跳轉錨點列 (Version Jump Bar) -->
+  <nav class="version-jump-bar" id="version-jump-bar">
+    <span class="jump-label"><i class="fa-solid fa-clock-rotate-left"></i> 版本速達：</span>
+    <div class="jump-links" id="version-jump-links">
+      <!-- 動態生成如 v1.0, v2.0, v3.0 等快捷按鈕 -->
+    </div>
+  </nav>
+
+  <!-- 🎛️ 桌面端主控制與篩選面板 -->
+  <main class="main-container">
+    <section class="control-panel">
+      <!-- 稀有度篩選 -->
+      <div class="filter-group">
+        <label class="filter-label">稀有度</label>
+        <div class="pill-group" id="star-filters">
+          <button class="pill active" data-star="all">全部</button>
+          <button class="pill gold" data-star="5"><i class="fa-solid fa-star"></i> 5★ 限定</button>
+          <button class="pill purple" data-star="4"><i class="fa-solid fa-star"></i> 4★ 陪跑</button>
+        </div>
+      </div>
+
+      <!-- 類別篩選 -->
+      <div class="filter-group">
+        <label class="filter-label">躍遷類型</label>
+        <div class="pill-group" id="type-filters">
+          <button class="pill active" data-type="all">全部</button>
+          <button class="pill" data-type="character"><i class="fa-solid fa-user-astronaut"></i> 角色躍遷</button>
+          <button class="pill" data-type="lightcone"><i class="fa-solid fa-bolt"></i> 流光定影(光錐)</button>
+        </div>
+      </div>
+
+      <!-- 檢視模式切換 -->
+      <div class="filter-group view-switcher">
+        <label class="filter-label">視圖模式</label>
+        <div class="pill-group">
+          <button id="view-grid" class="pill active"><i class="fa-solid fa-border-all"></i> 卡片網格</button>
+          <button id="view-timeline" class="pill"><i class="fa-solid fa-timeline"></i> 時間軸</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📊 躍遷數據統計 Drawer (預設隱藏) -->
+    <section id="stats-panel" class="stats-panel hidden">
+      <div class="stats-header">
+        <h3><i class="fa-solid fa-chart-line"></i> 躍遷數據總覽</h3>
+        <button id="close-stats" class="btn-icon"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-total-banners">0</div>
+          <div class="stat-label">歷史躍遷總期數</div>
+        </div>
+        <div class="stat-card gold">
+          <div class="stat-value" id="stat-5star-count">0</div>
+          <div class="stat-label">UP 5★ 角色/光錐次數</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-value" id="stat-avg-rerun">-- 天</div>
+          <div class="stat-label">5★ 角色平均複刻週期</div>
+        </div>
+        <div class="stat-card cyan">
+          <div class="stat-value" id="stat-latest-ver">--</div>
+          <div class="stat-label">最新收錄版本</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🎴 躍遷展示核心區域 -->
+    <section id="banner-container" class="banner-container view-mode-grid">
+      <!-- JavaScript 會在此動態注入版本分組與卡片 -->
+    </section>
+  </main>
+
+  <!-- 📱 手機端 Bottom Sheet 篩選抽屜 Modal -->
+  <div id="mobile-filter-drawer" class="mobile-drawer-overlay">
+    <div class="mobile-drawer">
+      <div class="drawer-header">
+        <h3><i class="fa-solid fa-sliders"></i> 進階篩選器</h3>
+        <button id="close-drawer" class="btn-icon"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="drawer-body">
+        <!-- 手機選單內涵蓋相同篩選項，方便單手大拇指操作 -->
+        <div class="drawer-section">
+          <h4>星級</h4>
+          <div class="pill-group-mobile" id="mobile-star-filters">
+            <button class="pill active" data-star="all">全部</button>
+            <button class="pill gold" data-star="5">5★ 限定</button>
+            <button class="pill purple" data-star="4">4★ 陪跑</button>
+          </div>
+        </div>
+        <div class="drawer-section">
+          <h4>類型</h4>
+          <div class="pill-group-mobile" id="mobile-type-filters">
+            <button class="pill active" data-type="all">全部</button>
+            <button class="pill" data-type="character">角色</button>
+            <button class="pill" data-type="lightcone">光錐</button>
+          </div>
+        </div>
+      </div>
+      <div class="drawer-footer">
+        <button id="apply-drawer-filters" class="btn btn-primary full-width">套用並查看結果</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 數據腳本 -->
+  <script src="js/paths.js"></script>
+  <script src="js/patches.js"></script>
+  <script src="js/elements.js"></script>
+  <script src="js/characters.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
