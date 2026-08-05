@@ -270,7 +270,26 @@
 
         function escapeJsStr(str) {
             if (str == null) return '';
-            return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            return String(str)
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/\r/g, '\\r')
+                .replace(/\n/g, '\\n')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        const PATCH_NAME_RE = /^\d+\.\d+[上下中]$/;
+        const PATCH_DATE_RE = /^\d{2}\/\d{2}\/\d{2}$/;
+
+        function isValidPatch(patch) {
+            return patch && PATCH_NAME_RE.test(patch.patch) && PATCH_DATE_RE.test(patch.date);
+        }
+
+        function sortPatchesByDate() {
+            patchesData.sort((a, b) => a.date.localeCompare(b.date) || a.patch.localeCompare(b.patch, 'zh-Hant'));
         }
 
         function getLatestPatch() {
@@ -1020,12 +1039,17 @@
                 // 1. 處理新版本
                 if (data.new_patches && data.new_patches.length > 0) {
                     data.new_patches.forEach(newPatch => {
+                        if (!isValidPatch(newPatch)) {
+                            console.warn('略過格式不正確的遠端版本資料：', newPatch);
+                            return;
+                        }
                         const exists = patchesData.some(p => p.patch === newPatch.patch);
                         if (!exists) {
-                            patchesData.push(newPatch);
+                            patchesData.push({ patch: newPatch.patch, date: newPatch.date });
                             addedPatchesList.push(newPatch.patch);
                         }
                     });
+                    sortPatchesByDate();
                 }
 
                 // 2. 處理新角色與自動升級中文名

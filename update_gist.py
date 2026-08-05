@@ -1,12 +1,15 @@
 import json
 import os
 import re
+from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 from curl_cffi import requests as cffi_requests
 
 GIST_ID = "53c5bb324cd140fb8751c9812bd5df68"
 GITHUB_TOKEN = os.environ.get("GIST_TOKEN")
+REQUEST_TIMEOUT = 15
+PATCH_NAME_RE = re.compile(r'^\d+\.\d+[上下中]$')
 
 PATH_MAP = {
     "Destruction": "毀滅", "Warrior": "毀滅",
@@ -40,6 +43,43 @@ def clean_wikitext_value(val):
     """清洗 Wikitext 中的連結標記 [[ ]] 與取代標點符號"""
     val = re.sub(r'\[\[(?:[^\|\]]*\|)?([^\]]+)\]\]', r'\1', val)
     return val.strip().replace('·', '•')
+
+def normalize_patch_date(value):
+    """將資料源的日期標準化為前端使用的 YY/MM/DD 格式。"""
+    if not value:
+        return None
+    if isinstance(value, (int, float)):
+        value = datetime.fromtimestamp(value / 1000 if value > 10**11 else value).strftime('%Y-%m-%d')
+    value = str(value).strip()
+    for fmt in ('%y/%m/%d', '%Y/%m/%d', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ', '%B %d, %Y'):
+        try:
+            return datetime.strptime(value, fmt).strftime('%y/%m/%d')
+        except ValueError:
+            continue
+    return None
+
+def merge_new_patches(existing_patches, schedules):
+    """合併並依日期排序可驗證的新增版本，避免不完整資料破壞時間軸。"""
+    patches_by_name = {}
+    for patch in existing_patches if isinstance(existing_patches, list) else []:
+        if not isinstance(patch, dict):
+            continue
+        name = patch.get('patch')
+        date = normalize_patch_date(patch.get('date'))
+        if isinstance(name, str) and PATCH_NAME_RE.fullmatch(name) and date:
+            patches_by_name[name] = {'patch': name, 'date': date}
+
+    for schedule in schedules:
+        name = schedule.get('run')
+        date = normalize_patch_date(schedule.get('patch_date'))
+        if not isinstance(name, str) or not PATCH_NAME_RE.fullmatch(name):
+            print(f"⚠️ 略過格式不正確的版本：{name!r}")
+        elif not date:
+            print(f"⚠️ 略過沒有可驗證開始日期的版本：{name}")
+        else:
+            patches_by_name.setdefault(name, {'patch': name, 'date': date})
+
+    return sorted(patches_by_name.values(), key=lambda patch: (patch['date'], patch['patch']))
 
 def fetch_upcoming_wiki_char_map():
     """使用 cffi_requests 繞過 Cloudflare 防護，
@@ -123,13 +163,14 @@ def fetch_starrailres_data():
     en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/en/characters.json"
     cht_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/cht/characters.json"
     
-    en_res = requests.get(en_url)
-    cht_res = requests.get(cht_url)
-    
-    en_data = en_res.json() if en_res.status_code == 200 else {}
-    cht_data = cht_res.json() if cht_res.status_code == 200 else {}
-    
-    return en_data, cht_data
+    try:
+        en_res = requests.get(en_url, timeout=REQUEST_TIMEOUT)
+        cht_res = requests.get(cht_url, timeout=REQUEST_TIMEOUT)
+        en_res.raise_for_status()
+        cht_res.raise_for_status()
+        return en_res.json(), cht_res.json()
+    except (requests.RequestException, ValueError) as error:
+        raise RuntimeError(f"無法取得 StarRailRes 角色資料：{error}") from error
 
 def parse_next_data_json(json_text):
     """【方法一】直抓 Next.js 底層 __NEXT_DATA__ JSON，免疫版面 DOM 改版"""
@@ -148,6 +189,9 @@ def parse_next_data_json(json_text):
                 en_name = item.get("name") or item.get("characterName") or item.get("title")
                 version = item.get("patch") or item.get("version")
                 phase = item.get("phase") or item.get("half")
+                patch_date = normalize_patch_date(
+                    item.get("startDate") or item.get("start_date") or item.get("date") or item.get("start")
+                )
                 
                 if en_name and version:
                     phase_num = 2 if str(phase) == "2" else 1
@@ -161,7 +205,8 @@ def parse_next_data_json(json_text):
                         "en_name": str(en_name).strip(),
                         "fallback_path": zh_path,
                         "fallback_elem": zh_elem,
-                        "run": run_str
+                        "run": run_str,
+                        "patch_date": patch_date
                     })
                     print(f"解析卡池角色 (JSON 模式): {en_name} -> {run_str}")
     except Exception as e:
@@ -214,12 +259,15 @@ def fetch_prydwen_schedules():
                 phase_num = 2 if "Phase 2" in phase_str else 1
                 half_str = "上" if phase_num == 1 else "下"
                 run_str = f"{version}{half_str}"
+                date_match = re.search(r'([A-Z][a-z]+\s+\d{1,2},\s+20\d{2})', phase_str)
+                patch_date = normalize_patch_date(date_match.group(1)) if date_match else None
                 
                 schedules.append({
                     "en_name": en_name,
                     "fallback_path": zh_path,
                     "fallback_elem": zh_elem,
-                    "run": run_str
+                    "run": run_str,
+                    "patch_date": patch_date
                 })
                 print(f"解析卡池角色 (DOM 模式): {en_name} -> {run_str}")
             
@@ -242,13 +290,19 @@ def fetch_latest_data():
     existing_data = {"new_patches": [], "new_characters": []}
     try:
         gist_url = f"https://api.github.com/gists/{GIST_ID}"
-        gist_res = requests.get(gist_url)
-        if gist_res.status_code == 200:
-            files = gist_res.json().get('files', {})
-            if 'hsr_latest_banner.json' in files:
-                existing_data = json.loads(files['hsr_latest_banner.json']['content'])
-    except Exception as e:
+        gist_res = requests.get(gist_url, timeout=REQUEST_TIMEOUT)
+        gist_res.raise_for_status()
+        files = gist_res.json().get('files', {})
+        gist_file = files.get('hsr_latest_banner.json')
+        if not gist_file or 'content' not in gist_file:
+            raise RuntimeError('Gist 缺少 hsr_latest_banner.json')
+        existing_data = json.loads(gist_file['content'])
+        if not isinstance(existing_data, dict):
+            raise ValueError('Gist 根節點必須是物件')
+    except (requests.RequestException, ValueError, KeyError, RuntimeError) as e:
         print(f"讀取現有 Gist 失敗: {e}")
+        print("🛡️ 停止本次更新，避免以不完整資料覆蓋既有 Gist。")
+        return None
 
     updated_chars = existing_data.get('new_characters', [])
     
@@ -371,7 +425,7 @@ def fetch_latest_data():
             print(f"✨ 發現並納入新角色: {target_name} (CID: {target_cid}) ({path} / {elem})")
 
     return {
-        "new_patches": existing_data.get('new_patches', []),
+        "new_patches": merge_new_patches(existing_data.get('new_patches', []), schedules),
         "new_characters": updated_chars
     }
 
@@ -390,11 +444,14 @@ def update_gist(data):
         }
     }
     
-    response = requests.patch(url, headers=headers, json=payload)
-    if response.status_code == 200:
+    try:
+        response = requests.patch(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
         print("✅ Gist 自動更新與排程指派成功！")
-    else:
-        print(f"❌ 更新失敗: {response.status_code}")
+        return True
+    except requests.RequestException as error:
+        print(f"❌ 更新失敗: {error}")
+        return False
 
 if __name__ == "__main__":
     if not GITHUB_TOKEN:
@@ -402,6 +459,7 @@ if __name__ == "__main__":
     else:
         latest_data = fetch_latest_data()
         if latest_data is not None:
-            update_gist(latest_data)
+            if not update_gist(latest_data):
+                raise SystemExit(1)
         else:
             print("🛑 任務安全終止：保持現有 Gist 資料不變。")
