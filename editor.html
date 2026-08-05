@@ -258,6 +258,18 @@
         let charsData = typeof RAW_CHARACTERS !== 'undefined' ? JSON.parse(initialCharsJson) : [];
         let patchesData = typeof PATCH_DATA !== 'undefined' ? JSON.parse(initialPatchesJson) : [];
 
+        // 聯動角色以 isCollab 表示實裝版本；runs 不應保留一般卡池紀錄。
+        function normalizeCollabRuns(characters) {
+            return characters.map(char => {
+                if (Object.prototype.hasOwnProperty.call(char, 'isCollab')) {
+                    return { ...char, runs: [] };
+                }
+                return char;
+            });
+        }
+
+        charsData = normalizeCollabRuns(charsData);
+
         function escapeHtml(str) {
             if (str == null) return '';
             return String(str)
@@ -1000,7 +1012,8 @@
             let textareaId = '';
             
             if (type === 'chars') {
-                code = generateJSString('RAW_CHARACTERS', charsData);
+                // 匯出前再次正規化，避免舊資料或同步結果將聯動版本寫入 runs。
+                code = generateJSString('RAW_CHARACTERS', normalizeCollabRuns(charsData));
                 textareaId = 'output-chars';
             } else {
                 code = generateJSString('PATCH_DATA', patchesData);

@@ -683,7 +683,8 @@ const RAW_CHARACTERS = [
         elem: "火",
         avatar: "",
         runs: [
-            "4.4上"
+            "4.4上",
+            "4.4下"
         ]
     },
     {
