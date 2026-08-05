@@ -184,8 +184,8 @@
         </h1>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('chars')">🎭 角色管理 (characters.js)</button>
-            <button class="tab-btn" onclick="switchTab('patches')">📅 版本管理 (patches.js)</button>
+            <button class="tab-btn active" onclick="switchTab('chars', this)">🎭 角色管理 (characters.js)</button>
+            <button class="tab-btn" onclick="switchTab('patches', this)">📅 版本管理 (patches.js)</button>
         </div>
 
         <div id="tab-chars" class="tab-content active">
@@ -258,18 +258,34 @@
         let charsData = typeof RAW_CHARACTERS !== 'undefined' ? JSON.parse(initialCharsJson) : [];
         let patchesData = typeof PATCH_DATA !== 'undefined' ? JSON.parse(initialPatchesJson) : [];
 
+        function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeJsStr(str) {
+            if (str == null) return '';
+            return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        function getLatestPatch() {
+            return patchesData.length > 0 ? patchesData[patchesData.length - 1].patch : "3.4上";
+        }
+
         function sanitizeName(name) {
             if (!name) return "";
             return name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
         }
 
         function getDynamicOptions(type) {
-            let baseList = [];
-            if (type === 'path') {
-                baseList = typeof PATH_ORDER !== 'undefined' ? PATH_ORDER : ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
-            } else {
-                baseList = typeof ELEM_ORDER !== 'undefined' ? ELEM_ORDER : ["火", "冰", "雷", "風", "物理", "量子", "虛數"];
-            }
+            const baseList = type === 'path'
+                ? (typeof PATH_ORDER !== 'undefined' ? PATH_ORDER : ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"])
+                : (typeof ELEM_ORDER !== 'undefined' ? ELEM_ORDER : ["火", "冰", "雷", "風", "物理", "量子", "虛數"]);
             const set = new Set(baseList);
             charsData.forEach(char => {
                 if (char[type]) set.add(char[type]);
@@ -277,12 +293,12 @@
             return Array.from(set);
         }
 
-        function switchTab(tab) {
+        function switchTab(tab, btnEl) {
             closePicker();
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(`tab-${tab}`).classList.add('active');
-            event.target.classList.add('active');
+            if (btnEl) btnEl.classList.add('active');
         }
 
         function findPatchByDate(dateStr) {
@@ -536,16 +552,16 @@
 
                     tr.innerHTML = `
                         <td style="text-align: center; color: #888; font-weight: bold; font-size: 13px;">${index + 1}</td>
-                        <td><input type="text" value="${char.cid || ''}" placeholder="CID" onchange="updateChar(${index}, 'cid', this.value)" class="${isCidModified ? 'modified-highlight' : ''}" style="width: 100%; text-align: center; padding: 3px 2px;"></td>
-                        <td><input type="text" value="${char.name || ''}" placeholder="新角色" onchange="updateChar(${index}, 'name', this.value)" class="${isNameModified ? 'modified-highlight' : ''}" style="width: 100%;"></td>
+                        <td><input type="text" value="${escapeHtml(char.cid || '')}" placeholder="CID" onchange="updateChar(${index}, 'cid', this.value)" class="${isCidModified ? 'modified-highlight' : ''}" style="width: 100%; text-align: center; padding: 3px 2px;"></td>
+                        <td><input type="text" value="${escapeHtml(char.name || '')}" placeholder="新角色" onchange="updateChar(${index}, 'name', this.value)" class="${isNameModified ? 'modified-highlight' : ''}" style="width: 100%;"></td>
                         <td>
                             <select onchange="updateChar(${index}, 'path', this.value)" class="${isPathModified ? 'modified-highlight' : ''}" style="width: 100%; text-align: center; text-align-last: center; padding: 4px 1px;">
-                                ${availablePaths.map(p => `<option value="${p}" ${char.path === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                ${availablePaths.map(p => `<option value="${escapeHtml(p)}" ${char.path === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
                             </select>
                         </td>
                         <td>
                             <select onchange="updateChar(${index}, 'elem', this.value)" class="${isElemModified ? 'modified-highlight' : ''}" style="width: 100%; text-align: center; text-align-last: center; padding: 4px 1px;">
-                                ${availableElems.map(e => `<option value="${e}" ${char.elem === e ? 'selected' : ''}>${e}</option>`).join('')}
+                                ${availableElems.map(e => `<option value="${escapeHtml(e)}" ${char.elem === e ? 'selected' : ''}>${escapeHtml(e)}</option>`).join('')}
                             </select>
                         </td>
                         <td>
@@ -559,12 +575,12 @@
 
                                 <div>
                                     ${(currentType === 'pool' || currentType === 'shop') ? `
-                                        <div class="picker-trigger" onclick="openPatchPicker('${termPatch}', this, ${index}, null, (val) => { updateTermPatch(${index}, val); renderChars(); }, 'run')">
-                                            <span>${termPatch || '選擇版本'}</span> <span>▼</span>
+                                        <div class="picker-trigger" onclick="openPatchPicker('${escapeJsStr(termPatch)}', this, ${index}, null, (val) => { updateTermPatch(${index}, val); renderChars(); }, 'run')">
+                                            <span>${escapeHtml(termPatch || '選擇版本')}</span> <span>▼</span>
                                         </div>
                                     ` : ''}
                                     ${currentType === 'collab' ? `
-                                        <input type="date" value="${dateInputValue}" onchange="updateCollabDate(${index}, this.value)" style="width: 100%; font-size: 12px;" title="聯動日期">
+                                        <input type="date" value="${escapeHtml(dateInputValue)}" onchange="updateCollabDate(${index}, this.value)" style="width: 100%; font-size: 12px;" title="聯動日期">
                                     ` : ''}
                                 </div>
 
@@ -572,14 +588,14 @@
                                     ${currentType !== 'collab' ? `
                                         <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
                                             ${runs.map((run, rIdx) => `
-                                                <div class="picker-trigger ${isRunsModified ? 'modified-highlight' : ''}" onclick="openPatchPicker('${run}', this, ${index}, ${rIdx}, (val) => { updateRun(${index}, ${rIdx}, val); renderChars(); }, 'run')">
-                                                    <span>${run || '選擇'}</span> <span>▼</span>
+                                                <div class="picker-trigger ${isRunsModified ? 'modified-highlight' : ''}" onclick="openPatchPicker('${escapeJsStr(run)}', this, ${index}, ${rIdx}, (val) => { updateRun(${index}, ${rIdx}, val); renderChars(); }, 'run')">
+                                                    <span>${escapeHtml(run || '選擇')}</span> <span>▼</span>
                                                 </div>
                                             `).join('')}
                                             <button type="button" class="btn" style="padding: 2px 6px; font-size: 11px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addRun(${index})" title="新增版本格">＋</button>
                                         </div>
                                     ` : `
-                                        <span style="font-size: 11px; color: #8ef9f3;">對應版本: <b>${char.isCollab || '未定'}</b></span>
+                                        <span style="font-size: 11px; color: #8ef9f3;">對應版本: <b>${escapeHtml(char.isCollab || '未定')}</b></span>
                                     `}
                                 </div>
                             </div>
@@ -587,8 +603,8 @@
                         <td>
                             <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
                                 ${buffs.map((buff, bIdx) => `
-                                    <div class="picker-trigger ${isBuffsModified ? 'modified-highlight' : ''}" onclick="openPatchPicker('${buff}', this, ${index}, ${bIdx}, (val) => { updateBuff(${index}, ${bIdx}, val); renderChars(); }, 'buff')">
-                                        <span>${buff || '選擇'}</span> <span>▼</span>
+                                    <div class="picker-trigger ${isBuffsModified ? 'modified-highlight' : ''}" onclick="openPatchPicker('${escapeJsStr(buff)}', this, ${index}, ${bIdx}, (val) => { updateBuff(${index}, ${bIdx}, val); renderChars(); }, 'buff')">
+                                        <span>${escapeHtml(buff || '選擇')}</span> <span>▼</span>
                                     </div>
                                 `).join('')}
                                 <button type="button" class="btn" style="padding: 2px 6px; font-size: 11px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addBuff(${index})" title="新增加強版本">＋</button>
@@ -676,13 +692,12 @@
             } else if (type === 'pool' || type === 'shop') {
                 delete charsData[index].isCollab;
                 delete charsData[index].collabDate;
-                const defaultP = patchesData.length > 0 ? patchesData[0].patch : "3.2上";
-                charsData[index].term = { type: type, patch: defaultP };
+                charsData[index].term = { type: type, patch: getLatestPatch() };
             } else if (type === 'collab') {
                 delete charsData[index].term;
                 charsData[index].runs = [];
-                charsData[index].isCollab = patchesData.length > 0 ? patchesData[0].patch : "4.4上";
-                charsData[index].collabDate = "2026/07/24";
+                charsData[index].isCollab = getLatestPatch();
+                charsData[index].collabDate = new Date().toISOString().slice(0, 10).replace(/-/g, '/');
             }
             renderChars();
         }
@@ -872,8 +887,8 @@
 
                     card.innerHTML = `
                         <div class="input-group">
-                            <input type="text" value="${p.patch || ''}" onchange="updatePatch(${index}, 'patch', this.value)" class="${isPatchModified ? 'modified-highlight' : ''}" placeholder="新版本">
-                            <input type="date" value="${inputDateVal}" onchange="updatePatchDate(${index}, this.value)" class="${isDateModified ? 'modified-highlight' : ''}" title="版本日期">
+                            <input type="text" value="${escapeHtml(p.patch || '')}" onchange="updatePatch(${index}, 'patch', this.value)" class="${isPatchModified ? 'modified-highlight' : ''}" placeholder="新版本">
+                            <input type="date" value="${escapeHtml(inputDateVal)}" onchange="updatePatchDate(${index}, this.value)" class="${isDateModified ? 'modified-highlight' : ''}" title="版本日期">
                         </div>
                         <button class="btn btn-danger" onclick="deletePatch(${index})" title="刪除">✕</button>
                     `;

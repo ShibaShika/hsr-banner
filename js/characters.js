@@ -1,4 +1,4 @@
-// 更新日期: 2026/07/22
+// 更新日期: 2026/08/05
 
 const RAW_CHARACTERS = [
     {
@@ -692,9 +692,7 @@ const RAW_CHARACTERS = [
         path: "智識",
         elem: "量子",
         avatar: "",
-        runs: [
-            "4.4上"
-        ],
+        runs: [],
         isCollab: "4.4上",
         collabDate: "2026/07/24"
     },
@@ -704,9 +702,7 @@ const RAW_CHARACTERS = [
         path: "毀滅",
         elem: "雷",
         avatar: "",
-        runs: [
-            "4.4上"
-        ],
+        runs: [],
         isCollab: "4.4上",
         collabDate: "2026/07/24"
     },

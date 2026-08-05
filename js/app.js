@@ -2,6 +2,17 @@
    崩壞：星穹鐵道 - 限定躍遷一覽表 主應用程式邏輯 (app.js)
    ========================================================================== */
 
+// 轉義 HTML 特殊字元，避免 innerHTML 注入或屬性斷裂
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // 🎨 本地 SVG Data URI 備用頭像產生器
 function getFallbackAvatar(name) {
     const text = name ? name.trim().charAt(0) : '?';
@@ -48,44 +59,33 @@ function getCurrentPatchName() {
     return currentPatch;
 }
 
-// 🔍 計算角色的精確登場小版本 (如：4.4上)
-function getCharDebutVersion(char, patchesList) {
-    let earliestPatch = null;
-
+// 🔍 取得角色最早登場的小版本名稱
+function getCharEarliestPatch(char, patchesList) {
     if (char.isCollab) {
-        earliestPatch = char.isCollab;
-    } else if (char.runs && char.runs.length > 0) {
+        return char.isCollab;
+    }
+    if (char.runs && char.runs.length > 0) {
         const runIndices = char.runs.map(p => patchesList.indexOf(p)).filter(idx => idx !== -1);
         if (runIndices.length > 0) {
-            const minIdx = Math.min(...runIndices);
-            earliestPatch = patchesList[minIdx];
+            return patchesList[Math.min(...runIndices)];
         }
-    } else if (char.term && char.term.patch) {
-        earliestPatch = char.term.patch;
     }
+    if (char.term && char.term.patch) {
+        return char.term.patch;
+    }
+    return null;
+}
 
-    return earliestPatch || "未登場";
+// 🔍 計算角色的精確登場小版本 (如：4.4上)
+function getCharDebutVersion(char, patchesList) {
+    return getCharEarliestPatch(char, patchesList) || "未登場";
 }
 
 // 🔍 智慧計算角色的首次登場「大版本號」（如：1.x, 2.x, 3.x）
 function getCharDebutMajorVersion(char, patchesList) {
-    let earliestPatch = null;
-
-    if (char.isCollab) {
-        earliestPatch = char.isCollab;
-    } else if (char.runs && char.runs.length > 0) {
-        const runIndices = char.runs.map(p => patchesList.indexOf(p)).filter(idx => idx !== -1);
-        if (runIndices.length > 0) {
-            const minIdx = Math.min(...runIndices);
-            earliestPatch = patchesList[minIdx];
-        }
-    } else if (char.term && char.term.patch) {
-        earliestPatch = char.term.patch;
-    }
-
+    const earliestPatch = getCharEarliestPatch(char, patchesList);
     if (earliestPatch) {
-        const majorNum = earliestPatch.split('.')[0];
-        return `${majorNum}.x`;
+        return `${earliestPatch.split('.')[0]}.x`;
     }
     return "未知";
 }
@@ -276,8 +276,8 @@ function renderTable() {
     });
     const uniqueVersions = Array.from(versionSet).sort((a, b) => parseFloat(a) - parseFloat(b));
 
-    const PATH_ORDER = ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
-    const uniquePaths = PATH_ORDER.filter(p => RAW_CHARACTERS.some(c => c.path === p));
+    const pathOrder = (typeof PATH_ORDER !== 'undefined') ? PATH_ORDER : ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
+    const uniquePaths = pathOrder.filter(p => RAW_CHARACTERS.some(c => c.path === p));
     const uniqueElems = ELEM_ORDER.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
 
     // 動態產生大版本選項
@@ -386,13 +386,13 @@ function renderTable() {
             statsTooltip = `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 目前等待：${stats.currentGap}${overdueFlag}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
         }
         
-        html += `<tr data-path="${char.path}" data-elem="${char.elem}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${majorVer}" data-name="${char.name}">
-            <td class="bg-${char.elem}">
-                <div class="char-info-cell" title="${statsTooltip}">
+        html += `<tr data-path="${escapeHtml(char.path)}" data-elem="${escapeHtml(char.elem)}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${escapeHtml(majorVer)}" data-name="${escapeHtml(char.name)}">
+            <td class="bg-${escapeHtml(char.elem)}">
+                <div class="char-info-cell" title="${escapeHtml(statsTooltip)}">
                     <span class="char-seq">${seqNum}</span>
-                    ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${char.path}">` : '<div class="char-path-icon"></div>'}
-                    <img src="${avatarUrl}" class="char-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
-                    <span class="char-name">${char.name}</span>
+                    ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${escapeHtml(char.path)}">` : '<div class="char-path-icon"></div>'}
+                    <img src="${avatarUrl}" class="char-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
+                    <span class="char-name">${escapeHtml(char.name)}</span>
                 </div>
             </td>`;
         
@@ -410,13 +410,13 @@ function renderTable() {
                 const spanCount = Math.min(5, sIdx);
                 
                 if (pIdx < sIdx) {
-                    if (pIdx === sIdx - spanCount) {
+                    if (spanCount > 0 && pIdx === sIdx - spanCount) {
                         if (!collabSpanAdded) {
                             history.push({ status: 'COLLAB_SPAN', count: spanCount });
                             collabSpanAdded = true;
                         }
                         return;
-                    } else if (pIdx > sIdx - spanCount) {
+                    } else if (spanCount > 0 && pIdx > sIdx - spanCount) {
                         return;
                     }
                 } else {
@@ -489,9 +489,9 @@ function renderTable() {
 
             if (cell.status === 'UP' || cell.status === 'COLLAB') {
                 cls = 'img-cell';
-                content = `${buffBadgeHtml}<img src="${avatarUrl}" class="grid-avatar" alt="${char.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';"${buffTitleAttr}>`;
+                content = `${buffBadgeHtml}<img src="${avatarUrl}" class="grid-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';"${buffTitleAttr}>`;
             } else if (cell.status === 'COLLAB_EMPTY') {
-                cls = `collab-empty bg-${char.elem}`;
+                cls = `collab-empty bg-${escapeHtml(char.elem)}`;
                 content = buffBadgeHtml;
             } else if (cell.status === 'TERM_START') {
                 cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
@@ -669,6 +669,7 @@ function setupEventListeners() {
     // 📷 匯出截圖邏輯 (修復 html2canvas sticky 錯位毀滅性 Bug)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
+            let cloneContainer = null;
             try {
                 exportImgBtn.textContent = '📷 繪製中...';
                 exportImgBtn.disabled = true;
@@ -713,7 +714,7 @@ function setupEventListeners() {
                     maxActiveCol = 1;
                 }
 
-                const cloneContainer = document.createElement('div');
+                cloneContainer = document.createElement('div');
                 cloneContainer.style.position = 'absolute';
                 cloneContainer.style.left = '-9999px';
                 cloneContainer.style.top = '-9999px';
@@ -809,6 +810,7 @@ function setupEventListeners() {
                 });
 
                 document.body.removeChild(cloneContainer);
+                cloneContainer = null;
 
                 const imgData = canvas.toDataURL('image/png');
                 const newTab = window.open();
@@ -851,6 +853,9 @@ function setupEventListeners() {
                 console.error('截圖繪製失敗:', err);
                 alert('截圖失敗，請重試！');
             } finally {
+                if (cloneContainer && cloneContainer.parentNode) {
+                    cloneContainer.parentNode.removeChild(cloneContainer);
+                }
                 exportImgBtn.textContent = '📷 截圖';
                 exportImgBtn.disabled = false;
             }
@@ -861,6 +866,16 @@ function setupEventListeners() {
     searchInput?.addEventListener('search', applyFilters);
 
     const trackerTable = document.getElementById('tracker');
+    trackerTable?.addEventListener('click', (e) => {
+        if (e.target?.id !== 'empty-reset-btn') return;
+        document.querySelectorAll('.version-item, .path-item, .elem-item, .type-item').forEach(i => { i.checked = false; });
+        const searchInputEl = document.getElementById('char-search-input');
+        const buffToggleBtnEl = document.getElementById('buff-toggle-btn');
+        if (searchInputEl) searchInputEl.value = '';
+        buffToggleBtnEl?.classList.remove('active');
+        applyFilters();
+    });
+
     trackerTable?.addEventListener('mouseover', (e) => {
         if (window.matchMedia && window.matchMedia('(hover: none)').matches) return;
 
@@ -1045,12 +1060,6 @@ function applyFilters() {
         } else {
             emptyRow.style.display = '';
         }
-        document.getElementById('empty-reset-btn')?.addEventListener('click', () => {
-            document.querySelectorAll('.version-item, .path-item, .elem-item, .type-item').forEach(i => i.checked = false);
-            if (searchInput) searchInput.value = '';
-            if (buffToggleBtn) buffToggleBtn.classList.remove('active');
-            applyFilters();
-        });
     } else {
         if (emptyRow) {
             emptyRow.style.display = 'none';
