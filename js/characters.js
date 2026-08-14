@@ -1,4 +1,4 @@
-// 更新日期: 2026/08/15
+// 更新日期: 2026/08/14
 
 const RAW_CHARACTERS = [
     {
@@ -736,7 +736,8 @@ const RAW_CHARACTERS = [
         elem: "冰",
         avatar: "",
         runs: [
-            "4.6上"
+            "4.6上",
+            "4.6下"
         ],
         buffs: []
     }
