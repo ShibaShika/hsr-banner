@@ -278,6 +278,9 @@ function renderTable() {
 
     const pathOrder = (typeof PATH_ORDER !== 'undefined') ? PATH_ORDER : ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
     const uniquePaths = pathOrder.filter(p => RAW_CHARACTERS.some(c => c.path === p));
+    const elemOrder = (typeof ELEM_ORDER !== 'undefined') ? ELEM_ORDER : ["物理", "火", "冰", "雷", "風", "量子", "虛數", "未知"];
+    const uniqueElems = elemOrder.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
+
     // 取得當前已勾選的項目
     const currentCheckedVersions = new Set(Array.from(document.querySelectorAll('.version-item:checked')).map(i => i.value));
     const currentCheckedPaths = new Set(Array.from(document.querySelectorAll('.path-item:checked')).map(i => i.value));
@@ -953,7 +956,7 @@ function applyFilters() {
     const resetFiltersBtn = document.getElementById('reset-filters-btn');
     const buffToggleBtn = document.getElementById('buff-toggle-btn');
     
-    const keyword = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    const keyword = searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '';
     const onlyBuffs = buffToggleBtn ? buffToggleBtn.classList.contains('active') : false;
 
     if (searchClearBtn) {
