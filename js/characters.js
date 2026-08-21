@@ -1,4 +1,4 @@
-// 更新日期: 2026/08/05
+// 更新日期: 2026/08/14
 
 const RAW_CHARACTERS = [
     {
@@ -497,7 +497,8 @@ const RAW_CHARACTERS = [
         runs: [
             "3.3上",
             "3.7上",
-            "4.1上"
+            "4.1上",
+            "4.5上"
         ]
     },
     {
@@ -643,7 +644,8 @@ const RAW_CHARACTERS = [
         avatar: "",
         runs: [
             "4.1上",
-            "4.1下"
+            "4.1下",
+            "4.5下"
         ]
     },
     {
@@ -726,5 +728,17 @@ const RAW_CHARACTERS = [
         runs: [
             "4.5下"
         ]
+    },
+    {
+        cid: null,
+        name: "真珠",
+        path: "歡愉",
+        elem: "冰",
+        avatar: "",
+        runs: [
+            "4.6上",
+            "4.6下"
+        ],
+        buffs: []
     }
 ];
