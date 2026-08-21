@@ -568,7 +568,7 @@
                             const foundDate = findDateByPatch(char.isCollab);
                             if (foundDate) {
                                 dateInputValue = foundDate;
-                                char.collabDate = foundDate.replace(/-/g, '/');
+                                // 不在渲染時回寫資料模型，改由 updateCollabDate 統一負責寫入
                             }
                         }
                     }
@@ -996,7 +996,8 @@
 
         function generateJSString(varName, data) {
             let json = JSON.stringify(data, null, 4);
-            let jsString = json.replace(/"([^"]+)":/g, '$1:');
+            // 僅替換行首帶有縮排的合法 JS 屬性名稱 (例如 `    cid:`、`        patch:`)，避免誤傷字串值
+            let jsString = json.replace(/^(\s*)"([a-zA-Z_$][a-zA-Z0-9_$]*)":/gm, '$1$2:');
             
             const now = new Date();
             const yyyy = now.getFullYear();

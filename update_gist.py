@@ -39,6 +39,23 @@ def sanitize_name(name):
         return ""
     return re.sub(r'[^a-zA-Z0-9]', '', name).lower()
 
+CJK_RE = re.compile(
+    r'[\u4e00-\u9fff'        # CJK Unified Ideographs
+    r'\u3400-\u4dbf'        # Extension A
+    r'\uf900-\ufaff'        # Compatibility Ideographs
+    r'\U00020000-\U0002A6DF' # Extension B
+    r'\U0002A700-\U0002B73F' # Extension C
+    r'\U0002B740-\U0002B81F' # Extension D
+    r'\U0002B820-\U0002CEAF' # Extension E
+    r'\U0002CEB0-\U0002EBEF' # Extension F
+    r'\U0002F800-\U0002FA1F' # Compatibility Supplement
+    r']'
+)
+
+def contains_cjk(text):
+    """檢查字串中是否包含任何 CJK 漢字（含主要擴展區）"""
+    return bool(text and CJK_RE.search(text))
+
 def clean_wikitext_value(val):
     """清洗 Wikitext 中的連結標記 [[ ]] 與取代標點符號"""
     val = re.sub(r'\[\[(?:[^\|\]]*\|)?([^\]]+)\]\]', r'\1', val)
@@ -122,6 +139,7 @@ def fetch_upcoming_wiki_char_map():
             "format": "json"
         }
         pages_res_obj = cffi_requests.get(api_url, params=pages_params, impersonate="chrome110", timeout=10)
+        pages_res_obj.raise_for_status()
         pages = pages_res_obj.json().get("query", {}).get("pages", {})
 
         for p_id, p_info in pages.items():
@@ -372,7 +390,7 @@ def fetch_latest_data():
                 target_name = cht_info
 
         # B. 備援機制：如果 StarRailRes 還沒更新，自動對照 Wiki Upcoming Category
-        if target_name == en_name or not any('\u4e00' <= char <= '\u9fff' for char in target_name):
+        if target_name == en_name or not contains_cjk(target_name):
             if sanitized_query in wiki_upcoming_map:
                 target_name = wiki_upcoming_map[sanitized_query]
                 print(f"✨ 成功從 Wiki Upcoming 分類自動對照繁中名稱: {en_name} ➡️ {target_name}")

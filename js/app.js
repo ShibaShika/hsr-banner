@@ -278,31 +278,34 @@ function renderTable() {
 
     const pathOrder = (typeof PATH_ORDER !== 'undefined') ? PATH_ORDER : ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
     const uniquePaths = pathOrder.filter(p => RAW_CHARACTERS.some(c => c.path === p));
-    const uniqueElems = ELEM_ORDER.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
+    // 取得當前已勾選的項目
+    const currentCheckedVersions = new Set(Array.from(document.querySelectorAll('.version-item:checked')).map(i => i.value));
+    const currentCheckedPaths = new Set(Array.from(document.querySelectorAll('.path-item:checked')).map(i => i.value));
+    const currentCheckedElems = new Set(Array.from(document.querySelectorAll('.elem-item:checked')).map(i => i.value));
 
     // 動態產生大版本選項
     const versionContainer = document.getElementById('version-items-container');
-    if (versionContainer && versionContainer.children.length === 0) {
-        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${v}"> ${v}</label>`).join('');
+    if (versionContainer) {
+        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${v}" ${currentCheckedVersions.has(v) ? 'checked' : ''}> ${v}</label>`).join('');
     }
 
     // 動態產生命途選項
     const pathContainer = document.getElementById('path-items-container');
-    if (pathContainer && pathContainer.children.length === 0) {
+    if (pathContainer) {
         pathContainer.innerHTML = uniquePaths.map(p => {
             const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
             const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${p}">` : "";
-            return `<label><input type="checkbox" class="path-item" value="${p}"> ${iconHtml}${p}</label>`;
+            return `<label><input type="checkbox" class="path-item" value="${p}" ${currentCheckedPaths.has(p) ? 'checked' : ''}> ${iconHtml}${p}</label>`;
         }).join('');
     }
     
     // 動態產生屬性選項
     const elemContainer = document.getElementById('elem-items-container');
-    if (elemContainer && elemContainer.children.length === 0) {
+    if (elemContainer) {
         elemContainer.innerHTML = uniqueElems.map(e => {
             const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
             const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${e}">` : "";
-            return `<label><input type="checkbox" class="elem-item" value="${e}"> ${iconHtml}${e}</label>`;
+            return `<label><input type="checkbox" class="elem-item" value="${e}" ${currentCheckedElems.has(e) ? 'checked' : ''}> ${iconHtml}${e}</label>`;
         }).join('');
     }
 
@@ -402,33 +405,32 @@ function renderTable() {
         let collabSpanAdded = false;
 
         patchesList.forEach((patch, pIdx) => {
-            let cellStatus = 'NONE';
-            
             if (char.isCollab) {
                 const collabStart = char.isCollab;
                 const sIdx = patchesList.indexOf(collabStart);
                 const spanCount = Math.min(5, sIdx);
-                
+
                 if (pIdx < sIdx) {
                     if (spanCount > 0 && pIdx === sIdx - spanCount) {
                         if (!collabSpanAdded) {
                             history.push({ status: 'COLLAB_SPAN', count: spanCount });
                             collabSpanAdded = true;
                         }
-                        return;
-                    } else if (spanCount > 0 && pIdx > sIdx - spanCount) {
-                        return;
                     }
+                    // pIdx < sIdx 的所有情況（含 span 內跳過的格）都直接 return
+                    return;
                 } else {
-                    const lIdx = patchesList.length - 1; 
+                    const lIdx = patchesList.length - 1;
                     if (pIdx === sIdx || pIdx === lIdx) {
-                        cellStatus = 'COLLAB_START'; 
+                        history.push({ status: 'COLLAB' });
                     } else {
-                        cellStatus = 'COLLAB_EMPTY'; 
+                        history.push({ status: 'COLLAB_EMPTY' });
                     }
+                    // pIdx >= sIdx 的所有情況也直接 return，不落入 term 判斷
+                    return;
                 }
             }
-            
+
             if (char.term) {
                 const termIdx = patchesList.indexOf(char.term.patch);
                 if (pIdx === termIdx) {
@@ -440,11 +442,7 @@ function renderTable() {
                 }
             }
 
-            if (cellStatus === 'COLLAB_START') {
-                history.push({ status: 'COLLAB' });
-            } else if (cellStatus === 'COLLAB_EMPTY') {
-                history.push({ status: 'COLLAB_EMPTY' });
-            } else if (char.runs && char.runs.includes(patch)) {
+            if (char.runs && char.runs.includes(patch)) {
                 hasReleased = true;
                 currentGap = 0;
                 history.push({ status: 'UP' });
@@ -594,10 +592,8 @@ function setupEventListeners() {
     const resetFiltersBtn = document.getElementById('reset-filters-btn');
     const exportImgBtn = document.getElementById('export-img-btn');
 
-    let onlyBuffs = false;
     buffToggleBtn?.addEventListener('click', () => {
-        onlyBuffs = !onlyBuffs;
-        buffToggleBtn.classList.toggle('active', onlyBuffs);
+        buffToggleBtn.classList.toggle('active');
         applyFilters();
     });
 
@@ -648,7 +644,6 @@ function setupEventListeners() {
     function clearAllFilters() {
         document.querySelectorAll('.version-item, .path-item, .elem-item, .type-item').forEach(i => i.checked = false);
         if (searchInput) searchInput.value = '';
-        onlyBuffs = false;
         buffToggleBtn?.classList.remove('active');
         applyFilters();
     }
@@ -935,11 +930,6 @@ function rebindControlListeners() {
     const pathItems = document.querySelectorAll('.path-item');
     const elemItems = document.querySelectorAll('.elem-item');
     const typeItems = document.querySelectorAll('.type-item');
-
-    versionItems.forEach(item => item.removeEventListener('change', applyFilters));
-    pathItems.forEach(item => item.removeEventListener('change', applyFilters));
-    elemItems.forEach(item => item.removeEventListener('change', applyFilters));
-    typeItems.forEach(item => item.removeEventListener('change', applyFilters));
 
     versionItems.forEach(item => item.addEventListener('change', applyFilters));
     pathItems.forEach(item => item.addEventListener('change', applyFilters));
