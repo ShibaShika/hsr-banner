@@ -1082,25 +1082,34 @@
                         const remoteSanitized = sanitizeName(remoteName);
 
                         let matchedItem = null;
-                        if (remoteCid) {
-                            matchedItem = localCharSnapshot.find(item => item.originalCid === remoteCid);
-                        }
 
-                        if (!matchedItem && remoteName) {
+                        // 1. 優先以名稱精確或正規化比對（避免本地 CID 誤填導致串位）
+                        if (remoteName) {
                             matchedItem = localCharSnapshot.find(item => 
                                 item.originalName === remoteName || 
                                 (item.originalSanitized && item.originalSanitized === remoteSanitized)
                             );
                         }
 
+                        // 2. 名稱找不到時，才嘗試用 CID 比對
+                        if (!matchedItem && remoteCid) {
+                            matchedItem = localCharSnapshot.find(item => item.originalCid === remoteCid);
+                        }
+
                         if (matchedItem) {
                             const existingChar = matchedItem.ref;
 
-                            if (existingChar.name !== remoteName && !remoteName.match(/^[a-zA-Z\s•]+$/)) {
+                            // 僅當本地名稱為英文/未命名時，才允許自動升級為正式繁中名稱，絕不覆蓋既有的其他中文名
+                            const isExistingPureAscii = existingChar.name.match(/^[a-zA-Z0-9\s•·_ -]+$/) || existingChar.name === '新角色';
+                            const isRemoteChinese = !remoteName.match(/^[a-zA-Z0-9\s•·_ -]+$/);
+
+                            if (existingChar.name !== remoteName && isExistingPureAscii && isRemoteChinese) {
                                 updatedCharsList.push(`${existingChar.name} ➡️ ${remoteName}`);
                                 existingChar.name = remoteName;
                             }
-                            if (remoteCid && !existingChar.cid) {
+
+                            // 若本地尚未填入 CID，或名稱完全吻合時同步正確 CID
+                            if (remoteCid && (!existingChar.cid || existingChar.name === remoteName)) {
                                 existingChar.cid = remoteCid;
                             }
                             if (newChar.path && (existingChar.path === "未知" || !existingChar.path)) existingChar.path = newChar.path;

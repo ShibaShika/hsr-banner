@@ -395,11 +395,9 @@ def fetch_latest_data():
                 target_name = wiki_upcoming_map[sanitized_query]
                 print(f"✨ 成功從 Wiki Upcoming 分類自動對照繁中名稱: {en_name} ➡️ {target_name}")
 
-        # C. 尋找是否已存在於 Gist 中 (透過 cid 或名稱模糊匹配)
+        # C. 尋找是否已存在於 Gist 中 (優先透過名稱匹配，避免本地/Gist CID 錯位誤覆蓋)
         matched_char = None
-        if target_cid and target_cid in existing_char_map_by_cid:
-            matched_char = existing_char_map_by_cid[target_cid]
-        elif target_name in existing_char_map_by_name:
+        if target_name in existing_char_map_by_name:
             matched_char = existing_char_map_by_name[target_name]
         else:
             for char in updated_chars:
@@ -407,15 +405,19 @@ def fetch_latest_data():
                     matched_char = char
                     break
 
-        if matched_char:
-            # 自動補全或更新 cid
-            if target_cid and not matched_char.get('cid'):
-                matched_char['cid'] = target_cid
+        if not matched_char and target_cid and target_cid in existing_char_map_by_cid:
+            matched_char = existing_char_map_by_cid[target_cid]
 
-            # 自動將舊英文名升級為正確繁中名
-            if matched_char['name'] != target_name and target_name != en_name:
+        if matched_char:
+            # 自動將舊英文名升級為正確繁中名（僅當既有名稱不含 CJK 漢字且目標名稱為有效中文時）
+            if (matched_char['name'] != target_name and target_name != en_name 
+                    and not contains_cjk(matched_char['name']) and contains_cjk(target_name)):
                 print(f"🔄 自動將名稱升級為正式中文: {matched_char['name']} -> {target_name}")
                 matched_char['name'] = target_name
+
+            # 自動補全或校正 cid (若名稱相符或原本為空)
+            if target_cid and (not matched_char.get('cid') or matched_char['name'] == target_name):
+                matched_char['cid'] = target_cid
 
             if matched_char.get('path') in ["未知", ""] and path != "未知":
                 matched_char['path'] = path

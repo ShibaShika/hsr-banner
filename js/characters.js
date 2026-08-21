@@ -489,7 +489,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: "1408",
+        cid: "1409",
         name: "風堇",
         path: "記憶",
         elem: "風",
@@ -502,7 +502,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: "1409",
+        cid: "1406",
         name: "賽飛兒",
         path: "同諧",
         elem: "量子",
@@ -513,7 +513,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: "1410",
+        cid: "1408",
         name: "白厄",
         path: "毀滅",
         elem: "物理",
@@ -545,7 +545,7 @@ const RAW_CHARACTERS = [
         collabDate: "2025/07/11"
     },
     {
-        cid: "1411",
+        cid: "1410",
         name: "海瑟音",
         path: "虛無",
         elem: "物理",
