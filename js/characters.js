@@ -710,7 +710,7 @@ const RAW_CHARACTERS = [
         collabDate: "2026/07/24"
     },
     {
-        cid: null,
+        cid: "1512",
         name: "知更鳥•晴歌",
         path: "記憶",
         elem: "風",
@@ -720,7 +720,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: null,
+        cid: "1513",
         name: "砂金•戲浪",
         path: "歡愉",
         elem: "量子",

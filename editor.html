@@ -1076,6 +1076,10 @@
                         originalSanitized: sanitizeName(c.name)
                     }));
 
+                    let updatedNameList = [];
+                    let updatedCidList = [];
+                    let updatedInfoList = [];
+
                     data.new_characters.forEach(newChar => {
                         const remoteCid = newChar.cid ? String(newChar.cid) : null;
                         const remoteName = newChar.name;
@@ -1104,29 +1108,52 @@
                             const isRemoteChinese = !remoteName.match(/^[a-zA-Z0-9\s•·_ -]+$/);
 
                             if (existingChar.name !== remoteName && isExistingPureAscii && isRemoteChinese) {
-                                updatedCharsList.push(`${existingChar.name} ➡️ ${remoteName}`);
+                                updatedNameList.push(`${existingChar.name} ➡️ ${remoteName}`);
                                 existingChar.name = remoteName;
                             }
 
-                            // 若本地尚未填入 CID，或名稱完全吻合時同步正確 CID
-                            if (remoteCid && (!existingChar.cid || existingChar.name === remoteName)) {
+                            // 若本地尚未填入 CID，或名稱完全吻合且 CID 不同時同步正確 CID
+                            if (remoteCid && (existingChar.cid !== remoteCid)) {
+                                const oldCidStr = existingChar.cid || '無';
                                 existingChar.cid = remoteCid;
+                                updatedCidList.push(`${existingChar.name} (CID: ${oldCidStr} ➡️ ${remoteCid})`);
                             }
-                            if (newChar.path && (existingChar.path === "未知" || !existingChar.path)) existingChar.path = newChar.path;
-                            if (newChar.elem && (existingChar.elem === "未知" || !existingChar.elem)) existingChar.elem = newChar.elem;
+
+                            if (newChar.path && (existingChar.path === "未知" || !existingChar.path)) {
+                                existingChar.path = newChar.path;
+                                updatedInfoList.push(`${existingChar.name} (命途 ➡️ ${newChar.path})`);
+                            }
+                            if (newChar.elem && (existingChar.elem === "未知" || !existingChar.elem)) {
+                                existingChar.elem = newChar.elem;
+                                updatedInfoList.push(`${existingChar.name} (屬性 ➡️ ${newChar.elem})`);
+                            }
 
                             if (newChar.runs && Array.isArray(newChar.runs)) {
                                 if (!existingChar.runs) existingChar.runs = [];
+                                const newRunsAdded = [];
                                 newChar.runs.forEach(r => {
-                                    if (!existingChar.runs.includes(r)) existingChar.runs.push(r);
+                                    if (!existingChar.runs.includes(r)) {
+                                        existingChar.runs.push(r);
+                                        newRunsAdded.push(r);
+                                    }
                                 });
+                                if (newRunsAdded.length > 0) {
+                                    updatedInfoList.push(`${existingChar.name} (排程新增: ${newRunsAdded.join(', ')})`);
+                                }
                             }
 
                             if (newChar.buffs && Array.isArray(newChar.buffs)) {
                                 if (!existingChar.buffs) existingChar.buffs = [];
+                                const newBuffsAdded = [];
                                 newChar.buffs.forEach(b => {
-                                    if (!existingChar.buffs.includes(b)) existingChar.buffs.push(b);
+                                    if (!existingChar.buffs.includes(b)) {
+                                        existingChar.buffs.push(b);
+                                        newBuffsAdded.push(b);
+                                    }
                                 });
+                                if (newBuffsAdded.length > 0) {
+                                    updatedInfoList.push(`${existingChar.name} (加強新增: ${newBuffsAdded.join(', ')})`);
+                                }
                             }
                         } else {
                             const newObj = {
@@ -1150,29 +1177,47 @@
                             addedCharsList.push(`${newChar.name} (${newChar.path}/${newChar.elem}) [${(newChar.runs || []).join(', ')}]`);
                         }
                     });
-                }
 
-                if (addedPatchesList.length > 0 || addedCharsList.length > 0 || updatedCharsList.length > 0) {
-                    renderPatches();
-                    renderChars();
+                    const hasAnyUpdates = addedPatchesList.length > 0 || 
+                                          addedCharsList.length > 0 || 
+                                          updatedNameList.length > 0 || 
+                                          updatedCidList.length > 0 || 
+                                          updatedInfoList.length > 0;
 
-                    let msg = `✅ 同步完成！\n\n`;
-                    if (updatedCharsList.length > 0) {
-                        msg += `【名稱自動升級為中文 (${updatedCharsList.length} 位)】\n`;
-                        updatedCharsList.forEach(c => msg += `• ${c}\n`);
-                        msg += `\n`;
+                    if (hasAnyUpdates) {
+                        renderPatches();
+                        renderChars();
+
+                        let msg = `✅ 同步完成！\n\n`;
+                        if (updatedNameList.length > 0) {
+                            msg += `【名稱自動升級為中文 (${updatedNameList.length} 位)】\n`;
+                            updatedNameList.forEach(c => msg += `• ${c}\n`);
+                            msg += `\n`;
+                        }
+                        if (updatedCidList.length > 0) {
+                            msg += `【CID 補全與更新 (${updatedCidList.length} 位)】\n`;
+                            updatedCidList.forEach(c => msg += `• ${c}\n`);
+                            msg += `\n`;
+                        }
+                        if (updatedInfoList.length > 0) {
+                            msg += `【資訊與排程更新 (${updatedInfoList.length} 項)】\n`;
+                            updatedInfoList.forEach(c => msg += `• ${c}\n`);
+                            msg += `\n`;
+                        }
+                        if (addedCharsList.length > 0) {
+                            msg += `【新增角色 (${addedCharsList.length} 位)】\n`;
+                            addedCharsList.forEach(c => msg += `• ${c}\n`);
+                            msg += `\n`;
+                        }
+                        if (addedPatchesList.length > 0) {
+                            msg += `【新增版本 (${addedPatchesList.length} 個)】\n- ${addedPatchesList.join(', ')}\n`;
+                        }
+                        alert(msg);
+                    } else {
+                        renderPatches();
+                        renderChars();
+                        alert(`✨ 目前已經是最新的資料，沒有新增或變動的項目。`);
                     }
-                    if (addedCharsList.length > 0) {
-                        msg += `【新增角色 (${addedCharsList.length} 位)】\n`;
-                        addedCharsList.forEach(c => msg += `• ${c}\n`);
-                        msg += `\n`;
-                    }
-                    if (addedPatchesList.length > 0) {
-                        msg += `【新增版本 (${addedPatchesList.length} 個)】\n- ${addedPatchesList.join(', ')}\n`;
-                    }
-                    alert(msg);
-                } else {
-                    alert(`✨ 目前已經是最新的資料，沒有新增或變動的項目。`);
                 }
 
                 btnEl.textContent = originalText;
