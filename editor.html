@@ -1128,17 +1128,29 @@
                                 updatedInfoList.push(`${existingChar.name} (屬性 ➡️ ${newChar.elem})`);
                             }
 
-                            if (newChar.runs && Array.isArray(newChar.runs)) {
-                                if (!existingChar.runs) existingChar.runs = [];
-                                const newRunsAdded = [];
-                                newChar.runs.forEach(r => {
-                                    if (!existingChar.runs.includes(r)) {
-                                        existingChar.runs.push(r);
-                                        newRunsAdded.push(r);
+                            // 聯動角色特殊格式防護：若為聯動角色，runs 嚴格保持為空陣列 []，避免被一般卡池排程污染
+                            const isCollabChar = existingChar.isCollab !== undefined || newChar.isCollab !== undefined;
+
+                            if (isCollabChar) {
+                                existingChar.runs = [];
+                                if (newChar.isCollab && !existingChar.isCollab) {
+                                    existingChar.isCollab = newChar.isCollab;
+                                    existingChar.collabDate = newChar.collabDate || "";
+                                    updatedInfoList.push(`${existingChar.name} (設定為聯動角色: ${newChar.isCollab})`);
+                                }
+                            } else {
+                                if (newChar.runs && Array.isArray(newChar.runs)) {
+                                    if (!existingChar.runs) existingChar.runs = [];
+                                    const newRunsAdded = [];
+                                    newChar.runs.forEach(r => {
+                                        if (!existingChar.runs.includes(r)) {
+                                            existingChar.runs.push(r);
+                                            newRunsAdded.push(r);
+                                        }
+                                    });
+                                    if (newRunsAdded.length > 0) {
+                                        updatedInfoList.push(`${existingChar.name} (排程新增: ${newRunsAdded.join(', ')})`);
                                     }
-                                });
-                                if (newRunsAdded.length > 0) {
-                                    updatedInfoList.push(`${existingChar.name} (排程新增: ${newRunsAdded.join(', ')})`);
                                 }
                             }
 
@@ -1162,9 +1174,13 @@
                                 path: newChar.path || "毀滅",
                                 elem: newChar.elem || "火",
                                 avatar: newChar.avatar || "",
-                                runs: newChar.runs || [],
+                                runs: newChar.isCollab ? [] : (newChar.runs || []),
                                 buffs: newChar.buffs || []
                             };
+                            if (newChar.isCollab) {
+                                newObj.isCollab = newChar.isCollab;
+                                newObj.collabDate = newChar.collabDate || "";
+                            }
                             charsData.push(newObj);
 
                             localCharSnapshot.push({

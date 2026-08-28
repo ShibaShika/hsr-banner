@@ -424,12 +424,15 @@ def fetch_latest_data():
             if matched_char.get('elem') in ["未知", ""] and elem != "未知":
                 matched_char['elem'] = elem
                 
-            if 'runs' not in matched_char or not isinstance(matched_char['runs'], list):
+            if matched_char.get('isCollab'):
                 matched_char['runs'] = []
-                
-            if sched['run'] not in matched_char['runs']:
-                matched_char['runs'].append(sched['run'])
-                print(f"📅 自動排程成功: 將 {matched_char['name']} 安排至 {sched['run']}")
+            else:
+                if 'runs' not in matched_char or not isinstance(matched_char['runs'], list):
+                    matched_char['runs'] = []
+                    
+                if sched['run'] not in matched_char['runs']:
+                    matched_char['runs'].append(sched['run'])
+                    print(f"📅 自動排程成功: 將 {matched_char['name']} 安排至 {sched['run']}")
         else:
             new_char = {
                 "cid": target_cid,
