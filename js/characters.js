@@ -1,4 +1,4 @@
-// 更新日期: 2026/08/14
+// 更新日期: 2026/09/26
 
 const RAW_CHARACTERS = [
     {
@@ -331,7 +331,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: "1220",
+        cid: "1221",
         name: "雲璃",
         path: "毀滅",
         elem: "物理",
@@ -357,7 +357,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: "1221",
+        cid: "1220",
         name: "飛霄",
         path: "巡獵",
         elem: "風",
@@ -603,7 +603,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: "1416",
+        cid: "1321",
         name: "大理花",
         path: "虛無",
         elem: "火",
@@ -614,7 +614,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: "1417",
+        cid: "1502",
         name: "爻光",
         path: "歡愉",
         elem: "物理",
@@ -649,7 +649,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: "1505",
+        cid: "1506",
         name: "銀狼LV.999",
         path: "歡愉",
         elem: "虛數",
@@ -659,13 +659,14 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: "1506",
+        cid: "1505",
         name: "緋英",
         path: "歡愉",
         elem: "物理",
         avatar: "",
         runs: [
-            "4.2下"
+            "4.2下",
+            "4.6上"
         ]
     },
     {
@@ -675,7 +676,8 @@ const RAW_CHARACTERS = [
         elem: "火",
         avatar: "",
         runs: [
-            "4.3上"
+            "4.3上",
+            "4.6下"
         ]
     },
     {

@@ -2,50 +2,97 @@ name: Auto Update HSR Banner Data
 
 on:
   schedule:
-    # 每日台灣時間 09:00 (UTC 01:00) 執行，避開 GitHub Actions 尖峰時段
+    # 每日台灣時間 09:00 (UTC 01:00) 執行
     - cron: '0 1 * * *'
   workflow_dispatch:
     inputs:
-      force_update:
-        description: '強制更新（即使無差異也寫入 Gist）'
+      dry_run:
+        description: '僅執行抓取與檢驗，不提交 Push (Dry Run)'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
+permissions:
+  contents: write
+  issues: write
+
 jobs:
-  update-gist:
+  update-banner-data:
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # 防止網路掛起導致計費超時
+    timeout-minutes: 10
 
     steps:
-      - name: 下載專案程式碼
+      - name: 📥 下載專案程式碼
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: 設定 Python 環境
+      - name: 🐍 設定 Python 環境
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: 安裝所需套件
+      - name: 📦 安裝所需套件
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 執行更新腳本
+      - name: 🚀 執行全自動抓取與安全檢驗
         id: run_update
         env:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: python update_gist.py
 
-      - name: 更新失敗時自動建立 GitHub Issue 通知
+      - name: 🔍 檢查是否有實質資料異動
+        id: check_git
+        run: |
+          if [ -n "$(git status --porcelain js/characters.js js/patches.js)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "偵測到資料庫有實質更新！"
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "目前資料庫已是最新狀態，無需提交。"
+          fi
+
+      - name: 💾 自動提交並推送更新 (Git Commit & Push)
+        if: steps.check_git.outputs.has_changes == 'true' && !inputs.dry_run
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 讀取詳細變更摘要
+          SUMMARY=""
+          if [ -f .update_summary.md ]; then
+            SUMMARY=$(cat .update_summary.md)
+          fi
+          
+          TODAY=$(date -u +'%Y/%m/%d')
+          COMMIT_MSG="🤖 Auto update banner data ($TODAY)
+
+          $SUMMARY"
+          
+          git add js/characters.js js/patches.js
+          git commit -m "$COMMIT_MSG"
+          git push origin main
+          echo "✅ 成功將最新卡池資料自動推送至 main 分支！"
+
+      - name: 📋 輸出更新摘要至 Step Summary
+        if: steps.check_git.outputs.has_changes == 'true'
+        run: |
+          echo "## 📊 HSR Banner 資料庫自動更新完成" >> $GITHUB_STEP_SUMMARY
+          if [ -f .update_summary.md ]; then
+            cat .update_summary.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 🚨 更新或檢驗失敗時自動建立 GitHub Issue 警報
         if: failure() && steps.run_update.outcome == 'failure'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const today = new Date().toISOString().slice(0, 10);
-            const title = `[自動通知] HSR Banner 更新失敗 (${today})`;
+            const title = `[自動警報] HSR Banner 全自動更新或安全檢驗失敗 (${today})`;
 
             // 避免重複建立相同日期的 Issue
             const issues = await github.rest.issues.listForRepo({
@@ -65,27 +112,22 @@ jobs:
               repo: context.repo.repo,
               title: title,
               body: [
-                '## ⚠️ 自動化更新失敗',
+                '## ⚠️ 全自動更新或品質防護檢驗未通過',
                 '',
-                `- **執行時間**：${new Date().toISOString()}`,
-                `- **Run ID**：[#${context.runId}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                `- **觸發時間**：${new Date().toISOString()}`,
+                `- **Run 紀錄**：[#${context.runId}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
                 '',
-                '### 可能原因',
-                '- HoyoLAB API 暫時無法存取',
-                '- Fandom Wiki API 回應異常',
-                '- StarRailRes 資料庫無法取得',
-                '- `GIST_TOKEN` 已過期或權限不足',
+                '### 🛡️ 安全防護機制提醒',
+                '系統已觸發安全防護熔斷，**未對專案 main 分支進行任何更動**，保持線上網站不受影響。',
                 '',
-                '### 處理方式',
-                '1. 查看上方 Run 連結中的執行 log',
-                '2. 確認 `GIST_TOKEN` Secret 是否有效',
-                '3. 手動觸發 workflow 重試',
+                '### 🔍 可能原因',
+                '1. Fandom Wiki 或 StarRailRes 網路連線逾時。',
+                '2. 未通過「五道安全防護檢驗門檻」（例如版本格式不符、歷史排程縮水或孤兒版本）。',
+                '',
+                '### 🛠️ 處理步驟',
+                '1. 點擊上方 Run 連結檢查執行的具體日誌與錯誤門檻。',
+                '2. 如需手動更新，亦可透過 `editor.html` 後台進行視覺化手動校驗。',
               ].join('\n'),
               labels: ['auto-update-fail']
             });
-            console.log('已建立失敗通知 Issue。');
-
-      - name: 熔斷觸發時標記（exit code 2）
-        if: steps.run_update.outcome == 'failure'
-        run: |
-          echo "::warning::更新腳本觸發熔斷保護或執行失敗，請查看 log 確認原因。"
+            console.log('已成功建立 GitHub Issue 警報。');

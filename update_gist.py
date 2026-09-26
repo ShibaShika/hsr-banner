@@ -6,7 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 
 # ──────────────────────────────────────────────────
-# 基本設定
+# 基本設定與常數
 # ──────────────────────────────────────────────────
 GIST_ID = "53c5bb324cd140fb8751c9812bd5df68"
 GITHUB_TOKEN = os.environ.get("GIST_TOKEN")
@@ -36,7 +36,6 @@ ELEM_MAP = {
     "Imaginary": "虛數"
 }
 
-# 特殊角色中文化與別名備援對照表
 SPECIAL_NAME_MAP = {
     "Astra Yao": "耀嘉音",
     "Aha": "阿哈",
@@ -56,8 +55,9 @@ SPECIAL_NAME_MAP = {
     "Evernight": "長夜月"
 }
 
+
 # ──────────────────────────────────────────────────
-# 字串清洗與工具函式
+# 工具函式
 # ──────────────────────────────────────────────────
 def sanitize_name(name):
     """去除所有非英數字元並轉小寫，用於無障礙模糊匹配"""
@@ -65,6 +65,7 @@ def sanitize_name(name):
         return ""
     name = str(name).replace('&', 'and')
     return re.sub(r'[^a-zA-Z0-9]', '', name).lower()
+
 
 CJK_RE = re.compile(
     r'[\u4e00-\u9fff'
@@ -79,8 +80,10 @@ CJK_RE = re.compile(
     r']'
 )
 
+
 def contains_cjk(text):
     return bool(text and CJK_RE.search(text))
+
 
 def clean_wikitext_value(val):
     if not val:
@@ -88,6 +91,7 @@ def clean_wikitext_value(val):
     val = re.sub(r'\[\[(?:[^\|\]]*\|)?([^\]]+)\]\]', r'\1', val)
     val = re.sub(r'<!--.*?-->', '', val)
     return val.strip().replace('·', '•')
+
 
 def normalize_patch_date(value):
     """標準化日期為 YY/MM/DD"""
@@ -103,53 +107,80 @@ def normalize_patch_date(value):
             continue
     return None
 
-def clean_invalid_runs(chars):
-    """清洗歷史殘留的無效版本名稱（例如 '4.X上'）"""
-    cleaned_count = 0
-    for char in chars:
-        if 'runs' in char and isinstance(char['runs'], list):
-            original = char['runs']
-            char['runs'] = [r for r in original if isinstance(r, str) and PATCH_NAME_RE.fullmatch(r)]
-            removed = set(original) - set(char['runs'])
-            if removed:
-                print(f"🧹 清除 [{char.get('name', '?')}] 的無效版本標籤：{removed}")
-                cleaned_count += 1
-    return cleaned_count
 
-def merge_new_patches(existing_patches, new_patch_items):
-    """合併並排序版本列表"""
-    patches_by_name = {}
-    for patch in (existing_patches or []):
-        if not isinstance(patch, dict):
-            continue
-        name = patch.get('patch')
-        date = normalize_patch_date(patch.get('date'))
-        if isinstance(name, str) and PATCH_NAME_RE.fullmatch(name) and date:
-            patches_by_name[name] = {'patch': name, 'date': date}
+# ──────────────────────────────────────────────────
+# 本地 JS 檔案讀寫解析引擎
+# ──────────────────────────────────────────────────
+def parse_local_js_array(filepath, var_name):
+    """精確解析專案內現有的 js 陣列代碼"""
+    if not os.path.exists(filepath):
+        print(f"⚠️ 找不到檔案：{filepath}")
+        return []
+    with open(filepath, 'r', encoding='utf-8') as f:
+        content = f.read()
 
-    for item in new_patch_items:
-        name = item.get('patch')
-        date = normalize_patch_date(item.get('date'))
-        if not isinstance(name, str) or not PATCH_NAME_RE.fullmatch(name):
-            continue
-        elif not date:
-            continue
+    start_match = re.search(r'const\s+' + var_name + r'\s*=\s*\[', content)
+    if not start_match:
+        print(f"⚠️ 在 {filepath} 中找不到 {var_name}")
+        return []
+    start_pos = start_match.end() - 1
+
+    bracket_level = 0
+    end_pos = -1
+    in_string = False
+    string_char = ''
+
+    for i in range(start_pos, len(content)):
+        char = content[i]
+        if in_string:
+            if char == string_char and content[i - 1] != '\\':
+                in_string = False
         else:
-            if name not in patches_by_name:
-                patches_by_name[name] = {'patch': name, 'date': date}
-                print(f"📅 收錄新版本：{name} ({date})")
+            if char in ('"', "'"):
+                in_string = True
+                string_char = char
+            elif char == '[':
+                bracket_level += 1
+            elif char == ']':
+                bracket_level -= 1
+                if bracket_level == 0:
+                    end_pos = i + 1
+                    break
 
-    return sorted(patches_by_name.values(), key=lambda p: (p['date'], p['patch']))
+    if end_pos == -1:
+        return []
+
+    raw_array = content[start_pos:end_pos]
+    json_str = re.sub(r'([{\s,])([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:', r'\1"\2":', raw_array)
+    json_str = re.sub(r"'([^']*)'", r'"\1"', json_str)
+    json_str = re.sub(r',\s*([\]}])', r'\1', json_str)
+
+    try:
+        return json.loads(json_str)
+    except Exception as e:
+        print(f"⚠️ 解析 {filepath} 發生錯誤: {e}")
+        return []
+
+
+def serialize_js_file(var_name, data, filepath):
+    """序列化為標準格式並覆寫至 js 檔案（與 editor.html 匯出完全一致）"""
+    json_str = json.dumps(data, ensure_ascii=False, indent=4)
+    # 僅替換行首縮排的合法 JS key，不誤傷內容
+    js_str = re.sub(r'^(\s*)"([a-zA-Z_$][a-zA-Z0-9_$]*)":', r'\1\2:', json_str, flags=re.MULTILINE)
+
+    today_str = datetime.now().strftime("%Y/%m/%d")
+    header = f"// 更新日期: {today_str}\n\n"
+    content = f"{header}const {var_name} = {js_str};\n"
+
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"💾 已成功寫入專案檔案：{filepath}")
 
 
 # ──────────────────────────────────────────────────
 # 核心資料源：Fandom Wiki 結構化躍遷歷史與排程
 # ──────────────────────────────────────────────────
 def fetch_fandom_schedules_and_patches(session):
-    """
-    透過 MediaWiki API 解析 Fandom Wiki 的 Warp/List 頁面，
-    自動推導當前與未來卡池的版本號（如 4.6上、4.6下）及 5 星限定角色。
-    """
     print("正在從 Fandom Wiki (Warp/List) 抓取官方卡池排程與歷史...")
 
     parse_res = session.get(WIKI_API_URL, params={
@@ -180,9 +211,8 @@ def fetch_fandom_schedules_and_patches(session):
         return None
 
     warp_records = []
-    version_dates = {}  # ver -> set of datetime
+    version_dates = {}
 
-    # 巡覽前 3 個表格：Table 0 (Current), Table 1 (Upcoming), Table 2 (Past)
     for t_idx in range(min(3, len(tables))):
         t = tables[t_idx]
         current_ver = None
@@ -249,7 +279,7 @@ def fetch_fandom_schedules_and_patches(session):
     page_to_chars = {}
 
     for i in range(0, len(unique_pages), 50):
-        batch = unique_pages[i:i+50]
+        batch = unique_pages[i:i + 50]
         res = session.get(WIKI_API_URL, params={
             'action': 'query',
             'prop': 'revisions',
@@ -264,7 +294,6 @@ def fetch_fandom_schedules_and_patches(session):
             title = pinfo.get('title', '')
             content = pinfo.get('revisions', [{}])[0].get('slots', {}).get('main', {}).get('*', '')
 
-            # 提取 5 星角色
             m = re.search(r'character_5_F\s*=\s*([^|\n]+)', content)
             if not m:
                 m = re.search(r'5\{\{star\}\}\s*Character===?\s*\n\*\s*\{\{Character Intro\|([^}]+)\}\}', content, re.IGNORECASE)
@@ -272,11 +301,9 @@ def fetch_fandom_schedules_and_patches(session):
             if m:
                 raw_chars = m.group(1).strip()
                 raw_chars = re.sub(r'<!--.*?-->', '', raw_chars).strip()
-                # 支援分號分隔的多角色自選池 (如 Indelible Coterie)
                 char_list = [c.strip() for c in raw_chars.split(';') if c.strip()]
                 page_to_chars[title] = char_list
 
-    # 組裝成排程結果
     schedules = []
     seen_schedule_keys = set()
 
@@ -307,7 +334,6 @@ def fetch_fandom_schedules_and_patches(session):
 # 角色中文化與資訊補全引擎
 # ──────────────────────────────────────────────────
 def fetch_starrailres_data(session):
-    """從 StarRailRes 抓取解包角色庫"""
     print("正在從 StarRailRes 抓取解包角色庫...")
     base = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new"
     try:
@@ -321,20 +347,13 @@ def fetch_starrailres_data(session):
 
 
 def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session):
-    """
-    綜合查詢 StarRailRes 與 Fandom Wiki，為角色補全：
-    - 正體中文名稱 (target_name)
-    - 遊戲角色 ID (target_cid)
-    - 命途 (path)
-    - 屬性 (elem)
-    """
     sanitized = sanitize_name(en_name)
     target_cid = None
     target_name = en_name
     path = "未知"
     elem = "未知"
 
-    # 0. 優先檢查特殊備援映射
+    # 0. 優先檢查特殊別名字典
     if en_name in SPECIAL_NAME_MAP:
         target_name = SPECIAL_NAME_MAP[en_name]
     else:
@@ -359,7 +378,7 @@ def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session):
                 elem = ELEM_MAP.get(raw_elem, raw_elem or "未知")
             break
 
-    # 2. 若 StarRailRes 尚未更新或名稱非中文，備援向 Fandom Wiki 查詢
+    # 2. 備援向 Fandom Wiki 查詢
     if target_name == en_name or not contains_cjk(target_name) or path == "未知" or elem == "未知":
         if en_name in wiki_char_cache:
             w_info = wiki_char_cache[en_name]
@@ -381,7 +400,6 @@ def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session):
 
 
 def query_wiki_character_page(char_name, session):
-    """向 Fandom Wiki 查詢單一角色頁面中的中文化與命途屬性"""
     info = {"cht_name": None, "path": None, "elem": None}
     try:
         res = session.get(WIKI_API_URL, params={
@@ -399,7 +417,6 @@ def query_wiki_character_page(char_name, session):
                 continue
             content = p.get('revisions', [{}])[0].get('slots', {}).get('main', {}).get('*', '')
 
-            # 繁中名
             m_tw = re.search(r'\|(?:zht|zh[-_]?(?:tw|hk))\s*=\s*([^\n\|]+)', content, re.IGNORECASE)
             if m_tw and m_tw.group(1).strip():
                 info["cht_name"] = clean_wikitext_value(m_tw.group(1))
@@ -408,12 +425,10 @@ def query_wiki_character_page(char_name, session):
                 if m_zh and m_zh.group(1).strip():
                     info["cht_name"] = clean_wikitext_value(m_zh.group(1))
 
-            # 命途
             m_path = re.search(r'\|path\s*=\s*([^\n\|]+)', content)
             if m_path:
                 info["path"] = clean_wikitext_value(m_path.group(1))
 
-            # 屬性
             m_elem = re.search(r'\|(?:combatType|element)\s*=\s*([^\n\|]+)', content)
             if m_elem:
                 info["elem"] = clean_wikitext_value(m_elem.group(1))
@@ -425,74 +440,123 @@ def query_wiki_character_page(char_name, session):
 
 
 # ──────────────────────────────────────────────────
-# 主執行邏輯
+# 🛡️ 五道安全防護檢驗門檻（Pre-commit Validation Gates）
 # ──────────────────────────────────────────────────
-def fetch_latest_data():
-    print("\n" + "=" * 55)
-    print("🚀 開始執行 HSR Banner 自動更新流程 (Fandom Engine)")
-    print("=" * 55)
+def validate_data_integrity(original_chars, original_patches, new_chars, new_patches):
+    """
+    五道強制安全防護檢驗門檻。
+    若有任何一項檢驗不通過，拋出 AssertionError 並立即中斷，絕不寫入專案！
+    """
+    print("\n🛡️ 正在執行五道安全防護檢驗門檻 (Pre-commit Validation)...")
+
+    # 門檻 1：角色數量不減少原則
+    if len(new_chars) < len(original_chars):
+        raise AssertionError(
+            f"❌ 門檻 1 失敗：角色總數異常減少！(原 {len(original_chars)} 位 ➡️ 現 {len(new_chars)} 位)"
+        )
+    print(f"  ✅ 門檻 1 通過：角色總數維持或增加 ({len(original_chars)} ➡️ {len(new_chars)})")
+
+    # 門檻 2：版本數量不減少原則
+    if len(new_patches) < len(original_patches):
+        raise AssertionError(
+            f"❌ 門檻 2 失敗：版本總數異常減少！(原 {len(original_patches)} 個 ➡️ 現 {len(new_patches)} 個)"
+        )
+    print(f"  ✅ 門檻 2 通過：版本數量維持或增加 ({len(original_patches)} ➡️ {len(new_patches)})")
+
+    # 門檻 3：版本名稱規格檢驗
+    patch_names_set = set()
+    for p in new_patches:
+        name = p.get('patch', '')
+        date = p.get('date', '')
+        if not PATCH_NAME_RE.fullmatch(name):
+            raise AssertionError(f"❌ 門檻 3 失敗：版本名稱不合規：{name!r}")
+        if not normalize_patch_date(date):
+            raise AssertionError(f"❌ 門檻 3 失敗：版本日期不合規：{name} ({date})")
+        if name in patch_names_set:
+            raise AssertionError(f"❌ 門檻 3 失敗：版本重複定義：{name}")
+        patch_names_set.add(name)
+    print(f"  ✅ 門檻 3 通過：所有 {len(new_patches)} 個版本命名與日期格式完全合規")
+
+    # 門檻 4：版本閉包防護（孤兒版本防護）
+    for c in new_chars:
+        for r in c.get('runs', []):
+            if r not in patch_names_set:
+                raise AssertionError(
+                    f"❌ 門檻 4 失敗：角色 [{c.get('name')}] 的排程版本 [{r}] 不存在於版本清單中！"
+                )
+    print("  ✅ 門檻 4 通過：所有角色的登場排程皆有對應之版本節點")
+
+    # 門檻 5：既有角色的歷史排程不可逆原則
+    original_char_map = {c.get('name'): set(c.get('runs', [])) for c in original_chars if c.get('name')}
+    for c in new_chars:
+        name = c.get('name')
+        if name in original_char_map:
+            orig_runs = original_char_map[name]
+            new_runs = set(c.get('runs', []))
+            if not orig_runs.issubset(new_runs):
+                missing = orig_runs - new_runs
+                raise AssertionError(
+                    f"❌ 門檻 5 失敗：角色 [{name}] 的歷史排程遺失：{missing}！"
+                )
+    print("  ✅ 門檻 5 通過：所有既有角色的歷史排程完全被繼承，未發生歷史資料縮水")
+    print("🎉 五道安全檢驗全數通過！資料結構完整且安全無虞。\n")
+
+
+# ──────────────────────────────────────────────────
+# 深度合併與自動化執行主流程
+# ──────────────────────────────────────────────────
+def execute_auto_update():
+    print("\n" + "=" * 60)
+    print("🚀 啟動 HSR Banner 全自動資料更新流程 (雙軌直寫 + 安全防護)")
+    print("=" * 60)
 
     session = requests.Session()
     session.headers.update({
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     })
 
-    # Step 1: 抓取 Fandom Wiki 卡池與版本
-    schedules, new_patch_items = fetch_fandom_schedules_and_patches(session)
+    patches_file = os.path.join("js", "patches.js")
+    chars_file = os.path.join("js", "characters.js")
 
-    # 🛡️ 熔斷保護
+    # 1. 讀取專案既有基準資料
+    original_patches = parse_local_js_array(patches_file, 'PATCH_DATA')
+    original_chars = parse_local_js_array(chars_file, 'RAW_CHARACTERS')
+    print(f"📖 專案現有資料：{len(original_chars)} 位角色、{len(original_patches)} 個版本")
+
+    # 2. 從 Fandom Wiki 抓取排程
+    schedules, wiki_patches = fetch_fandom_schedules_and_patches(session)
     if not schedules:
-        print("\n⚠️ 警告：無法取得任何有效的卡池排程資料。")
-        print("🛡️ 觸發熔斷保護，停止本次更新，避免空白資料覆蓋現有 Gist。")
-        return None
+        print("⚠️ 無法取得任何有效的排程資料，觸發保護熔斷！")
+        return False
 
-    # Step 2: 從 Gist 讀取現有資料
-    existing_data = {"new_patches": [], "new_characters": []}
-    try:
-        gist_url = f"https://api.github.com/gists/{GIST_ID}"
-        gist_res = session.get(gist_url, timeout=REQUEST_TIMEOUT)
-        gist_res.raise_for_status()
-        files = gist_res.json().get('files', {})
-        gist_file = files.get('hsr_latest_banner.json')
-        if not gist_file or 'content' not in gist_file:
-            raise RuntimeError('Gist 缺少 hsr_latest_banner.json')
-        existing_data = json.loads(gist_file['content'])
-        if not isinstance(existing_data, dict):
-            raise ValueError('Gist 根節點必須是物件')
-        print(f"\n📖 Gist 現有資料：{len(existing_data.get('new_characters', []))} 個角色、{len(existing_data.get('new_patches', []))} 個版本")
-    except Exception as e:
-        print(f"\n❌ 讀取現有 Gist 失敗: {e}")
-        print("🛡️ 停止更新，保護現有資料。")
-        return None
+    # 3. 合併版本清單
+    patches_by_name = {}
+    for p in original_patches:
+        patches_by_name[p['patch']] = p
 
-    updated_chars = existing_data.get('new_characters', [])
+    new_patches_added = []
+    for p in wiki_patches:
+        name = p['patch']
+        if name not in patches_by_name:
+            patches_by_name[name] = p
+            new_patches_added.append(name)
 
-    # Step 3: 清洗舊格式 runs 與無效版本名
-    for char in updated_chars:
-        if 'runs' in char and isinstance(char['runs'], list):
-            clean_runs = []
-            for r in char['runs']:
-                if isinstance(r, str):
-                    clean_runs.append(r)
-                elif isinstance(r, dict) and 'version' in r and 'phase' in r:
-                    half = "上" if r['phase'] == 1 else "下"
-                    clean_runs.append(f"{r['version']}{half}")
-            char['runs'] = clean_runs
+    # 依日期及版本號排序
+    merged_patches = sorted(patches_by_name.values(), key=lambda p: (normalize_patch_date(p['date']) or "", p['patch']))
 
-    cleaned = clean_invalid_runs(updated_chars)
-    if cleaned:
-        print(f"🧹 已清理 {cleaned} 個角色的無效版本名稱")
-
-    # Step 4: 載入解包庫與 Wiki 角色快取
+    # 4. 合併角色清單
     en_data, cht_data = fetch_starrailres_data(session)
     wiki_char_cache = {}
 
-    existing_char_map_by_cid = {c['cid']: c for c in updated_chars if c.get('cid')}
-    existing_char_map_by_name = {c['name']: c for c in updated_chars}
+    # 深拷貝以避免污染
+    merged_chars = json.loads(json.dumps(original_chars))
+    existing_char_map_by_cid = {c['cid']: c for c in merged_chars if c.get('cid')}
+    existing_char_map_by_name = {c['name']: c for c in merged_chars if c.get('name')}
 
-    print(f"\n🔄 開始比對與整合 {len(schedules)} 筆排程...")
+    new_chars_added = []
+    runs_added_log = []
+    name_upgraded_log = []
 
-    # Step 5: 逐筆整合排程
     for sched in schedules:
         en_name = sched['en_name']
         run = sched['run']
@@ -502,12 +566,11 @@ def fetch_latest_data():
             en_name, en_data, cht_data, wiki_char_cache, session
         )
 
-        # 比對現有角色 (中文名 > sanitize 英文名 > CID)
         matched_char = None
         if target_name in existing_char_map_by_name:
             matched_char = existing_char_map_by_name[target_name]
         else:
-            for char in updated_chars:
+            for char in merged_chars:
                 if sanitize_name(char.get('name', '')) == sanitize_name(en_name):
                     matched_char = char
                     break
@@ -516,31 +579,29 @@ def fetch_latest_data():
             matched_char = existing_char_map_by_cid[target_cid]
 
         if matched_char:
-            # 自動升級英文名為正體中文
+            # 升級名稱
             if (matched_char.get('name') != target_name and target_name != en_name
                     and not contains_cjk(matched_char.get('name', '')) and contains_cjk(target_name)):
-                print(f"  🔄 名稱升級: {matched_char['name']} ➡️ {target_name}")
+                name_upgraded_log.append(f"{matched_char['name']} ➡️ {target_name}")
                 matched_char['name'] = target_name
 
             # 補全 CID
             if target_cid and (not matched_char.get('cid') or matched_char.get('name') == target_name):
                 matched_char['cid'] = target_cid
 
-            # 補全命途與屬性
+            # 補全命途/屬性
             if matched_char.get('path') in ["未知", "", None] and path != "未知":
                 matched_char['path'] = path
             if matched_char.get('elem') in ["未知", "", None] and elem != "未知":
                 matched_char['elem'] = elem
 
-            # 更新 runs
-            if is_collab or matched_char.get('isCollab'):
-                matched_char['runs'] = []
-            else:
+            # 補充排程
+            if not is_collab and not matched_char.get('isCollab'):
                 if 'runs' not in matched_char or not isinstance(matched_char['runs'], list):
                     matched_char['runs'] = []
                 if run not in matched_char['runs']:
                     matched_char['runs'].append(run)
-                    print(f"  📅 新增登場版本: {matched_char['name']} ➡️ {run}")
+                    runs_added_log.append(f"{matched_char['name']} ➡️ {run}")
         else:
             new_char = {
                 "cid": target_cid,
@@ -551,29 +612,57 @@ def fetch_latest_data():
             }
             if is_collab:
                 new_char["isCollab"] = run
-            updated_chars.append(new_char)
+            merged_chars.append(new_char)
             if target_cid:
                 existing_char_map_by_cid[target_cid] = new_char
             existing_char_map_by_name[target_name] = new_char
-            print(f"  ✨ 發現新角色: {target_name} (CID: {target_cid}) [{path}/{elem}] ➡️ {run}")
+            new_chars_added.append(f"{target_name} ({path}/{elem}) ➡️ {run}")
 
-    result = {
-        "new_patches": merge_new_patches(
-            existing_data.get('new_patches', []),
-            new_patch_items
-        ),
-        "new_characters": updated_chars
-    }
+    # 5. 執行五道安全防護檢驗門檻
+    validate_data_integrity(original_chars, original_patches, merged_chars, merged_patches)
 
-    print(f"\n📊 最終整合：{len(result['new_characters'])} 位角色、{len(result['new_patches'])} 個版本")
-    return result
+    # 6. 比對是否有實質變更
+    has_patches_changed = json.dumps(original_patches) != json.dumps(merged_patches)
+    has_chars_changed = json.dumps(original_chars) != json.dumps(merged_chars)
+
+    if not has_patches_changed and not has_chars_changed:
+        print("✨ 專案資料庫目前已經是最新狀態，無需寫入更新。")
+        return True
+
+    # 7. 寫入本地專案檔案
+    serialize_js_file('PATCH_DATA', merged_patches, patches_file)
+    serialize_js_file('RAW_CHARACTERS', merged_chars, chars_file)
+
+    # 8. 產生日誌摘要檔案（供 CI Commit Message 使用）
+    summary_lines = []
+    if new_patches_added:
+        summary_lines.append(f"🆕 新增版本 ({len(new_patches_added)} 個): {', '.join(new_patches_added)}")
+    if new_chars_added:
+        summary_lines.append(f"✨ 發現新角色 ({len(new_chars_added)} 位):\n  • " + "\n  • ".join(new_chars_added))
+    if runs_added_log:
+        summary_lines.append(f"📅 新增排程登場 ({len(runs_added_log)} 項):\n  • " + "\n  • ".join(runs_added_log))
+    if name_upgraded_log:
+        summary_lines.append(f"🔄 名稱繁體中文化 ({len(name_upgraded_log)} 位):\n  • " + "\n  • ".join(name_upgraded_log))
+
+    summary_text = "\n".join(summary_lines)
+    with open(".update_summary.md", "w", encoding="utf-8") as f:
+        f.write(summary_text)
+
+    print("\n📝 變更摘要清單：")
+    print(summary_text)
+
+    # 9. 備份同步至 GitHub Gist（相容舊版後台）
+    if GITHUB_TOKEN:
+        update_gist_backup({
+            "new_patches": [p for p in merged_patches if p['patch'] in new_patches_added],
+            "new_characters": merged_chars[-len(new_chars_added):] if new_chars_added else []
+        }, session)
+
+    return True
 
 
-# ──────────────────────────────────────────────────
-# 回寫 GitHub Gist
-# ──────────────────────────────────────────────────
-def update_gist(data):
-    print("\n準備將最新資料同步回 GitHub Gist...")
+def update_gist_backup(data, session):
+    print("\n同步備份最新資料至 GitHub Gist...")
     url = f"https://api.github.com/gists/{GIST_ID}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
@@ -587,32 +676,19 @@ def update_gist(data):
         }
     }
     try:
-        response = requests.patch(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
-        response.raise_for_status()
-        print("✅ Gist 自動更新成功！")
-        return True
-    except requests.RequestException as error:
-        print(f"❌ Gist 更新失敗: {error}")
-        return False
+        res = session.patch(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
+        if res.status_code == 200:
+            print("✅ GitHub Gist 備份同步成功！")
+        else:
+            print(f"⚠️ Gist 備份狀態碼: {res.status_code}")
+    except Exception as e:
+        print(f"⚠️ Gist 備份未完成: {e}")
 
 
 # ──────────────────────────────────────────────────
-# 程式入口
+# 程式進入點
 # ──────────────────────────────────────────────────
 if __name__ == "__main__":
-    if not GITHUB_TOKEN:
-        print("⚠️ 未檢測到 GIST_TOKEN 環境變數，將以唯讀/測試模式執行...")
-        latest_data = fetch_latest_data()
-        if latest_data is not None:
-            print("✅ 測試成功：資料解析與整合完全正常！")
-        else:
-            print("❌ 測試失敗：未能取得有效資料。")
-            raise SystemExit(2)
-    else:
-        latest_data = fetch_latest_data()
-        if latest_data is not None:
-            if not update_gist(latest_data):
-                raise SystemExit(1)
-        else:
-            print("\n🛑 任務安全終止：保持現有 Gist 資料不變。")
-            raise SystemExit(2)
+    success = execute_auto_update()
+    if not success:
+        raise SystemExit(2)
