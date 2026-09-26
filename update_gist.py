@@ -4,11 +4,13 @@ import re
 from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
-from curl_cffi import requests as cffi_requests
 
+# ──────────────────────────────────────────────────
+# 設定
+# ──────────────────────────────────────────────────
 GIST_ID = "53c5bb324cd140fb8751c9812bd5df68"
 GITHUB_TOKEN = os.environ.get("GIST_TOKEN")
-REQUEST_TIMEOUT = 15
+REQUEST_TIMEOUT = 20
 PATCH_NAME_RE = re.compile(r'^\d+\.\d+[上下中]$')
 
 PATH_MAP = {
@@ -33,36 +35,37 @@ ELEM_MAP = {
     "Imaginary": "虛數"
 }
 
+# ──────────────────────────────────────────────────
+# 工具函式
+# ──────────────────────────────────────────────────
 def sanitize_name(name):
-    """去除空格與所有非英數字元（包含 • 等符號），並轉為小寫"""
+    """去除所有非英數字元並轉小寫，用於模糊比對"""
     if not name:
         return ""
     return re.sub(r'[^a-zA-Z0-9]', '', name).lower()
 
 CJK_RE = re.compile(
-    r'[\u4e00-\u9fff'        # CJK Unified Ideographs
-    r'\u3400-\u4dbf'        # Extension A
-    r'\uf900-\ufaff'        # Compatibility Ideographs
-    r'\U00020000-\U0002A6DF' # Extension B
-    r'\U0002A700-\U0002B73F' # Extension C
-    r'\U0002B740-\U0002B81F' # Extension D
-    r'\U0002B820-\U0002CEAF' # Extension E
-    r'\U0002CEB0-\U0002EBEF' # Extension F
-    r'\U0002F800-\U0002FA1F' # Compatibility Supplement
+    r'[\u4e00-\u9fff'
+    r'\u3400-\u4dbf'
+    r'\uf900-\ufaff'
+    r'\U00020000-\U0002A6DF'
+    r'\U0002A700-\U0002B73F'
+    r'\U0002B740-\U0002B81F'
+    r'\U0002B820-\U0002CEAF'
+    r'\U0002CEB0-\U0002EBEF'
+    r'\U0002F800-\U0002FA1F'
     r']'
 )
 
 def contains_cjk(text):
-    """檢查字串中是否包含任何 CJK 漢字（含主要擴展區）"""
     return bool(text and CJK_RE.search(text))
 
 def clean_wikitext_value(val):
-    """清洗 Wikitext 中的連結標記 [[ ]] 與取代標點符號"""
     val = re.sub(r'\[\[(?:[^\|\]]*\|)?([^\]]+)\]\]', r'\1', val)
     return val.strip().replace('·', '•')
 
 def normalize_patch_date(value):
-    """將資料源的日期標準化為前端使用的 YY/MM/DD 格式。"""
+    """將各種日期格式標準化為前端使用的 YY/MM/DD 格式"""
     if not value:
         return None
     if isinstance(value, (int, float)):
@@ -75,10 +78,26 @@ def normalize_patch_date(value):
             continue
     return None
 
-def merge_new_patches(existing_patches, schedules):
-    """合併並依日期排序可驗證的新增版本，避免不完整資料破壞時間軸。"""
+def clean_invalid_runs(chars):
+    """清除 runs 中不符合版本格式的汙染資料（如 '4.X上'）"""
+    cleaned_count = 0
+    for char in chars:
+        if 'runs' in char and isinstance(char['runs'], list):
+            original = char['runs']
+            char['runs'] = [r for r in original if isinstance(r, str) and PATCH_NAME_RE.fullmatch(r)]
+            removed = set(original) - set(char['runs'])
+            if removed:
+                print(f"🧹 清除 [{char.get('name', '?')}] 的無效版本名：{removed}")
+                cleaned_count += 1
+    return cleaned_count
+
+def merge_new_patches(existing_patches, new_patch_items):
+    """
+    合併並依日期排序可驗證的版本清單。
+    new_patch_items: list of {'patch': str, 'date': str (YY/MM/DD)}
+    """
     patches_by_name = {}
-    for patch in existing_patches if isinstance(existing_patches, list) else []:
+    for patch in (existing_patches or []):
         if not isinstance(patch, dict):
             continue
         name = patch.get('patch')
@@ -86,225 +105,248 @@ def merge_new_patches(existing_patches, schedules):
         if isinstance(name, str) and PATCH_NAME_RE.fullmatch(name) and date:
             patches_by_name[name] = {'patch': name, 'date': date}
 
-    for schedule in schedules:
-        name = schedule.get('run')
-        date = normalize_patch_date(schedule.get('patch_date'))
+    for item in new_patch_items:
+        name = item.get('patch')
+        date = normalize_patch_date(item.get('date'))
         if not isinstance(name, str) or not PATCH_NAME_RE.fullmatch(name):
             print(f"⚠️ 略過格式不正確的版本：{name!r}")
         elif not date:
-            print(f"⚠️ 略過沒有可驗證開始日期的版本：{name}")
+            print(f"⚠️ 略過沒有可驗證日期的版本：{name}")
         else:
-            patches_by_name.setdefault(name, {'patch': name, 'date': date})
+            if name not in patches_by_name:
+                patches_by_name[name] = {'patch': name, 'date': date}
+                print(f"📅 收錄新版本：{name} ({date})")
 
-    return sorted(patches_by_name.values(), key=lambda patch: (patch['date'], patch['patch']))
+    return sorted(patches_by_name.values(), key=lambda p: (p['date'], p['patch']))
 
-def fetch_upcoming_wiki_char_map():
-    """使用 cffi_requests 繞過 Cloudflare 防護，
-    自動連線 Fandom Wiki Category:Upcoming_Characters API 提取新角色的繁體中文譯名
+
+# ──────────────────────────────────────────────────
+# 資料來源 A：HoyoLAB 官方遊戲日曆 API（最可靠）
+# ──────────────────────────────────────────────────
+def fetch_hoyolab_schedules():
     """
-    print("正在從 Fandom Wiki (Upcoming_Characters 分類) 抓取新角色中文譯名...")
+    從 HoyoLAB API 抓取當前及近期的卡池活動資料。
+    此 API 為官方公開端點，無需登入，不受 Cloudflare 阻擋。
+    """
+    print("正在從 HoyoLAB 官方遊戲日曆 API 抓取卡池資料...")
+    schedules = []
+    new_patches = []
+
+    # HoyoLAB 遊戲活動日曆 API（繁中）
+    url = "https://bbs-api-os.hoyolab.com/game_record/hkrpg/api/note"
+    # 使用公開的遊戲活動 API
+    act_url = "https://sg-public-api.hoyolab.com/event/game_record/hkrpg/api/act_calendar"
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://act.hoyolab.com/",
+        "Accept": "application/json",
+        "x-rpc-app_version": "2.42.0",
+        "x-rpc-client_type": "5",
+        "x-rpc-language": "zh-tw",
+    }
+
+    try:
+        # 嘗試 HoyoLAB 活動 API（公開版，無需 Cookie）
+        gacha_url = "https://sg-public-api.hoyolab.com/event/hkrpg/api/gacha_schedule"
+        res = requests.get(gacha_url, headers=headers, timeout=REQUEST_TIMEOUT)
+        res.raise_for_status()
+        data = res.json()
+
+        if data.get("retcode") == 0 and data.get("data"):
+            gacha_list = data["data"].get("gacha_list") or data["data"].get("list") or []
+            for item in gacha_list:
+                _parse_hoyolab_item(item, schedules, new_patches)
+
+        if schedules:
+            print(f"✅ HoyoLAB API 成功取得 {len(schedules)} 筆卡池資料")
+            return schedules, new_patches
+
+    except Exception as e:
+        print(f"⚠️ HoyoLAB gacha_schedule API 失敗: {e}")
+
+    # 備援：嘗試公告類 API
+    try:
+        ann_url = "https://sg-public-api.hoyolab.com/announcement/api/getAnnContent"
+        params = {
+            "game": "hkrpg",
+            "game_biz": "hkrpg_global",
+            "lang": "zh-tw",
+            "bundle_id": "hkrpg_global",
+            "platform": "pc",
+            "region": "prod_official_asia",
+            "uid": "0",
+            "announcement_id": "0"
+        }
+        res = requests.get(ann_url, headers=headers, params=params, timeout=REQUEST_TIMEOUT)
+        if res.status_code == 200:
+            data = res.json()
+            if data.get("retcode") == 0:
+                for item in (data.get("data") or {}).get("list") or []:
+                    _parse_hoyolab_item(item, schedules, new_patches)
+
+    except Exception as e:
+        print(f"⚠️ HoyoLAB 備援 API 失敗: {e}")
+
+    if schedules:
+        print(f"✅ HoyoLAB 備援 API 取得 {len(schedules)} 筆卡池資料")
+    return schedules, new_patches
+
+
+def _parse_hoyolab_item(item, schedules, new_patches):
+    """解析單筆 HoyoLAB 卡池活動資料"""
+    if not isinstance(item, dict):
+        return
+
+    # 嘗試提取角色名稱
+    char_name = (item.get("gacha_name") or item.get("character") or
+                 item.get("name") or item.get("title") or "")
+    # 嘗試提取版本與期別
+    version = item.get("version") or item.get("patch") or ""
+    phase = item.get("phase") or item.get("half") or 1
+    start_time = (item.get("start_time") or item.get("begin_time") or
+                  item.get("start_date") or item.get("startDate") or "")
+
+    if not char_name or not version:
+        return
+
+    half_str = "下" if str(phase) in ("2", "下") else "上"
+    run_str = f"{version}{half_str}"
+    patch_date = normalize_patch_date(start_time)
+
+    schedules.append({
+        "en_name": str(char_name).strip(),
+        "fallback_path": PATH_MAP.get(item.get("path", ""), "未知"),
+        "fallback_elem": ELEM_MAP.get(item.get("element", ""), "未知"),
+        "run": run_str,
+        "patch_date": patch_date
+    })
+    if patch_date:
+        new_patches.append({"patch": run_str, "date": patch_date})
+    print(f"  → HoyoLAB 解析: {char_name} → {run_str}")
+
+
+# ──────────────────────────────────────────────────
+# 資料來源 B：Fandom Wiki Category:Upcoming_Characters
+# ──────────────────────────────────────────────────
+def fetch_upcoming_wiki_char_map():
+    """
+    透過 Fandom Wiki MediaWiki API 抓取 Upcoming_Characters 分類的繁中譯名。
+    使用標準 requests（非 cffi），不依賴 Cloudflare 繞過。
+    """
+    print("正在從 Fandom Wiki 抓取新角色中文譯名...")
     wiki_map = {}
 
     try:
         api_url = "https://honkai-star-rail.fandom.com/api.php"
-        cat_params = {
+        session = requests.Session()
+        session.headers.update({
+            "User-Agent": "HSRBannerBot/2.0 (https://github.com/ShibaShika/hsr-banner)"
+        })
+
+        # Step 1: 取得分類成員清單
+        cat_res = session.get(api_url, params={
             "action": "query",
             "list": "categorymembers",
             "cmtitle": "Category:Upcoming_Characters",
             "cmlimit": "500",
             "format": "json"
-        }
+        }, timeout=REQUEST_TIMEOUT)
+        cat_res.raise_for_status()
 
-        res_obj = cffi_requests.get(api_url, params=cat_params, impersonate="chrome110", timeout=10)
-        if res_obj.status_code != 200:
-            print(f"⚠️ Fandom API 存取失敗: HTTP {res_obj.status_code}")
-            return wiki_map
-
-        res = res_obj.json()
-        members = res.get("query", {}).get("categorymembers", [])
+        members = cat_res.json().get("query", {}).get("categorymembers", [])
         page_titles = [m["title"] for m in members if "title" in m]
 
         if not page_titles:
-            print("⚠️ Wiki 上未找到 Upcoming_Characters 頁面清單")
+            print("⚠️ Wiki 未找到 Upcoming_Characters 分類成員")
             return wiki_map
 
-        print(f"🔍 於 Wiki 成功找到 {len(page_titles)} 位新角色頁面，準備提取繁中譯名...")
+        print(f"  → 找到 {len(page_titles)} 個頁面，正在提取繁中名稱...")
 
-        pages_params = {
-            "action": "query",
-            "prop": "revisions",
-            "titles": "|".join(page_titles),
-            "rvprop": "content",
-            "rvslots": "main",
-            "format": "json"
-        }
-        pages_res_obj = cffi_requests.get(api_url, params=pages_params, impersonate="chrome110", timeout=10)
-        pages_res_obj.raise_for_status()
-        pages = pages_res_obj.json().get("query", {}).get("pages", {})
+        # Step 2: 批次取得頁面 wikitext 內容
+        # MediaWiki API 每次最多查 50 個頁面
+        for i in range(0, len(page_titles), 50):
+            batch = page_titles[i:i+50]
+            pages_res = session.get(api_url, params={
+                "action": "query",
+                "prop": "revisions",
+                "titles": "|".join(batch),
+                "rvprop": "content",
+                "rvslots": "main",
+                "format": "json"
+            }, timeout=REQUEST_TIMEOUT)
+            pages_res.raise_for_status()
+            pages = pages_res.json().get("query", {}).get("pages", {})
 
-        for p_id, p_info in pages.items():
-            if p_id == "-1": continue
-            title = p_info.get("title", "")
-            revisions = p_info.get("revisions", [])
-            if not revisions: continue
+            for p_id, p_info in pages.items():
+                if p_id == "-1":
+                    continue
+                title = p_info.get("title", "")
+                revisions = p_info.get("revisions", [])
+                if not revisions:
+                    continue
 
-            rev = revisions[0]
-            content = ""
-            if "*" in rev:
-                content = rev["*"]
-            elif "slots" in rev and "main" in rev["slots"] and "*" in rev["slots"]["main"]:
-                content = rev["slots"]["main"]["*"]
+                rev = revisions[0]
+                content = (rev.get("*") or
+                           rev.get("slots", {}).get("main", {}).get("*", ""))
+                if not content:
+                    continue
 
-            if not content: continue
+                cht_name = ""
+                # 優先取繁中 (zht / zh-tw / zh-hk)
+                m = re.search(r'\|(?:zht|zh[-_]?(?:tw|hk))\s*=\s*([^\n\|]+)', content, re.IGNORECASE)
+                if m and m.group(1).strip():
+                    cht_name = clean_wikitext_value(m.group(1))
+                else:
+                    m = re.search(r'\|zh\s*=\s*([^\n\|]+)', content, re.IGNORECASE)
+                    if m and m.group(1).strip():
+                        cht_name = clean_wikitext_value(m.group(1))
 
-            cht_name = ""
-            match_tw = re.search(r'\|(?:zht|zh[-_]?(?:tw|hk))\s*=\s*([^\n\|]+)', content, re.IGNORECASE)
-            if match_tw and match_tw.group(1).strip():
-                cht_name = clean_wikitext_value(match_tw.group(1))
-            else:
-                match_zh = re.search(r'\|zh\s*=\s*([^\n\|]+)', content, re.IGNORECASE)
-                if match_zh and match_zh.group(1).strip():
-                    cht_name = clean_wikitext_value(match_zh.group(1))
-
-            if cht_name:
-                sanitized_key = sanitize_name(title)
-                wiki_map[sanitized_key] = cht_name
-                print(f"📖 Wiki 對照成功載入: {title} ➡️ {cht_name}")
+                if cht_name:
+                    wiki_map[sanitize_name(title)] = cht_name
+                    print(f"  → Wiki 譯名: {title} ➡️ {cht_name}")
 
     except Exception as e:
-        print(f"⚠️ 抓取 Wiki Category:Upcoming_Characters 發生錯誤: {e}")
+        print(f"⚠️ Fandom Wiki 抓取失敗: {e}")
 
     return wiki_map
 
+
+# ──────────────────────────────────────────────────
+# 資料來源 C：StarRailRes 角色資料庫（ID / 路徑 / 屬性）
+# ──────────────────────────────────────────────────
 def fetch_starrailres_data():
-    print("正在從 StarRailRes (index_new) 抓取完整角色資料庫...")
-    en_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/en/characters.json"
-    cht_url = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/refs/heads/master/index_new/cht/characters.json"
-    
+    print("正在從 StarRailRes 抓取角色資料庫...")
+    base = "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new"
     try:
-        en_res = requests.get(en_url, timeout=REQUEST_TIMEOUT)
-        cht_res = requests.get(cht_url, timeout=REQUEST_TIMEOUT)
+        en_res = requests.get(f"{base}/en/characters.json", timeout=REQUEST_TIMEOUT)
+        cht_res = requests.get(f"{base}/cht/characters.json", timeout=REQUEST_TIMEOUT)
         en_res.raise_for_status()
         cht_res.raise_for_status()
+        print("  → StarRailRes 資料庫載入成功")
         return en_res.json(), cht_res.json()
-    except (requests.RequestException, ValueError) as error:
-        raise RuntimeError(f"無法取得 StarRailRes 角色資料：{error}") from error
+    except (requests.RequestException, ValueError) as e:
+        raise RuntimeError(f"無法取得 StarRailRes 角色資料：{e}") from e
 
-def parse_next_data_json(json_text):
-    """【方法一】直抓 Next.js 底層 __NEXT_DATA__ JSON，免疫版面 DOM 改版"""
-    schedules = []
-    try:
-        data = json.loads(json_text)
-        page_props = data.get("props", {}).get("pageProps", {})
-        
-        # 尋找 pageProps 內可能包含卡池資料的變數
-        banner_list = page_props.get("banners") or page_props.get("data") or page_props.get("schedule") or []
-        
-        if isinstance(banner_list, list):
-            for item in banner_list:
-                if not isinstance(item, dict): continue
-                
-                en_name = item.get("name") or item.get("characterName") or item.get("title")
-                version = item.get("patch") or item.get("version")
-                phase = item.get("phase") or item.get("half")
-                patch_date = normalize_patch_date(
-                    item.get("startDate") or item.get("start_date") or item.get("date") or item.get("start")
-                )
-                
-                if en_name and version:
-                    phase_num = 2 if str(phase) == "2" else 1
-                    half_str = "上" if phase_num == 1 else "下"
-                    run_str = f"{version}{half_str}"
-                    
-                    zh_path = PATH_MAP.get(item.get("path", ""), "未知")
-                    zh_elem = ELEM_MAP.get(item.get("element", ""), "未知")
-                    
-                    schedules.append({
-                        "en_name": str(en_name).strip(),
-                        "fallback_path": zh_path,
-                        "fallback_elem": zh_elem,
-                        "run": run_str,
-                        "patch_date": patch_date
-                    })
-                    print(f"解析卡池角色 (JSON 模式): {en_name} -> {run_str}")
-    except Exception as e:
-        print(f"⚠️ __NEXT_DATA__ 解析失敗或結構不吻合: {e}")
-        
-    return schedules
 
-def fetch_prydwen_schedules():
-    print("正在從 Prydwen 抓取卡池資訊...")
-    url = "https://www.prydwen.gg/star-rail/banners/"
-    try:
-        res = cffi_requests.get(url, impersonate="chrome110", timeout=15)
-        if res.status_code != 200:
-            print(f"❌ Prydwen 存取失敗: HTTP {res.status_code}")
-            return []
-
-        soup = BeautifulSoup(res.text, "html.parser")
-        schedules = []
-
-        # 優先方案：嘗試抽取 __NEXT_DATA__ 純資料 JSON
-        next_data_tag = soup.find("script", id="__NEXT_DATA__")
-        if next_data_tag and next_data_tag.string:
-            schedules = parse_next_data_json(next_data_tag.string)
-
-        # 備援方案：若 JSON 抽不到資料，自動降級切換回傳統 HTML DOM 爬蟲
-        if not schedules:
-            print("🔄 JSON 提取無結果，切換至傳統 HTML DOM 解析器...")
-            cards = soup.find_all("article", class_="character-banner-card")
-            for card in cards:
-                name_tag = card.find(class_="banner-name")
-                if not name_tag: continue
-                en_name = name_tag.text.strip()
-                
-                path_span = card.find(class_=re.compile(r"path\s+"))
-                en_path = path_span.find("strong").text.strip() if path_span and path_span.find("strong") else ""
-                zh_path = PATH_MAP.get(en_path, "未知")
-                
-                elem_span = card.find(class_=re.compile(r"element\s+"))
-                en_elem = elem_span.find("strong").text.strip() if elem_span and elem_span.find("strong") else ""
-                zh_elem = ELEM_MAP.get(en_elem, "未知")
-                
-                meta_div = card.find(class_="banner-phase-meta")
-                phase_str = meta_div.find("span").text.strip() if meta_div and meta_div.find("span") else ""
-                
-                version_match = re.search(r"Patch ([\d\.X]+)", phase_str)
-                if not version_match: 
-                    continue 
-                    
-                version = version_match.group(1)
-                phase_num = 2 if "Phase 2" in phase_str else 1
-                half_str = "上" if phase_num == 1 else "下"
-                run_str = f"{version}{half_str}"
-                date_match = re.search(r'([A-Z][a-z]+\s+\d{1,2},\s+20\d{2})', phase_str)
-                patch_date = normalize_patch_date(date_match.group(1)) if date_match else None
-                
-                schedules.append({
-                    "en_name": en_name,
-                    "fallback_path": zh_path,
-                    "fallback_elem": zh_elem,
-                    "run": run_str,
-                    "patch_date": patch_date
-                })
-                print(f"解析卡池角色 (DOM 模式): {en_name} -> {run_str}")
-            
-        return schedules
-    except Exception as e:
-        print(f"抓取 Prydwen 發生錯誤: {e}")
-        return []
-
+# ──────────────────────────────────────────────────
+# 資料整合主流程
+# ──────────────────────────────────────────────────
 def fetch_latest_data():
-    print("正在檢查遠端與公開資料源...")
-    
-    schedules = fetch_prydwen_schedules()
-    
-    # 🛡️ 熔斷機制：如果完全沒抓到任何卡池資料（例如被 Cloudflare 強制封鎖或出現驗證碼）
+    print("\n" + "="*55)
+    print("🚀 開始執行 HSR Banner 自動更新流程")
+    print("="*55)
+
+    # Step 1: 從 HoyoLAB 取得卡池排程
+    schedules, new_patch_items = fetch_hoyolab_schedules()
+
+    # 🛡️ 熔斷機制
     if not schedules:
-        print("⚠️ 警告：無法取得任何有效的卡池資料！(可能遭遇 Cloudflare 攔截或網頁異常)")
-        print("🛡️ 觸發保護熔斷機制！停止本次更新，避免空白資料覆蓋原有資料庫。")
+        print("\n⚠️ 警告：所有資料來源均無法取得有效卡池資料。")
+        print("🛡️ 觸發熔斷保護，停止本次更新，避免空白資料覆蓋現有 Gist。")
         return None
 
+    # Step 2: 從 Gist 讀取現有資料
     existing_data = {"new_patches": [], "new_characters": []}
     try:
         gist_url = f"https://api.github.com/gists/{GIST_ID}"
@@ -317,29 +359,36 @@ def fetch_latest_data():
         existing_data = json.loads(gist_file['content'])
         if not isinstance(existing_data, dict):
             raise ValueError('Gist 根節點必須是物件')
-    except (requests.RequestException, ValueError, KeyError, RuntimeError) as e:
-        print(f"讀取現有 Gist 失敗: {e}")
-        print("🛡️ 停止本次更新，避免以不完整資料覆蓋既有 Gist。")
+        print(f"\n📖 Gist 現有資料：{len(existing_data.get('new_characters', []))} 個角色、{len(existing_data.get('new_patches', []))} 個版本")
+    except Exception as e:
+        print(f"\n❌ 讀取現有 Gist 失敗: {e}")
+        print("🛡️ 停止更新，保護現有資料。")
         return None
 
     updated_chars = existing_data.get('new_characters', [])
-    
-    # 清洗舊格式 runs
+
+    # Step 3: 清洗舊格式 runs（dict 格式 → str 格式）
     for char in updated_chars:
-        clean_runs = []
         if 'runs' in char and isinstance(char['runs'], list):
+            clean_runs = []
             for r in char['runs']:
                 if isinstance(r, str):
                     clean_runs.append(r)
                 elif isinstance(r, dict) and 'version' in r and 'phase' in r:
                     half = "上" if r['phase'] == 1 else "下"
                     clean_runs.append(f"{r['version']}{half}")
-        char['runs'] = clean_runs
+            char['runs'] = clean_runs
 
-    # 1. 取得資料庫與 Wiki 預載清單
+    # ✨ Step 4: 清洗無效版本名（如 '4.X上'）
+    cleaned = clean_invalid_runs(updated_chars)
+    if cleaned:
+        print(f"\n🧹 已清理 {cleaned} 個角色的無效版本名稱")
+
+    # Step 5: 載入 StarRailRes 資料庫 + Wiki 預載
     en_data, cht_data = fetch_starrailres_data()
     wiki_upcoming_map = fetch_upcoming_wiki_char_map()
 
+    # 建立英文名 → CID 的 sanitize 對照
     en_sanitized_map = {}
     for cid, info in en_data.items():
         name = info.get("name", "") if isinstance(info, dict) else str(info)
@@ -347,55 +396,44 @@ def fetch_latest_data():
         if sanitized:
             en_sanitized_map[sanitized] = cid
 
-    # 建立現有角色的快速查找對照
+    # 建立現有角色快速查找
     existing_char_map_by_cid = {c['cid']: c for c in updated_chars if c.get('cid')}
     existing_char_map_by_name = {c['name']: c for c in updated_chars}
 
+    print(f"\n🔄 開始處理 {len(schedules)} 筆卡池排程...")
+
+    # Step 6: 整合卡池排程到角色資料
     for sched in schedules:
         en_name = sched['en_name']
         sanitized_query = sanitize_name(en_name)
-        
+
         target_cid = None
         target_name = en_name
         path = sched['fallback_path']
         elem = sched['fallback_elem']
-        
+
         # A. 優先比對 StarRailRes 正式解包資料庫
         if sanitized_query in en_sanitized_map:
             target_cid = en_sanitized_map[sanitized_query]
             cht_info = cht_data.get(target_cid, {})
-            
             if isinstance(cht_info, dict):
                 target_name = cht_info.get("name", en_name)
-                
                 db_path = cht_info.get("path")
-                if isinstance(db_path, dict):
-                    raw_path = db_path.get("name", path)
-                elif isinstance(db_path, str):
-                    raw_path = db_path
-                else:
-                    raw_path = path
+                raw_path = db_path.get("name", path) if isinstance(db_path, dict) else (db_path if isinstance(db_path, str) else path)
                 path = PATH_MAP.get(raw_path, raw_path)
-                
                 db_elem = cht_info.get("element")
-                if isinstance(db_elem, dict):
-                    raw_elem = db_elem.get("name", elem)
-                elif isinstance(db_elem, str):
-                    raw_elem = db_elem
-                else:
-                    raw_elem = elem
+                raw_elem = db_elem.get("name", elem) if isinstance(db_elem, dict) else (db_elem if isinstance(db_elem, str) else elem)
                 elem = ELEM_MAP.get(raw_elem, raw_elem)
-                
             elif isinstance(cht_info, str):
                 target_name = cht_info
 
-        # B. 備援機制：如果 StarRailRes 還沒更新，自動對照 Wiki Upcoming Category
+        # B. 備援：Wiki Upcoming Category
         if target_name == en_name or not contains_cjk(target_name):
             if sanitized_query in wiki_upcoming_map:
                 target_name = wiki_upcoming_map[sanitized_query]
-                print(f"✨ 成功從 Wiki Upcoming 分類自動對照繁中名稱: {en_name} ➡️ {target_name}")
+                print(f"  ✨ Wiki 對照: {en_name} ➡️ {target_name}")
 
-        # C. 尋找是否已存在於 Gist 中 (優先透過名稱匹配，避免本地/Gist CID 錯位誤覆蓋)
+        # C. 比對現有 Gist 角色（名稱 > 英文名 sanitize > CID）
         matched_char = None
         if target_name in existing_char_map_by_name:
             matched_char = existing_char_map_by_name[target_name]
@@ -404,35 +442,35 @@ def fetch_latest_data():
                 if sanitize_name(char['name']) == sanitized_query:
                     matched_char = char
                     break
-
         if not matched_char and target_cid and target_cid in existing_char_map_by_cid:
             matched_char = existing_char_map_by_cid[target_cid]
 
         if matched_char:
-            # 自動將舊英文名升級為正確繁中名（僅當既有名稱不含 CJK 漢字且目標名稱為有效中文時）
-            if (matched_char['name'] != target_name and target_name != en_name 
+            # 自動升級英文名為繁中名
+            if (matched_char['name'] != target_name and target_name != en_name
                     and not contains_cjk(matched_char['name']) and contains_cjk(target_name)):
-                print(f"🔄 自動將名稱升級為正式中文: {matched_char['name']} -> {target_name}")
+                print(f"  🔄 名稱升級: {matched_char['name']} → {target_name}")
                 matched_char['name'] = target_name
 
-            # 自動補全或校正 cid (若名稱相符或原本為空)
+            # 補全 cid
             if target_cid and (not matched_char.get('cid') or matched_char['name'] == target_name):
                 matched_char['cid'] = target_cid
 
+            # 補全 path / elem
             if matched_char.get('path') in ["未知", ""] and path != "未知":
                 matched_char['path'] = path
             if matched_char.get('elem') in ["未知", ""] and elem != "未知":
                 matched_char['elem'] = elem
-                
+
+            # 新增 run（聯動角色跳過）
             if matched_char.get('isCollab'):
                 matched_char['runs'] = []
             else:
                 if 'runs' not in matched_char or not isinstance(matched_char['runs'], list):
                     matched_char['runs'] = []
-                    
                 if sched['run'] not in matched_char['runs']:
                     matched_char['runs'].append(sched['run'])
-                    print(f"📅 自動排程成功: 將 {matched_char['name']} 安排至 {sched['run']}")
+                    print(f"  📅 新增排程: {matched_char['name']} → {sched['run']}")
         else:
             new_char = {
                 "cid": target_cid,
@@ -445,15 +483,25 @@ def fetch_latest_data():
             if target_cid:
                 existing_char_map_by_cid[target_cid] = new_char
             existing_char_map_by_name[target_name] = new_char
-            print(f"✨ 發現並納入新角色: {target_name} (CID: {target_cid}) ({path} / {elem})")
+            print(f"  ✨ 新角色: {target_name} (CID: {target_cid}) [{path} / {elem}]")
 
-    return {
-        "new_patches": merge_new_patches(existing_data.get('new_patches', []), schedules),
+    result = {
+        "new_patches": merge_new_patches(
+            existing_data.get('new_patches', []),
+            new_patch_items
+        ),
         "new_characters": updated_chars
     }
 
+    print(f"\n📊 更新結果：{len(result['new_characters'])} 個角色、{len(result['new_patches'])} 個版本")
+    return result
+
+
+# ──────────────────────────────────────────────────
+# 回寫 Gist
+# ──────────────────────────────────────────────────
 def update_gist(data):
-    print("準備將最新資料同步回 GitHub Gist...")
+    print("\n準備將最新資料同步回 GitHub Gist...")
     url = f"https://api.github.com/gists/{GIST_ID}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
@@ -466,23 +514,29 @@ def update_gist(data):
             }
         }
     }
-    
     try:
         response = requests.patch(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
-        print("✅ Gist 自動更新與排程指派成功！")
+        print("✅ Gist 更新成功！")
         return True
     except requests.RequestException as error:
-        print(f"❌ 更新失敗: {error}")
+        print(f"❌ Gist 更新失敗: {error}")
         return False
 
+
+# ──────────────────────────────────────────────────
+# 入口
+# ──────────────────────────────────────────────────
 if __name__ == "__main__":
     if not GITHUB_TOKEN:
         print("❌ 找不到 GIST_TOKEN 環境變數。")
+        raise SystemExit(1)
+
+    latest_data = fetch_latest_data()
+    if latest_data is not None:
+        if not update_gist(latest_data):
+            raise SystemExit(1)
     else:
-        latest_data = fetch_latest_data()
-        if latest_data is not None:
-            if not update_gist(latest_data):
-                raise SystemExit(1)
-        else:
-            print("🛑 任務安全終止：保持現有 Gist 資料不變。")
+        print("\n🛑 任務安全終止：保持現有 Gist 資料不變。")
+        # 回傳非零 exit code 讓 Actions 標記為失敗，方便通知
+        raise SystemExit(2)

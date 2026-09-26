@@ -2,21 +2,30 @@ name: Auto Update HSR Banner Data
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    # 每日台灣時間 09:00 (UTC 01:00) 執行，避開 GitHub Actions 尖峰時段
+    - cron: '0 1 * * *'
   workflow_dispatch:
+    inputs:
+      force_update:
+        description: '強制更新（即使無差異也寫入 Gist）'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   update-gist:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 10  # 防止網路掛起導致計費超時
+
     steps:
       - name: 下載專案程式碼
-        uses: actions/checkout@v4  # 建議從 v3 升級到 v4
+        uses: actions/checkout@v4
 
       - name: 設定 Python 環境
-        uses: actions/setup-python@v5  # 建議從 v4 升級到 v5
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
+          cache: 'pip'
 
       - name: 安裝所需套件
         run: |
@@ -24,6 +33,59 @@ jobs:
           pip install -r requirements.txt
 
       - name: 執行更新腳本
+        id: run_update
         env:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: python update_gist.py
+
+      - name: 更新失敗時自動建立 GitHub Issue 通知
+        if: failure() && steps.run_update.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const today = new Date().toISOString().slice(0, 10);
+            const title = `[自動通知] HSR Banner 更新失敗 (${today})`;
+
+            // 避免重複建立相同日期的 Issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'auto-update-fail'
+            });
+            const alreadyExists = issues.data.some(i => i.title === title);
+            if (alreadyExists) {
+              console.log('今日失敗 Issue 已存在，跳過建立。');
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: [
+                '## ⚠️ 自動化更新失敗',
+                '',
+                `- **執行時間**：${new Date().toISOString()}`,
+                `- **Run ID**：[#${context.runId}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                '',
+                '### 可能原因',
+                '- HoyoLAB API 暫時無法存取',
+                '- Fandom Wiki API 回應異常',
+                '- StarRailRes 資料庫無法取得',
+                '- `GIST_TOKEN` 已過期或權限不足',
+                '',
+                '### 處理方式',
+                '1. 查看上方 Run 連結中的執行 log',
+                '2. 確認 `GIST_TOKEN` Secret 是否有效',
+                '3. 手動觸發 workflow 重試',
+              ].join('\n'),
+              labels: ['auto-update-fail']
+            });
+            console.log('已建立失敗通知 Issue。');
+
+      - name: 熔斷觸發時標記（exit code 2）
+        if: steps.run_update.outcome == 'failure'
+        run: |
+          echo "::warning::更新腳本觸發熔斷保護或執行失敗，請查看 log 確認原因。"
