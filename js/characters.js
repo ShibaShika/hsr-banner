@@ -1,4 +1,4 @@
-// 更新日期: 2026/09/26
+// 更新日期: 2026/09/29
 
 const RAW_CHARACTERS = [
     {
@@ -732,7 +732,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: null,
+        cid: "1503",
         name: "真珠",
         path: "歡愉",
         elem: "冰",
