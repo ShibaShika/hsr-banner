@@ -1,9 +1,16 @@
 import json
 import os
 import re
-from datetime import datetime
+import sys
+from datetime import datetime, timezone, timedelta
 import requests
 from bs4 import BeautifulSoup
+
+# 強制確保終端輸出採用 UTF-8 編碼，防止 Windows 環境下因 CP950 導致 Emoji 或特殊中文字輸出失敗
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 # ──────────────────────────────────────────────────
 # 基本設定與常數
@@ -529,17 +536,43 @@ def execute_auto_update():
         print("⚠️ 無法取得任何有效的排程資料，觸發保護熔斷！")
         return False
 
-    # 3. 合併版本清單
+    # 3. 合併版本清單（選項 B：僅更新當前版本及未來版本，保護過去歷史版本）
+    # 依台灣時間找出當前正在進行中的版本
+    tz_tw = timezone(timedelta(hours=8))
+    today_tw_str = datetime.now(tz_tw).strftime('%y/%m/%d')
+
+    current_patch_idx = 0
+    for idx, p in enumerate(original_patches):
+        norm_date = normalize_patch_date(p.get('date'))
+        if norm_date and norm_date <= today_tw_str:
+            current_patch_idx = idx
+
+    # 當前版本及之後的所有未來版本均允許自動校正日期
+    updatable_patch_names = set(p['patch'] for p in original_patches[current_patch_idx:])
+    current_patch_name = original_patches[current_patch_idx]['patch'] if original_patches else "無"
+    print(f"🕒 當前進行中版本：{current_patch_name}，納入日期自動追蹤校正之版本：{sorted(list(updatable_patch_names))}")
+
     patches_by_name = {}
     for p in original_patches:
-        patches_by_name[p['patch']] = p
+        patches_by_name[p['patch']] = dict(p)
 
     new_patches_added = []
+    patch_dates_updated_log = []
+
     for p in wiki_patches:
         name = p['patch']
         if name not in patches_by_name:
             patches_by_name[name] = p
             new_patches_added.append(name)
+        elif name in updatable_patch_names:
+            old_date = patches_by_name[name].get('date', '')
+            new_date = p.get('date', '')
+            norm_old = normalize_patch_date(old_date)
+            norm_new = normalize_patch_date(new_date)
+            if norm_new and norm_new != norm_old:
+                patches_by_name[name]['date'] = norm_new
+                patch_dates_updated_log.append(f"{name}: {old_date} ➡️ {norm_new}")
+                print(f"  📅 自動校正版本日期: [{name}] {old_date} ➡️ {norm_new}")
 
     # 依日期及版本號排序
     merged_patches = sorted(patches_by_name.values(), key=lambda p: (normalize_patch_date(p['date']) or "", p['patch']))
@@ -637,6 +670,8 @@ def execute_auto_update():
     summary_lines = []
     if new_patches_added:
         summary_lines.append(f"🆕 新增版本 ({len(new_patches_added)} 個): {', '.join(new_patches_added)}")
+    if patch_dates_updated_log:
+        summary_lines.append(f"📅 版本日期校正 ({len(patch_dates_updated_log)} 項):\n  • " + "\n  • ".join(patch_dates_updated_log))
     if new_chars_added:
         summary_lines.append(f"✨ 發現新角色 ({len(new_chars_added)} 位):\n  • " + "\n  • ".join(new_chars_added))
     if runs_added_log:

@@ -196,6 +196,7 @@ function calculateCharStats(char, patchesList, activePatchName) {
 // 狀態控制變數
 let isCharAscending = false;   // 角色順序 (false: 最新在前 ▼, true: 最舊在前 ▲)
 let isPatchAscending = false;  // 版本順序 (false: 最新在左 ◀, true: 最舊在左 ▶)
+let isShowPreview = localStorage.getItem('hsr_show_preview') !== null ? (localStorage.getItem('hsr_show_preview') === 'true') : true;
 
 // 主表格渲染與初始化
 async function initTracker() {
@@ -249,17 +250,21 @@ async function initTracker() {
 // 🔄 核心渲染表格邏輯
 function renderTable() {
     const table = document.getElementById('tracker');
-    const patchesList = PATCH_DATA.map(p => p.patch);
+
+    // 0. 依據預覽開關篩選可用的版本與角色
+    const activePatches = isShowPreview ? PATCH_DATA : PATCH_DATA.filter(p => !p.isPreview);
+    const activeCharacters = isShowPreview ? RAW_CHARACTERS : RAW_CHARACTERS.filter(c => !c.isPreview);
+    const patchesList = activePatches.map(p => p.patch);
 
     // 1. 決定角色陣列順序
-    let CHARACTERS = [...RAW_CHARACTERS].reverse();
+    let CHARACTERS = [...activeCharacters].reverse();
     if (isCharAscending) {
         CHARACTERS.reverse();
     }
     const totalChars = CHARACTERS.length;
 
     // 2. 決定小版本陣列順序
-    let displayPatches = [...PATCH_DATA].reverse();
+    let displayPatches = [...activePatches].reverse();
     if (isPatchAscending) {
         displayPatches.reverse();
     }
@@ -277,9 +282,9 @@ function renderTable() {
     const uniqueVersions = Array.from(versionSet).sort((a, b) => parseFloat(a) - parseFloat(b));
 
     const pathOrder = (typeof PATH_ORDER !== 'undefined') ? PATH_ORDER : ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
-    const uniquePaths = pathOrder.filter(p => RAW_CHARACTERS.some(c => c.path === p));
+    const uniquePaths = pathOrder.filter(p => activeCharacters.some(c => c.path === p));
     const elemOrder = (typeof ELEM_ORDER !== 'undefined') ? ELEM_ORDER : ["物理", "火", "冰", "雷", "風", "量子", "虛數", "未知"];
-    const uniqueElems = elemOrder.filter(e => RAW_CHARACTERS.some(c => c.elem === e));
+    const uniqueElems = elemOrder.filter(e => activeCharacters.some(c => c.elem === e));
 
     // 取得當前已勾選的項目
     const currentCheckedVersions = new Set(Array.from(document.querySelectorAll('.version-item:checked')).map(i => i.value));
@@ -349,15 +354,22 @@ function renderTable() {
 
     displayPatches.forEach(p => {
         const isCurrent = (p.patch === activePatchName);
-        const colClass = isCurrent ? ' class="current-patch-col"' : '';
-        html += `<th${colClass}>${formatHeaderDate(p.date)}</th>`;
+        const isPreview = Boolean(p.isPreview);
+        let colClass = '';
+        if (isCurrent) colClass = ' class="current-patch-col"';
+        else if (isPreview) colClass = ' class="preview-patch-col"';
+        const dateHtml = isPreview ? `${formatHeaderDate(p.date)}<span class="preview-tag">(預估)</span>` : formatHeaderDate(p.date);
+        html += `<th${colClass}>${dateHtml}</th>`;
     });
 
     // 構建表頭 2 (版本號)
     html += `</tr><tr>`;
     displayPatches.forEach(p => {
         const isCurrent = (p.patch === activePatchName);
-        const colClass = isCurrent ? ' class="current-patch-col"' : '';
+        const isPreview = Boolean(p.isPreview);
+        let colClass = '';
+        if (isCurrent) colClass = ' class="current-patch-col"';
+        else if (isPreview) colClass = ' class="preview-patch-col"';
         html += `<th${colClass}>${p.patch}</th>`;
     });
     html += '</tr></thead><tbody>';
@@ -381,9 +393,12 @@ function renderTable() {
         const majorVer = getCharDebutMajorVersion(char, patchesList);
         const debutVer = getCharDebutVersion(char, patchesList);
 
+        const isCharPreview = Boolean(char.isPreview);
         const stats = calculateCharStats(char, patchesList, activePatchName);
         let statsTooltip = "";
-        if (stats.isCollab) {
+        if (isCharPreview) {
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 預定登場：${debutVer} (官方前瞻預估)\n• 官方預告角色`;
+        } else if (stats.isCollab) {
             statsTooltip = `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 長期聯動角色`;
         } else if (stats.isTermActive) {
             statsTooltip = `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 目前狀態：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
@@ -392,13 +407,14 @@ function renderTable() {
             statsTooltip = `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 目前等待：${stats.currentGap}${overdueFlag}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
         }
         
-        html += `<tr data-path="${escapeHtml(char.path)}" data-elem="${escapeHtml(char.elem)}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${escapeHtml(majorVer)}" data-name="${escapeHtml(char.name)}">
+        html += `<tr data-path="${escapeHtml(char.path)}" data-elem="${escapeHtml(char.elem)}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${escapeHtml(majorVer)}" data-name="${escapeHtml(char.name)}" data-is-preview="${isCharPreview}">
             <td class="bg-${escapeHtml(char.elem)}">
                 <div class="char-info-cell" title="${escapeHtml(statsTooltip)}">
                     <span class="char-seq">${seqNum}</span>
                     ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${escapeHtml(char.path)}">` : '<div class="char-path-icon"></div>'}
                     <img src="${avatarUrl}" class="char-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
                     <span class="char-name">${escapeHtml(char.name)}</span>
+                    ${isCharPreview ? '<span class="preview-badge" title="【前瞻預覽】官方預告角色">🔮</span>' : ''}
                 </div>
             </td>`;
         
@@ -467,7 +483,10 @@ function renderTable() {
         finalHistory.forEach((cell, cellIdx) => {
             const patchObj = displayPatches[cellIdx];
             const isCurrentCol = patchObj && (patchObj.patch === activePatchName);
-            const currentColClass = isCurrentCol ? ' current-patch-col' : '';
+            const isPreviewCol = patchObj && Boolean(patchObj.isPreview);
+            let currentColClass = '';
+            if (isCurrentCol) currentColClass = ' current-patch-col';
+            else if (isPreviewCol) currentColClass = ' preview-patch-col';
 
             const cellHasBuff = char.buffs && patchObj && char.buffs.includes(patchObj.patch);
             const buffBadgeHtml = cellHasBuff ? '<span class="buff-badge" title="【礪爍新輝】角色能力加強">▲</span>' : '';
@@ -590,10 +609,22 @@ function setupEventListeners() {
     const typePanel = document.getElementById('type-panel');
 
     const buffToggleBtn = document.getElementById('buff-toggle-btn');
+    const previewToggleBtn = document.getElementById('preview-toggle-btn');
     const searchInput = document.getElementById('char-search-input');
     const searchClearBtn = document.getElementById('search-clear-btn');
     const resetFiltersBtn = document.getElementById('reset-filters-btn');
     const exportImgBtn = document.getElementById('export-img-btn');
+
+    if (previewToggleBtn) {
+        previewToggleBtn.classList.toggle('active', isShowPreview);
+        previewToggleBtn.addEventListener('click', () => {
+            isShowPreview = !isShowPreview;
+            localStorage.setItem('hsr_show_preview', isShowPreview);
+            previewToggleBtn.classList.toggle('active', isShowPreview);
+            renderTable();
+            applyFilters();
+        });
+    }
 
     buffToggleBtn?.addEventListener('click', () => {
         buffToggleBtn.classList.toggle('active');
@@ -1005,7 +1036,7 @@ function applyFilters() {
 
     const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
     let visibleCount = 0;
-    const totalChars = RAW_CHARACTERS.length;
+    const totalChars = rows.length;
 
     rows.forEach(row => {
         const rowMajorVer = row.getAttribute('data-major-version');
@@ -1040,7 +1071,8 @@ function applyFilters() {
     }
 
     let emptyRow = table.querySelector('tbody tr.empty-row');
-    const totalCols = PATCH_DATA.length + 1;
+    const headerThs = table.querySelectorAll('thead tr:first-child th');
+    const totalCols = headerThs.length > 0 ? headerThs.length : (PATCH_DATA.length + 1);
     if (visibleCount === 0) {
         if (!emptyRow) {
             emptyRow = document.createElement('tr');

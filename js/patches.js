@@ -252,5 +252,25 @@ const PATCH_DATA = [
     {
         patch: "4.6下",
         date: "26/10/21"
+    },
+    {
+        patch: "4.7上",
+        date: "26/11/11",
+        isPreview: true
+    },
+    {
+        patch: "4.7下",
+        date: "26/12/02",
+        isPreview: true
+    },
+    {
+        patch: "4.8上",
+        date: "26/12/23",
+        isPreview: true
+    },
+    {
+        patch: "4.8下",
+        date: "27/01/13",
+        isPreview: true
     }
 ];

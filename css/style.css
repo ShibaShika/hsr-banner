@@ -334,6 +334,45 @@ h1 { color: var(--text); margin: 0; font-size: 18px; font-weight: bold; }
 }
 .toggle-btn .toggle-icon { font-size: 10px; color: #86efac; }
 
+/* ===== 前瞻預覽版本專用樣式 ===== */
+.toggle-btn#preview-toggle-btn.active {
+    background: #2e1d3b;
+    color: #d8b4fe;
+    border-color: #c084fc;
+    box-shadow: 0 0 8px rgba(192, 132, 252, 0.35);
+}
+.toggle-btn#preview-toggle-btn .toggle-icon {
+    font-size: 11px;
+    color: #aaa;
+}
+.toggle-btn#preview-toggle-btn.active .toggle-icon {
+    color: #d8b4fe;
+}
+
+/* 預覽版本直欄視覺區隔 */
+.preview-patch-col {
+    background: rgba(147, 51, 234, 0.12) !important;
+    border-left: 1px dashed rgba(168, 85, 247, 0.45) !important;
+    border-right: 1px dashed rgba(168, 85, 247, 0.45) !important;
+}
+.preview-tag {
+    display: block;
+    font-size: 9px;
+    color: #c084fc;
+    font-weight: normal;
+    margin-top: 1px;
+}
+.preview-badge {
+    position: absolute;
+    top: 1px;
+    left: 2px;
+    font-size: 9px;
+    pointer-events: none;
+    line-height: 1;
+    z-index: 2;
+    filter: drop-shadow(0 0 2px rgba(168, 85, 247, 0.8));
+}
+
 /* ===== 角色搜尋框與跨平台內建 ✕ 清除按鈕 ===== */
 .search-wrap {
     position: relative;

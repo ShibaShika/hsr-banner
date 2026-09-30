@@ -742,5 +742,38 @@ const RAW_CHARACTERS = [
             "4.6下"
         ],
         buffs: []
+    },
+    {
+        cid: "1514",
+        name: "阿哈",
+        path: "歡愉",
+        elem: "未知",
+        avatar: "",
+        runs: [
+            "4.7上"
+        ],
+        isPreview: true
+    },
+    {
+        cid: "1515",
+        name: "耀嘉音",
+        path: "同諧",
+        elem: "物理",
+        avatar: "",
+        runs: [
+            "4.8上"
+        ],
+        isPreview: true
+    },
+    {
+        cid: "1516",
+        name: "艾蓮•喬",
+        path: "巡獵",
+        elem: "冰",
+        avatar: "",
+        runs: [
+            "4.8上"
+        ],
+        isPreview: true
     }
 ];
