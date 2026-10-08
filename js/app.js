@@ -358,8 +358,7 @@ function renderTable() {
         let colClass = '';
         if (isCurrent) colClass = ' class="current-patch-col"';
         else if (isPreview) colClass = ' class="preview-patch-col"';
-        const dateHtml = isPreview ? `${formatHeaderDate(p.date)}<span class="preview-tag">(預估)</span>` : formatHeaderDate(p.date);
-        html += `<th${colClass}>${dateHtml}</th>`;
+        html += `<th${colClass}>${formatHeaderDate(p.date)}</th>`;
     });
 
     // 構建表頭 2 (版本號)
@@ -397,7 +396,7 @@ function renderTable() {
         const stats = calculateCharStats(char, patchesList, activePatchName);
         let statsTooltip = "";
         if (isCharPreview) {
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 預定登場：${debutVer} (官方前瞻預估)\n• 官方預告角色`;
+            statsTooltip = `【${char.name} - 躍遷資訊】\n• 預定登場：${debutVer}\n• 預覽角色`;
         } else if (stats.isCollab) {
             statsTooltip = `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 長期聯動角色`;
         } else if (stats.isTermActive) {
@@ -414,7 +413,7 @@ function renderTable() {
                     ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${escapeHtml(char.path)}">` : '<div class="char-path-icon"></div>'}
                     <img src="${avatarUrl}" class="char-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
                     <span class="char-name">${escapeHtml(char.name)}</span>
-                    ${isCharPreview ? '<span class="preview-badge" title="【前瞻預覽】官方預告角色">🔮</span>' : ''}
+                    ${isCharPreview ? '<span class="preview-badge" title="【預覽角色】">🔮</span>' : ''}
                 </div>
             </td>`;
         
