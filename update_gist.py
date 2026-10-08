@@ -43,25 +43,6 @@ ELEM_MAP = {
     "Imaginary": "虛數"
 }
 
-SPECIAL_NAME_MAP = {
-    "Astra Yao": "耀嘉音",
-    "Aha": "阿哈",
-    "Ellen Joe": "艾蓮•喬",
-    "Topaz and Numby": "托帕＆帳帳",
-    "Topaz & Numby": "托帕＆帳帳",
-    "Pearl": "真珠",
-    "Ashveil": "不死途",
-    "Mortenax Blade": "千冶•刃",
-    "Evanescia": "緋英",
-    "Robin • Summeretto": "知更鳥•晴歌",
-    "Aventurine • Waveflair": "砂金•戲浪",
-    "Hyacine": "風堇",
-    "Himeko • Nova": "姬子•啟行",
-    "Dan Heng • Permansor Terrae": "丹恆•騰荒",
-    "Sparxie": "火花",
-    "Evernight": "長夜月"
-}
-
 
 # ──────────────────────────────────────────────────
 # 工具函式
@@ -72,6 +53,13 @@ def sanitize_name(name):
         return ""
     name = str(name).replace('&', 'and')
     return re.sub(r'[^a-zA-Z0-9]', '', name).lower()
+
+
+def normalize_cjk_name(name):
+    """標準化 CJK 中文名稱（去除間隔號與空白），用於跨格式比對"""
+    if not name:
+        return ""
+    return re.sub(r'[・·•\s]', '', str(name))
 
 
 CJK_RE = re.compile(
@@ -97,7 +85,7 @@ def clean_wikitext_value(val):
         return ""
     val = re.sub(r'\[\[(?:[^\|\]]*\|)?([^\]]+)\]\]', r'\1', val)
     val = re.sub(r'<!--.*?-->', '', val)
-    return val.strip().replace('·', '•')
+    return val.strip().replace('·', '•').replace('・', '•')
 
 
 def normalize_patch_date(value):
@@ -353,6 +341,119 @@ def fetch_starrailres_data(session):
         return {}, {}
 
 
+def fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date):
+    """
+    🔮 全自動探測 Fandom Wiki 官方前瞻預告與未來合作角色。
+    零字典設計：所有名稱、命途、屬性皆直接由 Wiki 原生 Wikitext 動態提取。
+    """
+    print("\n🔮 正在自動探測 Fandom Wiki 官方前瞻預告與未來角色...")
+    upcoming_schedules = []
+
+    def get_next_patch_and_date(current_patch, current_date_str):
+        m = re.match(r'^(\d+)\.(\d+)([上下])$', current_patch)
+        if not m:
+            return None, None
+        major, minor, phase = int(m.group(1)), int(m.group(2)), m.group(3)
+        if phase == '上':
+            next_p = f"{major}.{minor}下"
+        else:
+            next_p = f"{major}.{minor + 1}上"
+
+        try:
+            dt = datetime.strptime(current_date_str, '%y/%m/%d')
+            next_dt = dt + timedelta(days=21)
+            next_d_str = next_dt.strftime('%y/%m/%d')
+        except Exception:
+            next_d_str = current_date_str
+        return next_p, next_d_str
+
+    max_ver = float(base_patch.replace('上', '').replace('下', '')) if re.match(r'^\d+\.\d+', base_patch) else 4.6
+
+    # 1. 探測未來聯動活動 (Category:Collaboration Events)
+    try:
+        collab_res = session.get(WIKI_API_URL, params={
+            'action': 'query',
+            'list': 'categorymembers',
+            'cmtitle': 'Category:Collaboration Events',
+            'cmlimit': 30,
+            'format': 'json'
+        }, timeout=REQUEST_TIMEOUT).json()
+        collab_titles = [m['title'] for m in collab_res.get('query', {}).get('categorymembers', [])]
+
+        for c_title in collab_titles:
+            p_res = session.get(WIKI_API_URL, params={
+                'action': 'parse',
+                'page': c_title,
+                'prop': 'wikitext',
+                'format': 'json'
+            }, timeout=REQUEST_TIMEOUT).json()
+            wt = p_res.get('parse', {}).get('wikitext', {}).get('*', '')
+            if 'Upcoming' in wt or 'begin in' in wt.lower():
+                m_ver = re.search(r'(?:begin in|release in|start in|in)\s*\[\[Version\s*(\d+\.\d+)\]\]', wt, re.IGNORECASE)
+                if not m_ver:
+                    m_ver = re.search(r'Version\s+(\d+\.\d+)', wt)
+
+                if m_ver:
+                    ver_val = float(m_ver.group(1))
+                    if ver_val > max_ver:
+                        max_ver = ver_val
+
+                    # 提取登場聯動角色
+                    chars = re.findall(r'feature the characters?\s*\[\[([^\]]+)\]\](?:\s*and\s*\[\[([^\]]+)\]\])?', wt, re.IGNORECASE)
+                    for c_tuple in chars:
+                        for char_en in c_tuple:
+                            if char_en and char_en.strip():
+                                upcoming_schedules.append({
+                                    'en_name': char_en.strip(),
+                                    'run': f"{m_ver.group(1)}上",
+                                    'is_collab': False,
+                                    'is_preview': True
+                                })
+    except Exception as e:
+        print(f"  ⚠️ 探測聯動情報時發生微小異常: {e}")
+
+    # 2. 探測官方前瞻角色 (Category:Upcoming Characters)
+    next_p, next_d = get_next_patch_and_date(base_patch, base_date)
+    try:
+        up_res = session.get(WIKI_API_URL, params={
+            'action': 'query',
+            'list': 'categorymembers',
+            'cmtitle': 'Category:Upcoming Characters',
+            'cmlimit': 20,
+            'format': 'json'
+        }, timeout=REQUEST_TIMEOUT).json()
+        up_titles = [m['title'] for m in up_res.get('query', {}).get('categorymembers', [])]
+
+        for title in up_titles:
+            if any(s['en_name'] == title for s in upcoming_schedules):
+                continue
+            upcoming_schedules.append({
+                'en_name': title,
+                'run': next_p,
+                'is_collab': False,
+                'is_preview': True
+            })
+    except Exception as e:
+        print(f"  ⚠️ 探測前瞻角色時發生微小異常: {e}")
+
+    # 3. 依最大版本號自動推算補齊所有預覽版本節點
+    gen_patches = []
+    curr_p, curr_d = base_patch, base_date
+    while True:
+        curr_p, curr_d = get_next_patch_and_date(curr_p, curr_d)
+        if not curr_p:
+            break
+        gen_patches.append({'patch': curr_p, 'date': curr_d, 'isPreview': True})
+        m_p = re.match(r'^(\d+\.\d+)下$', curr_p)
+        if m_p and float(m_p.group(1)) >= max_ver:
+            break
+        if len(gen_patches) >= 8:
+            break
+
+    print(f"  ✅ 前瞻探測完成：發現 {len(upcoming_schedules)} 筆前瞻預告排程，自動擴充 {len(gen_patches)} 個預估版本節點")
+    return upcoming_schedules, gen_patches
+
+
 def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session):
     sanitized = sanitize_name(en_name)
     target_cid = None
@@ -360,16 +461,7 @@ def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session):
     path = "未知"
     elem = "未知"
 
-    # 0. 優先檢查特殊別名字典
-    if en_name in SPECIAL_NAME_MAP:
-        target_name = SPECIAL_NAME_MAP[en_name]
-    else:
-        for k, v in SPECIAL_NAME_MAP.items():
-            if sanitize_name(k) == sanitized:
-                target_name = v
-                break
-
-    # 1. 優先比對 StarRailRes
+    # 1. 優先比對 StarRailRes 官方解包資料庫
     for cid, info in en_data.items():
         if sanitize_name(info.get("name", "")) == sanitized or (target_name and sanitize_name(info.get("name", "")) == sanitize_name(target_name)):
             target_cid = cid
@@ -385,7 +477,7 @@ def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session):
                 elem = ELEM_MAP.get(raw_elem, raw_elem or "未知")
             break
 
-    # 2. 備援向 Fandom Wiki 查詢
+    # 2. 備援向 Fandom Wiki 動態抽取繁中名稱與屬性（零字典，純動態解析）
     if target_name == en_name or not contains_cjk(target_name) or path == "未知" or elem == "未知":
         if en_name in wiki_char_cache:
             w_info = wiki_char_cache[en_name]
@@ -395,7 +487,7 @@ def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session):
 
         if w_info.get("cht_name") and (target_name == en_name or not contains_cjk(target_name)):
             target_name = w_info["cht_name"]
-            print(f"  ✨ Fandom Wiki 成功補全繁中名稱: {en_name} ➡️ {target_name}")
+            print(f"  ✨ Fandom Wiki 成功動態解析繁中名稱: {en_name} ➡️ {target_name}")
 
         if path == "未知" and w_info.get("path"):
             path = PATH_MAP.get(w_info["path"], w_info["path"])
@@ -415,6 +507,7 @@ def query_wiki_character_page(char_name, session):
             'prop': 'revisions',
             'rvslots': 'main',
             'rvprop': 'content',
+            'redirects': '1',
             'format': 'json'
         }, timeout=REQUEST_TIMEOUT).json()
 
@@ -424,19 +517,41 @@ def query_wiki_character_page(char_name, session):
                 continue
             content = p.get('revisions', [{}])[0].get('slots', {}).get('main', {}).get('*', '')
 
-            m_tw = re.search(r'\|(?:zht|zh[-_]?(?:tw|hk))\s*=\s*([^\n\|]+)', content, re.IGNORECASE)
-            if m_tw and m_tw.group(1).strip():
-                info["cht_name"] = clean_wikitext_value(m_tw.group(1))
-            else:
-                m_zh = re.search(r'\|(?:zhs|zh)\s*=\s*([^\n\|]+)', content, re.IGNORECASE)
-                if m_zh and m_zh.group(1).strip():
-                    info["cht_name"] = clean_wikitext_value(m_zh.group(1))
+            # 1. 動態抽取所有繁中欄位（支援 1_zht, 2_zht, zht, zh-tw, zh-hk 等）
+            matches = re.findall(r'\|((\d+_)?(zht|zh[-_]?(?:tw|hk)))\s*=\s*([^\n\|\}]+)', content, re.IGNORECASE)
+            if not matches:
+                matches = re.findall(r'\|((\d+_)?(zhs|zh))\s*=\s*([^\n\|\}]+)', content, re.IGNORECASE)
 
-            m_path = re.search(r'\|path\s*=\s*([^\n\|]+)', content)
+            name_dict = {}
+            for full_k, prefix, lang, val in matches:
+                cleaned_val = clean_wikitext_value(val)
+                if cleaned_val:
+                    # 去除前綴標題（如「星神★」或「Aeon ★」）
+                    cleaned_val = re.sub(r'^(?:星神|Aeon)\s*★\s*', '', cleaned_val).strip()
+                    name_dict[full_k.lower()] = cleaned_val
+
+            n1 = name_dict.get('1_zht') or name_dict.get('1_zhs')
+            n2 = name_dict.get('2_zht') or name_dict.get('2_zhs')
+            nz = name_dict.get('zht') or name_dict.get('zhs')
+
+            chosen = None
+            if n1 and n2:
+                chosen = n2 if n1 in n2 else n1
+            elif nz:
+                chosen = nz
+            elif n1:
+                chosen = n1
+            elif name_dict:
+                chosen = list(name_dict.values())[0]
+
+            if chosen:
+                info["cht_name"] = chosen
+
+            m_path = re.search(r'\|path\s*=\s*([^\n\|\}]+)', content)
             if m_path:
                 info["path"] = clean_wikitext_value(m_path.group(1))
 
-            m_elem = re.search(r'\|(?:combatType|element)\s*=\s*([^\n\|]+)', content)
+            m_elem = re.search(r'\|(?:combatType|element)\s*=\s*([^\n\|\}]+)', content)
             if m_elem:
                 info["elem"] = clean_wikitext_value(m_elem.group(1))
 
@@ -536,6 +651,26 @@ def execute_auto_update():
         print("⚠️ 無法取得任何有效的排程資料，觸發保護熔斷！")
         return False
 
+    # 2.1 自動探測 Fandom Wiki 前瞻與未來角色 (零字典，原生動態解析)
+    base_patch = wiki_patches[-1]['patch'] if wiki_patches else (original_patches[-1]['patch'] if original_patches else '4.6下')
+    base_date = wiki_patches[-1]['date'] if wiki_patches else (original_patches[-1]['date'] if original_patches else '26/10/21')
+
+    upcoming_schedules, upcoming_patches = fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date)
+
+    # 合併版本清單（優先保留正式版本資訊）
+    all_incoming_patches = list(wiki_patches)
+    known_patch_names = set(p['patch'] for p in all_incoming_patches)
+    for p in upcoming_patches:
+        if p['patch'] not in known_patch_names:
+            all_incoming_patches.append(p)
+            known_patch_names.add(p['patch'])
+
+    # 合併角色排程
+    all_incoming_schedules = list(schedules)
+    for s in upcoming_schedules:
+        if not any(x['en_name'] == s['en_name'] and x['run'] == s['run'] for x in all_incoming_schedules):
+            all_incoming_schedules.append(s)
+
     # 3. 合併版本清單（選項 B：僅更新當前版本及未來版本，保護過去歷史版本）
     # 依台灣時間找出當前正在進行中的版本
     tz_tw = timezone(timedelta(hours=8))
@@ -559,20 +694,26 @@ def execute_auto_update():
     new_patches_added = []
     patch_dates_updated_log = []
 
-    for p in wiki_patches:
+    for p in all_incoming_patches:
         name = p['patch']
         if name not in patches_by_name:
-            patches_by_name[name] = p
+            patches_by_name[name] = dict(p)
             new_patches_added.append(name)
-        elif name in updatable_patch_names:
-            old_date = patches_by_name[name].get('date', '')
-            new_date = p.get('date', '')
-            norm_old = normalize_patch_date(old_date)
-            norm_new = normalize_patch_date(new_date)
-            if norm_new and norm_new != norm_old:
-                patches_by_name[name]['date'] = norm_new
-                patch_dates_updated_log.append(f"{name}: {old_date} ➡️ {norm_new}")
-                print(f"  📅 自動校正版本日期: [{name}] {old_date} ➡️ {norm_new}")
+        else:
+            # 若官方已正式發布該版本（p 不含 isPreview），解除預估狀態
+            if not p.get('isPreview') and patches_by_name[name].get('isPreview'):
+                patches_by_name[name].pop('isPreview', None)
+                print(f"  🎉 版本 [{name}] 已正式發布排程，移除 isPreview 預覽標記！")
+
+            if name in updatable_patch_names:
+                old_date = patches_by_name[name].get('date', '')
+                new_date = p.get('date', '')
+                norm_old = normalize_patch_date(old_date)
+                norm_new = normalize_patch_date(new_date)
+                if norm_new and norm_new != norm_old:
+                    patches_by_name[name]['date'] = norm_new
+                    patch_dates_updated_log.append(f"{name}: {old_date} ➡️ {norm_new}")
+                    print(f"  📅 自動校正版本日期: [{name}] {old_date} ➡️ {norm_new}")
 
     # 依日期及版本號排序
     merged_patches = sorted(patches_by_name.values(), key=lambda p: (normalize_patch_date(p['date']) or "", p['patch']))
@@ -590,10 +731,11 @@ def execute_auto_update():
     runs_added_log = []
     name_upgraded_log = []
 
-    for sched in schedules:
+    for sched in all_incoming_schedules:
         en_name = sched['en_name']
         run = sched['run']
         is_collab = sched.get('is_collab', False)
+        is_preview = sched.get('is_preview', False)
 
         target_cid, target_name, path, elem = enrich_character_info(
             en_name, en_data, cht_data, wiki_char_cache, session
@@ -604,9 +746,14 @@ def execute_auto_update():
             matched_char = existing_char_map_by_name[target_name]
         else:
             for char in merged_chars:
-                if sanitize_name(char.get('name', '')) == sanitize_name(en_name):
+                c_name = char.get('name', '')
+                if sanitize_name(c_name) == sanitize_name(en_name):
                     matched_char = char
                     break
+                if contains_cjk(target_name) and contains_cjk(c_name):
+                    if normalize_cjk_name(target_name) == normalize_cjk_name(c_name):
+                        matched_char = char
+                        break
 
         if not matched_char and target_cid and target_cid in existing_char_map_by_cid:
             matched_char = existing_char_map_by_cid[target_cid]
@@ -628,6 +775,11 @@ def execute_auto_update():
             if matched_char.get('elem') in ["未知", "", None] and elem != "未知":
                 matched_char['elem'] = elem
 
+            # 預覽狀態同步：若官方正式實裝上線，移除預覽標記
+            if not is_preview and matched_char.get('isPreview'):
+                matched_char.pop('isPreview', None)
+                print(f"  🎉 角色 [{matched_char.get('name')}] 已正式實裝，移除 isPreview 預覽標記！")
+
             # 補充排程
             if not is_collab and not matched_char.get('isCollab'):
                 if 'runs' not in matched_char or not isinstance(matched_char['runs'], list):
@@ -637,14 +789,18 @@ def execute_auto_update():
                     runs_added_log.append(f"{matched_char['name']} ➡️ {run}")
         else:
             new_char = {
-                "cid": target_cid,
+                "cid": target_cid or "",
                 "name": target_name,
                 "path": path,
                 "elem": elem,
+                "avatar": "",
                 "runs": [] if is_collab else [run]
             }
             if is_collab:
                 new_char["isCollab"] = run
+            if is_preview:
+                new_char["isPreview"] = True
+
             merged_chars.append(new_char)
             if target_cid:
                 existing_char_map_by_cid[target_cid] = new_char
