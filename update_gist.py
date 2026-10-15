@@ -663,100 +663,57 @@ def validate_data_integrity(original_chars, original_patches, new_chars, new_pat
 
 
 # ──────────────────────────────────────────────────
-# 深度合併與自動化執行主流程
+# 輔助函式
 # ──────────────────────────────────────────────────
-def execute_auto_update():
-    print("\n" + "=" * 60)
-    print("🚀 啟動 HSR Banner 全自動資料更新流程 (雙軌直寫 + 安全防護)")
-    print("=" * 60)
+def _generate_summary_and_save(
+    original_chars, original_patches, merged_chars, merged_patches,
+    new_patches_added, patch_dates_updated_log, new_chars_added,
+    runs_added_log, name_upgraded_log, session, patches_file, chars_file
+):
+    """比對變更、寫入檔案、產生摘要並更新 Gist"""
+    has_patches_changed = json.dumps(original_patches) != json.dumps(merged_patches)
+    has_chars_changed = json.dumps(original_chars) != json.dumps(merged_chars)
 
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    })
+    if not has_patches_changed and not has_chars_changed:
+        print("✨ 專案資料庫目前已經是最新狀態，無需寫入更新。")
+        return True
 
-    patches_file = os.path.join("js", "patches.js")
-    chars_file = os.path.join("js", "characters.js")
+    # 寫入本地專案檔案
+    serialize_js_file('PATCH_DATA', merged_patches, patches_file)
+    serialize_js_file('RAW_CHARACTERS', merged_chars, chars_file)
 
-    # 1. 讀取專案既有基準資料
-    original_patches = parse_local_js_array(patches_file, 'PATCH_DATA')
-    original_chars = parse_local_js_array(chars_file, 'RAW_CHARACTERS')
-    print(f"📖 專案現有資料：{len(original_chars)} 位角色、{len(original_patches)} 個版本")
+    # 產生日誌摘要檔案（供 CI Commit Message 使用）
+    summary_lines = []
+    if new_patches_added:
+        summary_lines.append(f"🆕 新增版本 ({len(new_patches_added)} 個): {', '.join(new_patches_added)}")
+    if patch_dates_updated_log:
+        summary_lines.append(f"📅 版本日期校正 ({len(patch_dates_updated_log)} 項):\n  • " + "\n  • ".join(patch_dates_updated_log))
+    if new_chars_added:
+        summary_lines.append(f"✨ 發現新角色 ({len(new_chars_added)} 位):\n  • " + "\n  • ".join(new_chars_added))
+    if runs_added_log:
+        summary_lines.append(f"📅 新增排程登場 ({len(runs_added_log)} 項):\n  • " + "\n  • ".join(runs_added_log))
+    if name_upgraded_log:
+        summary_lines.append(f"🔄 名稱繁體中文化 ({len(name_upgraded_log)} 位):\n  • " + "\n  • ".join(name_upgraded_log))
 
-    # 2. 從 Fandom Wiki 抓取排程
-    schedules, wiki_patches = fetch_fandom_schedules_and_patches(session)
-    if not schedules:
-        print("⚠️ 無法取得任何有效的排程資料，觸發保護熔斷！")
-        return False
+    summary_text = "\n".join(summary_lines)
+    with open(".update_summary.md", "w", encoding="utf-8") as f:
+        f.write(summary_text)
 
-    # 2.1 自動探測 Fandom Wiki 前瞻與未來角色 (零字典，原生動態解析)
-    base_patch = wiki_patches[-1]['patch'] if wiki_patches else (original_patches[-1]['patch'] if original_patches else '4.6下')
-    base_date = wiki_patches[-1]['date'] if wiki_patches else (original_patches[-1]['date'] if original_patches else '26/10/21')
+    print("\n📝 變更摘要清單：")
+    print(summary_text)
 
-    upcoming_schedules, upcoming_patches = fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date)
+    # 備份同步至 GitHub Gist（相容舊版後台）
+    if GITHUB_TOKEN:
+        update_gist_backup({
+            "new_patches": [p for p in merged_patches if p['patch'] in new_patches_added],
+            "new_characters": merged_chars[-len(new_chars_added):] if new_chars_added else []
+        }, session)
 
-    # 合併版本清單（優先保留正式版本資訊）
-    all_incoming_patches = list(wiki_patches)
-    known_patch_names = set(p['patch'] for p in all_incoming_patches)
-    for p in upcoming_patches:
-        if p['patch'] not in known_patch_names:
-            all_incoming_patches.append(p)
-            known_patch_names.add(p['patch'])
+    return True
 
-    # 合併角色排程
-    all_incoming_schedules = list(schedules)
-    for s in upcoming_schedules:
-        if not any(x['en_name'] == s['en_name'] and x['run'] == s['run'] for x in all_incoming_schedules):
-            all_incoming_schedules.append(s)
 
-    # 3. 合併版本清單（選項 B：僅更新當前版本及未來版本，保護過去歷史版本）
-    # 依台灣時間找出當前正在進行中的版本
-    tz_tw = timezone(timedelta(hours=8))
-    today_tw_str = datetime.now(tz_tw).strftime('%y/%m/%d')
-
-    current_patch_idx = 0
-    for idx, p in enumerate(original_patches):
-        norm_date = normalize_patch_date(p.get('date'))
-        if norm_date and norm_date <= today_tw_str:
-            current_patch_idx = idx
-
-    # 當前版本及之後的所有未來版本均允許自動校正日期
-    updatable_patch_names = set(p['patch'] for p in original_patches[current_patch_idx:])
-    current_patch_name = original_patches[current_patch_idx]['patch'] if original_patches else "無"
-    print(f"🕒 當前進行中版本：{current_patch_name}，納入日期自動追蹤校正之版本：{sorted(list(updatable_patch_names))}")
-
-    patches_by_name = {}
-    for p in original_patches:
-        patches_by_name[p['patch']] = dict(p)
-
-    new_patches_added = []
-    patch_dates_updated_log = []
-
-    for p in all_incoming_patches:
-        name = p['patch']
-        if name not in patches_by_name:
-            patches_by_name[name] = dict(p)
-            new_patches_added.append(name)
-        else:
-            # 若官方已正式發布該版本（p 不含 isPreview），解除預估狀態
-            if not p.get('isPreview') and patches_by_name[name].get('isPreview'):
-                patches_by_name[name].pop('isPreview', None)
-                print(f"  🎉 版本 [{name}] 已正式發布排程，移除 isPreview 預覽標記！")
-
-            if name in updatable_patch_names:
-                old_date = patches_by_name[name].get('date', '')
-                new_date = p.get('date', '')
-                norm_old = normalize_patch_date(old_date)
-                norm_new = normalize_patch_date(new_date)
-                if norm_new and norm_new != norm_old:
-                    patches_by_name[name]['date'] = norm_new
-                    patch_dates_updated_log.append(f"{name}: {old_date} ➡️ {norm_new}")
-                    print(f"  📅 自動校正版本日期: [{name}] {old_date} ➡️ {norm_new}")
-
-    # 依日期及版本號排序
-    merged_patches = sorted(patches_by_name.values(), key=lambda p: (normalize_patch_date(p['date']) or "", p['patch']))
-
-    # 4. 合併角色清單
+def _merge_characters(original_chars, all_incoming_schedules, session):
+    """合併角色清單與排程"""
     en_data, cht_data = fetch_starrailres_data(session)
     wiki_char_cache = {}
 
@@ -851,49 +808,121 @@ def execute_auto_update():
             existing_char_map_by_name[target_name] = new_char
             new_chars_added.append(f"{target_name} ({path}/{elem}) ➡️ {run}")
 
+    return merged_chars, new_chars_added, runs_added_log, name_upgraded_log
+
+
+def _merge_patches(original_patches, all_incoming_patches):
+    """合併版本清單並自動校正日期"""
+    tz_tw = timezone(timedelta(hours=8))
+    today_tw_str = datetime.now(tz_tw).strftime('%y/%m/%d')
+
+    current_patch_idx = 0
+    for idx, p in enumerate(original_patches):
+        norm_date = normalize_patch_date(p.get('date'))
+        if norm_date and norm_date <= today_tw_str:
+            current_patch_idx = idx
+
+    updatable_patch_names = set(p['patch'] for p in original_patches[current_patch_idx:])
+    current_patch_name = original_patches[current_patch_idx]['patch'] if original_patches else "無"
+    print(f"🕒 當前進行中版本：{current_patch_name}，納入日期自動追蹤校正之版本：{sorted(list(updatable_patch_names))}")
+
+    patches_by_name = {}
+    for p in original_patches:
+        patches_by_name[p['patch']] = dict(p)
+
+    new_patches_added = []
+    patch_dates_updated_log = []
+
+    for p in all_incoming_patches:
+        name = p['patch']
+        if name not in patches_by_name:
+            patches_by_name[name] = dict(p)
+            new_patches_added.append(name)
+        else:
+            if not p.get('isPreview') and patches_by_name[name].get('isPreview'):
+                patches_by_name[name].pop('isPreview', None)
+                print(f"  🎉 版本 [{name}] 已正式發布排程，移除 isPreview 預覽標記！")
+
+            if name in updatable_patch_names:
+                old_date = patches_by_name[name].get('date', '')
+                new_date = p.get('date', '')
+                norm_old = normalize_patch_date(old_date)
+                norm_new = normalize_patch_date(new_date)
+                if norm_new and norm_new != norm_old:
+                    patches_by_name[name]['date'] = norm_new
+                    patch_dates_updated_log.append(f"{name}: {old_date} ➡️ {norm_new}")
+                    print(f"  📅 自動校正版本日期: [{name}] {old_date} ➡️ {norm_new}")
+
+    merged_patches = sorted(patches_by_name.values(), key=lambda p: (normalize_patch_date(p['date']) or "", p['patch']))
+    return merged_patches, new_patches_added, patch_dates_updated_log
+
+
+# ──────────────────────────────────────────────────
+# 深度合併與自動化執行主流程
+# ──────────────────────────────────────────────────
+def execute_auto_update():
+    print("\n" + "=" * 60)
+    print("🚀 啟動 HSR Banner 全自動資料更新流程 (雙軌直寫 + 安全防護)")
+    print("=" * 60)
+
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    })
+
+    patches_file = os.path.join("js", "patches.js")
+    chars_file = os.path.join("js", "characters.js")
+
+    # 1. 讀取專案既有基準資料
+    original_patches = parse_local_js_array(patches_file, 'PATCH_DATA')
+    original_chars = parse_local_js_array(chars_file, 'RAW_CHARACTERS')
+    print(f"📖 專案現有資料：{len(original_chars)} 位角色、{len(original_patches)} 個版本")
+
+    # 2. 從 Fandom Wiki 抓取排程
+    schedules, wiki_patches = fetch_fandom_schedules_and_patches(session)
+    if not schedules:
+        print("⚠️ 無法取得任何有效的排程資料，觸發保護熔斷！")
+        return False
+
+    # 2.1 自動探測 Fandom Wiki 前瞻與未來角色 (零字典，原生動態解析)
+    base_patch = wiki_patches[-1]['patch'] if wiki_patches else (original_patches[-1]['patch'] if original_patches else '4.6下')
+    base_date = wiki_patches[-1]['date'] if wiki_patches else (original_patches[-1]['date'] if original_patches else '26/10/21')
+
+    upcoming_schedules, upcoming_patches = fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date)
+
+    # 合併版本清單（優先保留正式版本資訊）
+    all_incoming_patches = list(wiki_patches)
+    known_patch_names = set(p['patch'] for p in all_incoming_patches)
+    for p in upcoming_patches:
+        if p['patch'] not in known_patch_names:
+            all_incoming_patches.append(p)
+            known_patch_names.add(p['patch'])
+
+    # 合併角色排程
+    all_incoming_schedules = list(schedules)
+    for s in upcoming_schedules:
+        if not any(x['en_name'] == s['en_name'] and x['run'] == s['run'] for x in all_incoming_schedules):
+            all_incoming_schedules.append(s)
+
+    # 3. 合併版本清單（選項 B：僅更新當前版本及未來版本，保護過去歷史版本）
+    merged_patches, new_patches_added, patch_dates_updated_log = _merge_patches(
+        original_patches, all_incoming_patches
+    )
+
+    # 4. 合併角色清單
+    merged_chars, new_chars_added, runs_added_log, name_upgraded_log = _merge_characters(
+        original_chars, all_incoming_schedules, session
+    )
+
     # 5. 執行五道安全防護檢驗門檻
     validate_data_integrity(original_chars, original_patches, merged_chars, merged_patches)
 
-    # 6. 比對是否有實質變更
-    has_patches_changed = json.dumps(original_patches) != json.dumps(merged_patches)
-    has_chars_changed = json.dumps(original_chars) != json.dumps(merged_chars)
-
-    if not has_patches_changed and not has_chars_changed:
-        print("✨ 專案資料庫目前已經是最新狀態，無需寫入更新。")
-        return True
-
-    # 7. 寫入本地專案檔案
-    serialize_js_file('PATCH_DATA', merged_patches, patches_file)
-    serialize_js_file('RAW_CHARACTERS', merged_chars, chars_file)
-
-    # 8. 產生日誌摘要檔案（供 CI Commit Message 使用）
-    summary_lines = []
-    if new_patches_added:
-        summary_lines.append(f"🆕 新增版本 ({len(new_patches_added)} 個): {', '.join(new_patches_added)}")
-    if patch_dates_updated_log:
-        summary_lines.append(f"📅 版本日期校正 ({len(patch_dates_updated_log)} 項):\n  • " + "\n  • ".join(patch_dates_updated_log))
-    if new_chars_added:
-        summary_lines.append(f"✨ 發現新角色 ({len(new_chars_added)} 位):\n  • " + "\n  • ".join(new_chars_added))
-    if runs_added_log:
-        summary_lines.append(f"📅 新增排程登場 ({len(runs_added_log)} 項):\n  • " + "\n  • ".join(runs_added_log))
-    if name_upgraded_log:
-        summary_lines.append(f"🔄 名稱繁體中文化 ({len(name_upgraded_log)} 位):\n  • " + "\n  • ".join(name_upgraded_log))
-
-    summary_text = "\n".join(summary_lines)
-    with open(".update_summary.md", "w", encoding="utf-8") as f:
-        f.write(summary_text)
-
-    print("\n📝 變更摘要清單：")
-    print(summary_text)
-
-    # 9. 備份同步至 GitHub Gist（相容舊版後台）
-    if GITHUB_TOKEN:
-        update_gist_backup({
-            "new_patches": [p for p in merged_patches if p['patch'] in new_patches_added],
-            "new_characters": merged_chars[-len(new_chars_added):] if new_chars_added else []
-        }, session)
-
-    return True
+    # 6. 比對是否有實質變更、寫入本地專案檔案、產生摘要檔案並同步備份至 GitHub Gist
+    return _generate_summary_and_save(
+        original_chars, original_patches, merged_chars, merged_patches,
+        new_patches_added, patch_dates_updated_log, new_chars_added,
+        runs_added_log, name_upgraded_log, session, patches_file, chars_file
+    )
 
 
 def update_gist_backup(data, session):
