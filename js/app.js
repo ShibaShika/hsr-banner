@@ -62,12 +62,12 @@ function getCurrentPatchName() {
 }
 
 // 🔍 取得角色最早登場的小版本名稱
-function getCharEarliestPatch(char, patchesList) {
+function getCharEarliestPatch(char, patchesList, patchIndexMap) {
     if (char.isCollab) {
         return char.isCollab;
     }
     if (char.runs && char.runs.length > 0) {
-        const runIndices = char.runs.map(p => patchesList.indexOf(p)).filter(idx => idx !== -1);
+        const runIndices = char.runs.map(p => patchIndexMap ? (patchIndexMap.has(p) ? patchIndexMap.get(p) : -1) : patchesList.indexOf(p)).filter(idx => idx !== -1);
         if (runIndices.length > 0) {
             return patchesList[Math.min(...runIndices)];
         }
@@ -79,13 +79,13 @@ function getCharEarliestPatch(char, patchesList) {
 }
 
 // 🔍 計算角色的精確登場小版本 (如：4.4上)
-function getCharDebutVersion(char, patchesList) {
-    return getCharEarliestPatch(char, patchesList) || "未登場";
+function getCharDebutVersion(char, patchesList, patchIndexMap) {
+    return getCharEarliestPatch(char, patchesList, patchIndexMap) || "未登場";
 }
 
 // 🔍 智慧計算角色的首次登場「大版本號」（如：1.x, 2.x, 3.x）
-function getCharDebutMajorVersion(char, patchesList) {
-    const earliestPatch = getCharEarliestPatch(char, patchesList);
+function getCharDebutMajorVersion(char, patchesList, patchIndexMap) {
+    const earliestPatch = getCharEarliestPatch(char, patchesList, patchIndexMap);
     if (earliestPatch) {
         return `${earliestPatch.split('.')[0]}.x`;
     }
@@ -93,18 +93,18 @@ function getCharDebutMajorVersion(char, patchesList) {
 }
 
 // 📊 智慧統計分析演算法 (含連續小版本自動合併邏輯)
-function calculateCharStats(char, patchesList, activePatchName) {
+function calculateCharStats(char, patchesList, activePatchName, patchIndexMap) {
     if (char.isCollab) {
         return { isCollab: true };
     }
 
-    const currentPatchIdx = patchesList.indexOf(activePatchName);
+    const currentPatchIdx = patchIndexMap ? (patchIndexMap.has(activePatchName) ? patchIndexMap.get(activePatchName) : -1) : patchesList.indexOf(activePatchName);
     let validEndIdx = currentPatchIdx !== -1 ? currentPatchIdx : patchesList.length - 1;
 
     let isTermActive = false;
     let termLabel = '';
     if (char.term && char.term.patch) {
-        const termIdx = patchesList.indexOf(char.term.patch);
+        const termIdx = patchIndexMap ? (patchIndexMap.has(char.term.patch) ? patchIndexMap.get(char.term.patch) : -1) : patchesList.indexOf(char.term.patch);
         if (termIdx !== -1 && termIdx <= validEndIdx) {
             validEndIdx = termIdx;
             isTermActive = true;
@@ -113,7 +113,7 @@ function calculateCharStats(char, patchesList, activePatchName) {
     }
 
     const indices = (char.runs || [])
-        .map(p => patchesList.indexOf(p))
+        .map(p => patchIndexMap ? (patchIndexMap.has(p) ? patchIndexMap.get(p) : -1) : patchesList.indexOf(p))
         .filter(idx => idx !== -1 && idx <= validEndIdx)
         .sort((a, b) => a - b);
 
@@ -259,6 +259,9 @@ function renderTable() {
     const activeCharacters = isShowPreview ? RAW_CHARACTERS : RAW_CHARACTERS.filter(c => !c.isPreview);
     const patchesList = activePatches.map(p => p.patch);
 
+    const patchIndexMap = new Map();
+    patchesList.forEach((patch, index) => patchIndexMap.set(patch, index));
+
     // 1. 決定角色陣列順序
     let CHARACTERS = [...activeCharacters].reverse();
     if (isCharAscending) {
@@ -277,7 +280,7 @@ function renderTable() {
     // 解析大版本選單
     const versionSet = new Set();
     CHARACTERS.forEach(char => {
-        const majorVer = getCharDebutMajorVersion(char, patchesList);
+        const majorVer = getCharDebutMajorVersion(char, patchesList, patchIndexMap);
         if (majorVer !== "未知") {
             versionSet.add(majorVer);
         }
@@ -392,11 +395,11 @@ function renderTable() {
         }
 
         const hasBuff = char.buffs && char.buffs.length > 0;
-        const majorVer = getCharDebutMajorVersion(char, patchesList);
-        const debutVer = getCharDebutVersion(char, patchesList);
+        const majorVer = getCharDebutMajorVersion(char, patchesList, patchIndexMap);
+        const debutVer = getCharDebutVersion(char, patchesList, patchIndexMap);
 
         const isCharPreview = Boolean(char.isPreview);
-        const stats = calculateCharStats(char, patchesList, activePatchName);
+        const stats = calculateCharStats(char, patchesList, activePatchName, patchIndexMap);
         let statsTooltip = "";
         if (isCharPreview) {
             statsTooltip = `【${char.name} - 躍遷資訊】\n• 預定登場：${debutVer}\n• 預覽角色`;
@@ -428,7 +431,7 @@ function renderTable() {
         patchesList.forEach((patch, pIdx) => {
             if (char.isCollab) {
                 const collabStart = char.isCollab;
-                const sIdx = patchesList.indexOf(collabStart);
+                const sIdx = patchIndexMap.has(collabStart) ? patchIndexMap.get(collabStart) : -1;
                 const spanCount = Math.min(5, sIdx);
 
                 if (pIdx < sIdx) {
@@ -453,7 +456,7 @@ function renderTable() {
             }
 
             if (char.term) {
-                const termIdx = patchesList.indexOf(char.term.patch);
+                const termIdx = patchIndexMap.has(char.term.patch) ? patchIndexMap.get(char.term.patch) : -1;
                 if (pIdx === termIdx) {
                     history.push({ status: 'TERM_START', type: char.term.type });
                     return;
