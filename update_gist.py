@@ -454,7 +454,7 @@ def fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date)
     return upcoming_schedules, gen_patches
 
 
-def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session):
+def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session, sanitized_en_dict=None):
     sanitized = sanitize_name(en_name)
     target_cid = None
     target_name = en_name
@@ -462,20 +462,24 @@ def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session):
     elem = "未知"
 
     # 1. 優先比對 StarRailRes 官方解包資料庫
-    for cid, info in en_data.items():
-        if sanitize_name(info.get("name", "")) == sanitized or (target_name and sanitize_name(info.get("name", "")) == sanitize_name(target_name)):
-            target_cid = cid
-            cht_info = cht_data.get(cid, {})
-            if isinstance(cht_info, dict):
-                target_name = cht_info.get("name", en_name)
-                db_path = cht_info.get("path")
-                raw_path = db_path.get("name") if isinstance(db_path, dict) else db_path
-                path = PATH_MAP.get(raw_path, raw_path or "未知")
+    if sanitized_en_dict is None:
+        sanitized_en_dict = {sanitize_name(info.get("name", "")): cid for cid, info in en_data.items()}
 
-                db_elem = cht_info.get("element")
-                raw_elem = db_elem.get("name") if isinstance(db_elem, dict) else db_elem
-                elem = ELEM_MAP.get(raw_elem, raw_elem or "未知")
-            break
+    sanitized_target = sanitize_name(target_name) if target_name else ""
+    matched_cid = sanitized_en_dict.get(sanitized) or (sanitized_en_dict.get(sanitized_target) if sanitized_target else None)
+
+    if matched_cid:
+        target_cid = matched_cid
+        cht_info = cht_data.get(matched_cid, {})
+        if isinstance(cht_info, dict):
+            target_name = cht_info.get("name", en_name)
+            db_path = cht_info.get("path")
+            raw_path = db_path.get("name") if isinstance(db_path, dict) else db_path
+            path = PATH_MAP.get(raw_path, raw_path or "未知")
+
+            db_elem = cht_info.get("element")
+            raw_elem = db_elem.get("name") if isinstance(db_elem, dict) else db_elem
+            elem = ELEM_MAP.get(raw_elem, raw_elem or "未知")
 
     # 2. 備援向 Fandom Wiki 動態抽取繁中名稱與屬性（零字典，純動態解析）
     if target_name == en_name or not contains_cjk(target_name) or path == "未知" or elem == "未知":
@@ -731,6 +735,8 @@ def execute_auto_update():
     runs_added_log = []
     name_upgraded_log = []
 
+    sanitized_en_dict = {sanitize_name(info.get("name", "")): cid for cid, info in en_data.items()}
+
     for sched in all_incoming_schedules:
         en_name = sched['en_name']
         run = sched['run']
@@ -738,7 +744,7 @@ def execute_auto_update():
         is_preview = sched.get('is_preview', False)
 
         target_cid, target_name, path, elem = enrich_character_info(
-            en_name, en_data, cht_data, wiki_char_cache, session
+            en_name, en_data, cht_data, wiki_char_cache, session, sanitized_en_dict
         )
 
         matched_char = None
