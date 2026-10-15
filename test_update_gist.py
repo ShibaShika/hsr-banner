@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
-from unittest.mock import patch, mock_open
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_patch_date, parse_local_js_array
+from unittest.mock import patch, mock_open, MagicMock
+from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_patch_date, parse_local_js_array, execute_auto_update
 
 class TestParseLocalJsArray(unittest.TestCase):
     @patch('os.path.exists', return_value=False)
@@ -327,6 +327,96 @@ class TestNormalizePatchDate(unittest.TestCase):
         self.assertIsNone(normalize_patch_date("26/04/2023")) # DD/MM/YYYY is not in fmt list
         self.assertIsNone(normalize_patch_date("2023.04.26"))
 
+
+
+
+class TestExecuteAutoUpdate(unittest.TestCase):
+    @patch('update_gist.requests.Session')
+    @patch('update_gist.parse_local_js_array')
+    @patch('update_gist.fetch_fandom_schedules_and_patches')
+    @patch('update_gist.fetch_fandom_upcoming_characters_and_patches')
+    @patch('update_gist.fetch_starrailres_data')
+    @patch('update_gist.serialize_js_file')
+    @patch('update_gist.update_gist_backup')
+    @patch('update_gist.validate_data_integrity')
+    @patch('builtins.open', new_callable=mock_open)
+    def test_execute_auto_update_no_changes(
+            self, mock_file_open, mock_validate, mock_update_gist, mock_serialize,
+            mock_fetch_res, mock_fetch_upcoming, mock_fetch_fandom, mock_parse_local, mock_session):
+
+        # Setup mocks
+        mock_session_instance = MagicMock()
+        mock_session.return_value = mock_session_instance
+
+        # Return empty original patches/chars
+        mock_parse_local.return_value = []
+
+        # Return empty schedules and patches from Wiki
+        mock_fetch_fandom.return_value = ([], [])
+
+        # No upcoming
+        mock_fetch_upcoming.return_value = ([], [])
+
+        # Empty starrailres
+        mock_fetch_res.return_value = ({}, {})
+
+        # Execute
+        result = execute_auto_update()
+
+        # In case where there are no valid schedules returned, function returns False (melt down protection)
+        self.assertFalse(result)
+
+    @patch('update_gist.requests.Session')
+    @patch('update_gist.parse_local_js_array')
+    @patch('update_gist.fetch_fandom_schedules_and_patches')
+    @patch('update_gist.fetch_fandom_upcoming_characters_and_patches')
+    @patch('update_gist.fetch_starrailres_data')
+    @patch('update_gist.serialize_js_file')
+    @patch('update_gist.update_gist_backup')
+    @patch('update_gist.validate_data_integrity')
+    @patch('builtins.open', new_callable=mock_open)
+    def test_execute_auto_update_with_changes(
+            self, mock_file_open, mock_validate, mock_update_gist, mock_serialize,
+            mock_fetch_res, mock_fetch_upcoming, mock_fetch_fandom, mock_parse_local, mock_session):
+
+        mock_session_instance = MagicMock()
+        mock_session.return_value = mock_session_instance
+
+        # Original data
+        mock_parse_local.side_effect = [
+            [{'patch': '1.0上', 'date': '23/04/26'}], # patches
+            [{'cid': '1001', 'name': 'March 7th', 'runs': ['1.0上']}] # chars
+        ]
+
+        # Fandom data
+        mock_fetch_fandom.return_value = (
+            [{'en_name': 'Dan Heng', 'run': '1.0下', 'is_collab': False}],
+            [{'patch': '1.0上', 'date': '23/04/26'}, {'patch': '1.0下', 'date': '23/05/17'}]
+        )
+
+        # Upcoming data
+        mock_fetch_upcoming.return_value = (
+            [{'en_name': 'Kafka', 'run': '1.2上', 'is_collab': False, 'is_preview': True}],
+            [{'patch': '1.2上', 'date': '23/07/19', 'isPreview': True}]
+        )
+
+        # Starrailres data
+        mock_fetch_res.return_value = (
+            {'danheng': {'name': 'Dan Heng'}},
+            {'danheng': {'name': '丹恆', 'path': 'Hunt', 'element': 'Wind'}}
+        )
+
+        # Test execute_auto_update
+        with patch('update_gist.enrich_character_info') as mock_enrich:
+            mock_enrich.side_effect = [
+                ('1002', '丹恆', '巡獵', '風'),
+                ('1005', '卡芙卡', '虛無', '雷')
+            ]
+            result = execute_auto_update()
+
+        self.assertTrue(result)
+        self.assertEqual(mock_serialize.call_count, 2)
+        mock_validate.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()
