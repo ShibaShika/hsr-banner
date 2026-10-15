@@ -751,13 +751,17 @@ def execute_auto_update():
         if target_name in existing_char_map_by_name:
             matched_char = existing_char_map_by_name[target_name]
         else:
+            sanitized_en_name = sanitize_name(en_name)
+            target_is_cjk = contains_cjk(target_name)
+            normalized_target_name = normalize_cjk_name(target_name) if target_is_cjk else None
+
             for char in merged_chars:
                 c_name = char.get('name', '')
-                if sanitize_name(c_name) == sanitize_name(en_name):
+                if sanitize_name(c_name) == sanitized_en_name:
                     matched_char = char
                     break
-                if contains_cjk(target_name) and contains_cjk(c_name):
-                    if normalize_cjk_name(target_name) == normalize_cjk_name(c_name):
+                if target_is_cjk and contains_cjk(c_name):
+                    if normalized_target_name == normalize_cjk_name(c_name):
                         matched_char = char
                         break
 
