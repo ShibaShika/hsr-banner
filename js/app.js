@@ -981,25 +981,26 @@ function rebindControlListeners() {
     applyFilters();
 }
 
-function applyFilters() {
-    const table = document.getElementById('tracker');
-    if (!table) return;
-
-    const selectedVersions = Array.from(document.querySelectorAll('.version-item')).filter(i => i.checked).map(i => i.value);
-    const selectedPaths = Array.from(document.querySelectorAll('.path-item')).filter(i => i.checked).map(i => i.value);
-    const selectedElems = Array.from(document.querySelectorAll('.elem-item')).filter(i => i.checked).map(i => i.value);
-    const selectedTypes = Array.from(document.querySelectorAll('.type-item')).filter(i => i.checked).map(i => i.value);
-    
+function getFilterState() {
     const searchInput = document.getElementById('char-search-input');
-    const searchClearBtn = document.getElementById('search-clear-btn');
-    const resetFiltersBtn = document.getElementById('reset-filters-btn');
     const buffToggleBtn = document.getElementById('buff-toggle-btn');
     
-    const keyword = searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '';
-    const onlyBuffs = buffToggleBtn ? buffToggleBtn.classList.contains('active') : false;
+    return {
+        selectedVersions: Array.from(document.querySelectorAll('.version-item')).filter(i => i.checked).map(i => i.value),
+        selectedPaths: Array.from(document.querySelectorAll('.path-item')).filter(i => i.checked).map(i => i.value),
+        selectedElems: Array.from(document.querySelectorAll('.elem-item')).filter(i => i.checked).map(i => i.value),
+        selectedTypes: Array.from(document.querySelectorAll('.type-item')).filter(i => i.checked).map(i => i.value),
+        keyword: searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '',
+        onlyBuffs: buffToggleBtn ? buffToggleBtn.classList.contains('active') : false
+    };
+}
+
+function updateFilterUI(state) {
+    const searchClearBtn = document.getElementById('search-clear-btn');
+    const resetFiltersBtn = document.getElementById('reset-filters-btn');
 
     if (searchClearBtn) {
-        searchClearBtn.style.display = keyword !== '' ? 'block' : 'none';
+        searchClearBtn.style.display = state.keyword !== '' ? 'block' : 'none';
     }
 
     const versionBox = document.getElementById('version-select-box');
@@ -1007,41 +1008,43 @@ function applyFilters() {
     const elemBox = document.getElementById('elem-select-box');
     const typeBox = document.getElementById('type-select-box');
 
-    if (versionBox) versionBox.classList.toggle('active', selectedVersions.length > 0);
-    if (pathBox) pathBox.classList.toggle('active', selectedPaths.length > 0);
-    if (elemBox) elemBox.classList.toggle('active', selectedElems.length > 0);
-    if (typeBox) typeBox.classList.toggle('active', selectedTypes.length > 0);
+    if (versionBox) versionBox.classList.toggle('active', state.selectedVersions.length > 0);
+    if (pathBox) pathBox.classList.toggle('active', state.selectedPaths.length > 0);
+    if (elemBox) elemBox.classList.toggle('active', state.selectedElems.length > 0);
+    if (typeBox) typeBox.classList.toggle('active', state.selectedTypes.length > 0);
 
-    const hasActiveFilter = selectedVersions.length > 0 || selectedPaths.length > 0 || selectedElems.length > 0 || selectedTypes.length > 0 || keyword !== '' || onlyBuffs;
+    const hasActiveFilter = state.selectedVersions.length > 0 || state.selectedPaths.length > 0 || state.selectedElems.length > 0 || state.selectedTypes.length > 0 || state.keyword !== '' || state.onlyBuffs;
     if (resetFiltersBtn) {
         resetFiltersBtn.style.display = hasActiveFilter ? 'inline-flex' : 'none';
     }
 
     if (versionBox) {
-        if (selectedVersions.length === 0) versionBox.textContent = '實裝版本';
-        else if (selectedVersions.length <= 2) versionBox.textContent = selectedVersions.join(', ');
-        else versionBox.textContent = `${selectedVersions[0]} 等 ${selectedVersions.length} 個`;
+        if (state.selectedVersions.length === 0) versionBox.textContent = '實裝版本';
+        else if (state.selectedVersions.length <= 2) versionBox.textContent = state.selectedVersions.join(', ');
+        else versionBox.textContent = `${state.selectedVersions[0]} 等 ${state.selectedVersions.length} 個`;
     }
 
     if (pathBox) {
-        if (selectedPaths.length === 0) pathBox.textContent = '命途';
-        else if (selectedPaths.length <= 2) pathBox.textContent = selectedPaths.join(', ');
-        else pathBox.textContent = `${selectedPaths[0]} 等 ${selectedPaths.length} 個`;
+        if (state.selectedPaths.length === 0) pathBox.textContent = '命途';
+        else if (state.selectedPaths.length <= 2) pathBox.textContent = state.selectedPaths.join(', ');
+        else pathBox.textContent = `${state.selectedPaths[0]} 等 ${state.selectedPaths.length} 個`;
     }
 
     if (elemBox) {
-        if (selectedElems.length === 0) elemBox.textContent = '屬性';
-        else if (selectedElems.length <= 2) elemBox.textContent = selectedElems.join(', ');
-        else elemBox.textContent = `${selectedElems[0]} 等 ${selectedElems.length} 個`;
+        if (state.selectedElems.length === 0) elemBox.textContent = '屬性';
+        else if (state.selectedElems.length <= 2) elemBox.textContent = state.selectedElems.join(', ');
+        else elemBox.textContent = `${state.selectedElems[0]} 等 ${state.selectedElems.length} 個`;
     }
 
     const typeLabelMap = { 'normal': '限定躍遷', 'pool': '星緣', 'shop': '聚靈', 'collab': '聯動' };
     if (typeBox) {
-        if (selectedTypes.length === 0) typeBox.textContent = '取得方法';
-        else if (selectedTypes.length <= 2) typeBox.textContent = selectedTypes.map(t => typeLabelMap[t]).join(', ');
-        else typeBox.textContent = `${typeLabelMap[selectedTypes[0]]} 等 ${selectedTypes.length} 個`;
+        if (state.selectedTypes.length === 0) typeBox.textContent = '取得方法';
+        else if (state.selectedTypes.length <= 2) typeBox.textContent = state.selectedTypes.map(t => typeLabelMap[t]).join(', ');
+        else typeBox.textContent = `${typeLabelMap[state.selectedTypes[0]]} 等 ${state.selectedTypes.length} 個`;
     }
+}
 
+function filterTableRows(table, state) {
     const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
     let visibleCount = 0;
     const totalChars = rows.length;
@@ -1054,12 +1057,12 @@ function applyFilters() {
         const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
         const rowName = row.getAttribute('data-name').toLowerCase();
 
-        const matchVersion = selectedVersions.length === 0 || selectedVersions.includes(rowMajorVer);
-        const matchPath = selectedPaths.length === 0 || selectedPaths.includes(rowPath);
-        const matchElem = selectedElems.length === 0 || selectedElems.includes(rowElem);
-        const matchType = selectedTypes.length === 0 || selectedTypes.includes(rowType);
-        const matchName = keyword === '' || rowName.includes(keyword);
-        const matchBuff = !onlyBuffs || hasBuffAttr;
+        const matchVersion = state.selectedVersions.length === 0 || state.selectedVersions.includes(rowMajorVer);
+        const matchPath = state.selectedPaths.length === 0 || state.selectedPaths.includes(rowPath);
+        const matchElem = state.selectedElems.length === 0 || state.selectedElems.includes(rowElem);
+        const matchType = state.selectedTypes.length === 0 || state.selectedTypes.includes(rowType);
+        const matchName = state.keyword === '' || rowName.includes(state.keyword);
+        const matchBuff = !state.onlyBuffs || hasBuffAttr;
 
         if (matchVersion && matchPath && matchElem && matchType && matchName && matchBuff) {
             row.style.display = '';
@@ -1069,6 +1072,10 @@ function applyFilters() {
         }
     });
 
+    return { visibleCount, totalChars };
+}
+
+function updateTableUI(table, visibleCount, totalChars) {
     const countBadge = document.getElementById('table-count-badge');
     if (countBadge) {
         if (visibleCount === totalChars) {
@@ -1098,6 +1105,16 @@ function applyFilters() {
             emptyRow.style.display = 'none';
         }
     }
+}
+
+function applyFilters() {
+    const table = document.getElementById('tracker');
+    if (!table) return;
+
+    const state = getFilterState();
+    updateFilterUI(state);
+    const { visibleCount, totalChars } = filterTableRows(table, state);
+    updateTableUI(table, visibleCount, totalChars);
 }
 
 // 頂部工具列摺疊邏輯
