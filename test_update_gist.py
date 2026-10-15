@@ -1,5 +1,33 @@
 import unittest
-from update_gist import validate_data_integrity, clean_wikitext_value
+from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name
+
+class TestSanitizeName(unittest.TestCase):
+    def test_empty_or_none(self):
+        self.assertEqual(sanitize_name(""), "")
+        self.assertEqual(sanitize_name(None), "")
+
+    def test_normal_alphanumeric(self):
+        self.assertEqual(sanitize_name("Name123"), "name123")
+        self.assertEqual(sanitize_name("test"), "test")
+
+    def test_mixed_case(self):
+        self.assertEqual(sanitize_name("CaMeLcAsE"), "camelcase")
+        self.assertEqual(sanitize_name("UPPER"), "upper")
+
+    def test_special_characters(self):
+        self.assertEqual(sanitize_name("name!@#$%^*()_+-="), "name")
+        self.assertEqual(sanitize_name("name with spaces"), "namewithspaces")
+        self.assertEqual(sanitize_name("name.with.dots"), "namewithdots")
+        self.assertEqual(sanitize_name("name-with-dashes"), "namewithdashes")
+
+    def test_ampersand(self):
+        self.assertEqual(sanitize_name("Tom & Jerry"), "tomandjerry")
+        self.assertEqual(sanitize_name("A&B&C"), "aandbandc")
+
+    def test_non_string_types(self):
+        self.assertEqual(sanitize_name(12345), "12345")
+        self.assertEqual(sanitize_name(3.14159), "314159")
+        self.assertEqual(sanitize_name(True), "true")
 
 class TestValidateDataIntegrity(unittest.TestCase):
     def setUp(self):
