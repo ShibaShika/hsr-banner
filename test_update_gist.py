@@ -1,5 +1,6 @@
 import unittest
-from update_gist import validate_data_integrity, clean_wikitext_value
+from datetime import datetime
+from update_gist import validate_data_integrity, clean_wikitext_value, normalize_patch_date
 
 class TestValidateDataIntegrity(unittest.TestCase):
     def setUp(self):
@@ -161,6 +162,47 @@ class TestCleanWikitextValue(unittest.TestCase):
     def test_complex_combined(self):
         val = "  <!-- delete me --> [[Aeon (Path)|Aeon]]·[[Emanator]] \n"
         self.assertEqual(clean_wikitext_value(val), "Aeon•Emanator")
+
+
+class TestNormalizePatchDate(unittest.TestCase):
+    def test_falsy_inputs(self):
+        self.assertIsNone(normalize_patch_date(None))
+        self.assertIsNone(normalize_patch_date(""))
+        self.assertIsNone(normalize_patch_date("   "))
+
+    def test_timestamp_inputs(self):
+        expected_date = datetime.fromtimestamp(1682467200).strftime("%y/%m/%d")
+        # Seconds
+        self.assertEqual(normalize_patch_date(1682467200), expected_date)
+        self.assertEqual(normalize_patch_date(1682467200.0), expected_date)
+        # Milliseconds
+        self.assertEqual(normalize_patch_date(1682467200000), expected_date)
+        self.assertEqual(normalize_patch_date(1682467200000.0), expected_date)
+
+    def test_string_formats(self):
+        # %y/%m/%d
+        self.assertEqual(normalize_patch_date("23/04/26"), "23/04/26")
+        # %Y/%m/%d
+        self.assertEqual(normalize_patch_date("2023/04/26"), "23/04/26")
+        # %Y-%m-%d
+        self.assertEqual(normalize_patch_date("2023-04-26"), "23/04/26")
+        # ISO8601 full
+        self.assertEqual(normalize_patch_date("2023-04-26T12:00:00.000Z"), "23/04/26")
+        # ISO8601 without ms
+        self.assertEqual(normalize_patch_date("2023-04-26T12:00:00Z"), "23/04/26")
+        # %B %d, %Y
+        self.assertEqual(normalize_patch_date("April 26, 2023"), "23/04/26")
+        # %B %d %Y
+        self.assertEqual(normalize_patch_date("April 26 2023"), "23/04/26")
+
+    def test_string_with_whitespace(self):
+        self.assertEqual(normalize_patch_date("  2023/04/26  "), "23/04/26")
+        self.assertEqual(normalize_patch_date("\n2023-04-26\t"), "23/04/26")
+
+    def test_invalid_string_formats(self):
+        self.assertIsNone(normalize_patch_date("invalid date"))
+        self.assertIsNone(normalize_patch_date("26/04/2023")) # DD/MM/YYYY is not in fmt list
+        self.assertIsNone(normalize_patch_date("2023.04.26"))
 
 
 if __name__ == '__main__':
