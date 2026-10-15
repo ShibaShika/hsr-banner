@@ -1,5 +1,5 @@
 import unittest
-from update_gist import validate_data_integrity
+from update_gist import validate_data_integrity, clean_wikitext_value
 
 class TestValidateDataIntegrity(unittest.TestCase):
     def setUp(self):
@@ -127,6 +127,41 @@ class TestValidateDataIntegrity(unittest.TestCase):
             )
         except AssertionError as e:
             self.fail(f"validate_data_integrity raised AssertionError unexpectedly: {e}")
+
+
+class TestCleanWikitextValue(unittest.TestCase):
+    def test_none_or_empty(self):
+        self.assertEqual(clean_wikitext_value(None), "")
+        self.assertEqual(clean_wikitext_value(""), "")
+
+    def test_basic_text(self):
+        self.assertEqual(clean_wikitext_value("Simple text"), "Simple text")
+
+    def test_wikitext_link(self):
+        self.assertEqual(clean_wikitext_value("[[Link]]"), "Link")
+
+    def test_wikitext_link_alias(self):
+        self.assertEqual(clean_wikitext_value("[[Real Page|Display Name]]"), "Display Name")
+
+    def test_multiple_links(self):
+        self.assertEqual(clean_wikitext_value("[[Page1]] and [[Page2|Alias2]]"), "Page1 and Alias2")
+
+    def test_html_comments(self):
+        self.assertEqual(clean_wikitext_value("Text <!-- hidden comment --> here"), "Text  here")
+        self.assertEqual(clean_wikitext_value("<!-- hidden comment -->"), "")
+        self.assertEqual(clean_wikitext_value("A<!-- comment 1 -->B<!-- comment 2 -->C"), "ABC")
+
+    def test_strip_whitespace(self):
+        self.assertEqual(clean_wikitext_value("  padded text  \n"), "padded text")
+
+    def test_replace_bullets(self):
+        self.assertEqual(clean_wikitext_value("Name·With·Dots"), "Name•With•Dots")
+        self.assertEqual(clean_wikitext_value("Name・With・Japanese・Dots"), "Name•With•Japanese•Dots")
+
+    def test_complex_combined(self):
+        val = "  <!-- delete me --> [[Aeon (Path)|Aeon]]·[[Emanator]] \n"
+        self.assertEqual(clean_wikitext_value(val), "Aeon•Emanator")
+
 
 if __name__ == '__main__':
     unittest.main()
