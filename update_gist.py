@@ -564,8 +564,6 @@ def query_wiki_character_page(char_name, session):
             for full_k, prefix, lang, val in matches:
                 cleaned_val = clean_wikitext_value(val)
                 if cleaned_val:
-                    # 去除前綴標題（如「星神★」或「Aeon ★」）
-                    cleaned_val = re.sub(r'^(?:星神|Aeon)\s*★\s*', '', cleaned_val).strip()
                     name_dict[full_k.lower()] = cleaned_val
 
             n1 = name_dict.get('1_zht') or name_dict.get('1_zhs')
