@@ -92,32 +92,25 @@ function getCharDebutMajorVersion(char, patchesList, patchIndexMap) {
     return "未知";
 }
 
-// 📊 智慧統計分析演算法 (含連續小版本自動合併邏輯)
-function calculateCharStats(char, patchesList, activePatchName, patchIndexMap) {
-    if (char.isCollab) {
-        return { isCollab: true };
-    }
+function getPatchIndex(patch, patchesList, patchIndexMap) {
+    return patchIndexMap ? (patchIndexMap.has(patch) ? patchIndexMap.get(patch) : -1) : patchesList.indexOf(patch);
+}
 
-    const currentPatchIdx = patchIndexMap ? (patchIndexMap.has(activePatchName) ? patchIndexMap.get(activePatchName) : -1) : patchesList.indexOf(activePatchName);
-    let validEndIdx = currentPatchIdx !== -1 ? currentPatchIdx : patchesList.length - 1;
-
-    let isTermActive = false;
-    let termLabel = '';
+function getTermStatus(char, validEndIdx, patchesList, patchIndexMap) {
     if (char.term && char.term.patch) {
-        const termIdx = patchIndexMap ? (patchIndexMap.has(char.term.patch) ? patchIndexMap.get(char.term.patch) : -1) : patchesList.indexOf(char.term.patch);
+        const termIdx = getPatchIndex(char.term.patch, patchesList, patchIndexMap);
         if (termIdx !== -1 && termIdx <= validEndIdx) {
-            validEndIdx = termIdx;
-            isTermActive = true;
-            termLabel = char.term.type === 'pool' ? '星緣' : '聚靈';
+            return {
+                isTermActive: true,
+                validEndIdx: termIdx,
+                termLabel: char.term.type === 'pool' ? '星緣' : '聚靈'
+            };
         }
     }
+    return { isTermActive: false, validEndIdx, termLabel: '' };
+}
 
-    const indices = (char.runs || [])
-        .map(p => patchIndexMap ? (patchIndexMap.has(p) ? patchIndexMap.get(p) : -1) : patchesList.indexOf(p))
-        .filter(idx => idx !== -1 && idx <= validEndIdx)
-        .sort((a, b) => a - b);
-
-    // 將連續小版本 (如 4.1上 + 4.1下) 自動合併為「同一次/同期 UP 活動」
+function mergeContinuousEvents(indices) {
     const events = [];
     if (indices.length > 0) {
         let currentEvent = { start: indices[0], end: indices[0] };
@@ -131,65 +124,63 @@ function calculateCharStats(char, patchesList, activePatchName, patchIndexMap) {
         }
         events.push(currentEvent);
     }
+    return events;
+}
 
-    const totalRuns = events.length;
-
-    if (totalRuns === 0) {
-        return {
-            totalRuns: '0',
-            currentGap: '-',
-            maxGap: '-',
-            isOverdue: false,
-            isTermActive: false,
-            termLabel: ''
-        };
-    }
-
-    const lastEvent = events[events.length - 1];
-    const currentGap = validEndIdx - lastEvent.end;
-
-    if (isTermActive) {
-        let maxGap = '-';
-        if (totalRuns >= 2) {
-            const gaps = [];
-            for (let i = 1; i < events.length; i++) {
-                gaps.push(events[i].start - events[i - 1].end - 1);
-            }
-            maxGap = `${Math.max(...gaps)}`;
-        }
-        return {
-            totalRuns: `${totalRuns}`,
-            currentGap: `已加入${termLabel}`,
-            maxGap: maxGap,
-            isOverdue: false,
-            isTermActive: true,
-            termLabel
-        };
-    }
-
-    if (totalRuns === 1) {
-        return {
-            totalRuns: '1',
-            currentGap: `${currentGap}`,
-            maxGap: '-',
-            isOverdue: false,
-            isTermActive: false,
-            termLabel: ''
-        };
-    }
-
+function calculateGaps(events) {
     const gaps = [];
     for (let i = 1; i < events.length; i++) {
         gaps.push(events[i].start - events[i - 1].end - 1);
     }
-    const maxHistoricalGap = Math.max(...gaps);
-    const isOverdue = currentGap > maxHistoricalGap;
+    return gaps;
+}
+
+// 📊 智慧統計分析演算法 (含連續小版本自動合併邏輯)
+function calculateCharStats(char, patchesList, activePatchName, patchIndexMap) {
+    if (char.isCollab) {
+        return { isCollab: true };
+    }
+
+    const currentPatchIdx = getPatchIndex(activePatchName, patchesList, patchIndexMap);
+    let initialValidEndIdx = currentPatchIdx !== -1 ? currentPatchIdx : patchesList.length - 1;
+
+    const termStatus = getTermStatus(char, initialValidEndIdx, patchesList, patchIndexMap);
+    const validEndIdx = termStatus.validEndIdx;
+
+    const indices = (char.runs || [])
+        .map(p => getPatchIndex(p, patchesList, patchIndexMap))
+        .filter(idx => idx !== -1 && idx <= validEndIdx)
+        .sort((a, b) => a - b);
+
+    // 將連續小版本 (如 4.1上 + 4.1下) 自動合併為「同一次/同期 UP 活動」
+    const events = mergeContinuousEvents(indices);
+    const totalRuns = events.length;
+
+    if (totalRuns === 0) {
+        return { totalRuns: '0', currentGap: '-', maxGap: '-', isOverdue: false, isTermActive: false, termLabel: '' };
+    }
+
+    const lastEvent = events[events.length - 1];
+    const currentGap = validEndIdx - lastEvent.end;
+    const gaps = calculateGaps(events);
+    const maxHistoricalGap = gaps.length > 0 ? Math.max(...gaps) : '-';
+
+    if (termStatus.isTermActive) {
+        return {
+            totalRuns: `${totalRuns}`,
+            currentGap: `已加入${termStatus.termLabel}`,
+            maxGap: `${maxHistoricalGap}`,
+            isOverdue: false,
+            isTermActive: true,
+            termLabel: termStatus.termLabel
+        };
+    }
 
     return {
         totalRuns: `${totalRuns}`,
         currentGap: `${currentGap}`,
         maxGap: `${maxHistoricalGap}`,
-        isOverdue,
+        isOverdue: maxHistoricalGap !== '-' && currentGap > maxHistoricalGap,
         isTermActive: false,
         termLabel: ''
     };
@@ -1152,6 +1143,11 @@ if (typeof module !== 'undefined' && module.exports) {
         getCharDebutVersion,
         formatHeaderDate,
         escapeHtml,
-        getFallbackAvatar
+        getFallbackAvatar,
+        calculateCharStats,
+        getPatchIndex,
+        getTermStatus,
+        mergeContinuousEvents,
+        calculateGaps
     };
 }
