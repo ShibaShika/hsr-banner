@@ -175,36 +175,8 @@ def serialize_js_file(var_name, data, filepath):
 # ──────────────────────────────────────────────────
 # 核心資料源：Fandom Wiki 結構化躍遷歷史與排程
 # ──────────────────────────────────────────────────
-def fetch_fandom_schedules_and_patches(session):
-    print("正在從 Fandom Wiki (Warp/List) 抓取官方卡池排程與歷史...")
-
-    parse_res = session.get(WIKI_API_URL, params={
-        'action': 'parse',
-        'page': 'Warp/List',
-        'prop': 'text',
-        'format': 'json'
-    }, timeout=REQUEST_TIMEOUT).json()
-
-    html = parse_res.get('parse', {}).get('text', {}).get('*', '')
-    if not html:
-        print("⚠️ 未能取得 Warp/List 的 HTML 內容")
-        return [], []
-
-    soup = BeautifulSoup(html, 'html.parser')
-    tables = soup.find_all('table')
-    if not tables:
-        print("⚠️ Warp/List 頁面未發現卡池表格")
-        return [], []
-
-    def parse_header_date(s):
-        s = s.strip()
-        for fmt in ('%B %d, %Y', '%B %d %Y'):
-            try:
-                return datetime.strptime(s, fmt)
-            except ValueError:
-                pass
-        return None
-
+def parse_warp_list_tables(tables, parse_header_date):
+    """解析卡池表格並提取排程紀錄與版本日期"""
     warp_records = []
     version_dates = {}
 
@@ -244,6 +216,41 @@ def fetch_fandom_schedules_and_patches(session):
                                 'start_dt': current_start_dt,
                                 'is_collab': is_collab
                             })
+
+    return warp_records, version_dates
+
+
+def fetch_fandom_schedules_and_patches(session):
+    print("正在從 Fandom Wiki (Warp/List) 抓取官方卡池排程與歷史...")
+
+    parse_res = session.get(WIKI_API_URL, params={
+        'action': 'parse',
+        'page': 'Warp/List',
+        'prop': 'text',
+        'format': 'json'
+    }, timeout=REQUEST_TIMEOUT).json()
+
+    html = parse_res.get('parse', {}).get('text', {}).get('*', '')
+    if not html:
+        print("⚠️ 未能取得 Warp/List 的 HTML 內容")
+        return [], []
+
+    soup = BeautifulSoup(html, 'html.parser')
+    tables = soup.find_all('table')
+    if not tables:
+        print("⚠️ Warp/List 頁面未發現卡池表格")
+        return [], []
+
+    def parse_header_date(s):
+        s = s.strip()
+        for fmt in ('%B %d, %Y', '%B %d %Y'):
+            try:
+                return datetime.strptime(s, fmt)
+            except ValueError:
+                pass
+        return None
+
+    warp_records, version_dates = parse_warp_list_tables(tables, parse_header_date)
 
     # 計算各版本半期標籤（上/下/中）
     ver_phases = {}
