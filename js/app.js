@@ -1119,3 +1119,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setupToolbarToggle();
     initTracker();
 });
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        getCharEarliestPatch,
+        getCharDebutVersion
+    };
+}
