@@ -241,9 +241,312 @@ async function initTracker() {
 }
 
 // 🔄 核心渲染表格邏輯
+function updateTableColumnIndices(table) {
+    const rows = table.rows;
+    for (let r = 0; r < rows.length; r++) {
+        let colIdx = 0;
+        for (let c = 0; c < rows[r].cells.length; c++) {
+            const cell = rows[r].cells[c];
+            const span = cell.colSpan || 1;
+            cell.dataset.startCol = colIdx;
+            cell.dataset.endCol = colIdx + span - 1;
+            colIdx += span;
+        }
+    }
+}
+
+function updateJumpButtons(jumpLatestBtn, jumpOldestBtn) {
+    if (jumpLatestBtn && jumpOldestBtn) {
+        if (!isPatchAscending) {
+            jumpLatestBtn.textContent = '◀ 最新';
+            jumpLatestBtn.title = '快速滾動至最新卡池 (最左側)';
+            jumpOldestBtn.textContent = '最舊 ▶';
+            jumpOldestBtn.title = '快速滾動至最舊卡池 (最右側)';
+        } else {
+            jumpLatestBtn.textContent = '◀ 最舊';
+            jumpLatestBtn.title = '快速滾動至最舊卡池 (最左側)';
+            jumpOldestBtn.textContent = '最新 ▶';
+            jumpOldestBtn.title = '快速滾動至最新卡池 (最右側)';
+        }
+    }
+}
+
+function renderFilters(activeCharacters, patchesList, patchIndexMap) {
+    const versionSet = new Set();
+    activeCharacters.forEach(char => {
+        const majorVer = getCharDebutMajorVersion(char, patchesList, patchIndexMap);
+        if (majorVer !== "未知") versionSet.add(majorVer);
+    });
+    const uniqueVersions = Array.from(versionSet).sort((a, b) => parseFloat(a) - parseFloat(b));
+
+    const pathOrder = (typeof PATH_ORDER !== 'undefined') ? PATH_ORDER : ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
+    const uniquePaths = pathOrder.filter(p => activeCharacters.some(c => c.path === p));
+    const elemOrder = (typeof ELEM_ORDER !== 'undefined') ? ELEM_ORDER : ["物理", "火", "冰", "雷", "風", "量子", "虛數", "未知"];
+    const uniqueElems = elemOrder.filter(e => activeCharacters.some(c => c.elem === e));
+
+    const currentCheckedVersions = new Set(Array.from(document.querySelectorAll('.version-item:checked')).map(i => i.value));
+    const currentCheckedPaths = new Set(Array.from(document.querySelectorAll('.path-item:checked')).map(i => i.value));
+    const currentCheckedElems = new Set(Array.from(document.querySelectorAll('.elem-item:checked')).map(i => i.value));
+
+    const versionContainer = document.getElementById('version-items-container');
+    if (versionContainer) {
+        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${v}" ${currentCheckedVersions.has(v) ? 'checked' : ''}> ${v}</label>`).join('');
+    }
+
+    const pathContainer = document.getElementById('path-items-container');
+    if (pathContainer) {
+        pathContainer.innerHTML = uniquePaths.map(p => {
+            const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
+            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${p}">` : "";
+            return `<label><input type="checkbox" class="path-item" value="${p}" ${currentCheckedPaths.has(p) ? 'checked' : ''}> ${iconHtml}${p}</label>`;
+        }).join('');
+    }
+    
+    const elemContainer = document.getElementById('elem-items-container');
+    if (elemContainer) {
+        elemContainer.innerHTML = uniqueElems.map(e => {
+            const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
+            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${e}">` : "";
+            return `<label><input type="checkbox" class="elem-item" value="${e}" ${currentCheckedElems.has(e) ? 'checked' : ''}> ${iconHtml}${e}</label>`;
+        }).join('');
+    }
+
+    const typeContainer = document.getElementById('type-items-container');
+    if (typeContainer && typeContainer.children.length === 0) {
+        typeContainer.innerHTML = `
+            <label><input type="checkbox" class="type-item" value="normal"> 限定躍遷</label>
+            <label class="type-desc-label">
+                <input type="checkbox" class="type-item" value="pool">
+                <span class="label-stack">
+                    <span class="label-title">星緣相邀</span>
+                    <span class="label-sub">加入非UP自選池</span>
+                </span>
+            </label>
+            <label class="type-desc-label">
+                <input type="checkbox" class="type-item" value="shop">
+                <span class="label-stack">
+                    <span class="label-title">聚靈鑄星</span>
+                    <span class="label-sub">加入兌換商店</span>
+                </span>
+            </label>
+            <label><input type="checkbox" class="type-item" value="collab"> 長期聯動</label>
+        `;
+    }
+}
+
+function buildTableHeaderHtml(displayPatches, totalChars, activePatchName) {
+    let html = '<thead><tr>';
+    html += `<th rowspan="2" class="top-left-cell">
+        <div class="top-left-widget">
+            <div class="btn-group">
+                <button type="button" id="sort-char-btn" class="table-sort-btn" title="切換角色登場順序">角色 ${isCharAscending ? '▲' : '▼'}</button>
+                <button type="button" id="sort-patch-btn" class="table-sort-btn" title="切換時間軸順序">版本 ${isPatchAscending ? '◀' : '▶'}</button>
+            </div>
+            <div class="table-count-badge" id="table-count-badge" title="符合條件的角色數量 / 總角色數量">共 ${totalChars} 位</div>
+        </div>
+    </th>`;
+
+    displayPatches.forEach(p => {
+        const isCurrent = (p.patch === activePatchName);
+        const isPreview = Boolean(p.isPreview);
+        let colClass = '';
+        if (isCurrent) colClass = ' class="current-patch-col"';
+        else if (isPreview) colClass = ' class="preview-patch-col"';
+        html += `<th${colClass}>${formatHeaderDate(p.date)}</th>`;
+    });
+
+    html += `</tr><tr>`;
+    displayPatches.forEach(p => {
+        const isCurrent = (p.patch === activePatchName);
+        const isPreview = Boolean(p.isPreview);
+        let colClass = '';
+        if (isCurrent) colClass = ' class="current-patch-col"';
+        else if (isPreview) colClass = ' class="preview-patch-col"';
+        html += `<th${colClass}>${p.patch}</th>`;
+    });
+    html += '</tr></thead>';
+    return html;
+}
+
+function buildCharacterHistory(char, patchesList, patchIndexMap) {
+    let history = [];
+    let currentGap = 0;
+    let hasReleased = false;
+    let collabSpanAdded = false;
+
+    patchesList.forEach((patch, pIdx) => {
+        if (char.isCollab) {
+            const collabStart = char.isCollab;
+            const sIdx = patchIndexMap.has(collabStart) ? patchIndexMap.get(collabStart) : -1;
+            const spanCount = Math.min(5, sIdx);
+
+            if (pIdx < sIdx) {
+                if (spanCount > 0 && pIdx === sIdx - spanCount) {
+                    if (!collabSpanAdded) {
+                        history.push({ status: 'COLLAB_SPAN', count: spanCount });
+                        collabSpanAdded = true;
+                    }
+                }
+                return;
+            } else {
+                const lIdx = patchesList.length - 1;
+                if (pIdx === sIdx || pIdx === lIdx) {
+                    history.push({ status: 'COLLAB' });
+                } else {
+                    history.push({ status: 'COLLAB_EMPTY' });
+                }
+                return;
+            }
+        }
+
+        if (char.term) {
+            const termIdx = patchIndexMap.has(char.term.patch) ? patchIndexMap.get(char.term.patch) : -1;
+            if (pIdx === termIdx) {
+                history.push({ status: 'TERM_START', type: char.term.type });
+                return;
+            } else if (pIdx > termIdx) {
+                history.push({ status: 'TERM_EMPTY', type: char.term.type });
+                return;
+            }
+        }
+
+        if (char.runs && char.runs.includes(patch)) {
+            hasReleased = true;
+            currentGap = 0;
+            history.push({ status: 'UP' });
+        } else {
+            if (hasReleased) {
+                currentGap++;
+                history.push({ status: 'WAIT', gap: currentGap });
+            } else {
+                history.push({ status: 'NONE' });
+            }
+        }
+    });
+
+    return history;
+}
+
+function buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchName, avatarUrl, fallbackUrl) {
+    let html = '';
+    finalHistory.forEach((cell, cellIdx) => {
+        const patchObj = displayPatches[cellIdx];
+        const isCurrentCol = patchObj && (patchObj.patch === activePatchName);
+        const isPreviewCol = patchObj && Boolean(patchObj.isPreview);
+        let currentColClass = '';
+        if (isCurrentCol) currentColClass = ' current-patch-col';
+        else if (isPreviewCol) currentColClass = ' preview-patch-col';
+
+        const cellHasBuff = char.buffs && patchObj && char.buffs.includes(patchObj.patch);
+        const buffBadgeHtml = cellHasBuff ? '<span class="buff-badge" title="【礪爍新輝】角色能力加強">▲</span>' : '';
+        const buffTitleAttr = cellHasBuff ? ' title="【礪爍新輝】角色能力加強"' : '';
+
+        let cls = '';
+        let content = '';
+
+        if (cell.status === 'COLLAB_SPAN') {
+            let rawDate = char.collabDate || char.isCollab;
+            const parts = rawDate.split(/[\/\-]/);
+            let dateStr = rawDate;
+            if (parts.length === 3) {
+                dateStr = `${parts[1]}/${parts[2]}`;
+            }
+            const arrowText = isPatchAscending ? `${dateStr}後長期開放→` : `←${dateStr}後長期開放`;
+            html += `<td colspan="${cell.count}" class="collab-text${currentColClass}">${buffBadgeHtml}${arrowText}</td>`;
+            return;
+        }
+
+        if (cell.status === 'UP' || cell.status === 'COLLAB') {
+            cls = 'img-cell';
+            content = `${buffBadgeHtml}<img src="${avatarUrl}" class="grid-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';"${buffTitleAttr}>`;
+        } else if (cell.status === 'COLLAB_EMPTY') {
+            cls = `collab-empty bg-${escapeHtml(char.elem)}`;
+            content = buffBadgeHtml;
+        } else if (cell.status === 'TERM_START') {
+            cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
+            content = `${buffBadgeHtml}${cell.type === 'pool' ? '星緣' : '聚靈'}`;
+        } else if (cell.status === 'TERM_EMPTY') {
+            cls = cell.type === 'pool' ? 'term-pool-empty' : 'term-shop-empty';
+            content = buffBadgeHtml;
+        } else if (cell.status === 'NONE') {
+            cls = 'none';
+            content = `${buffBadgeHtml}-`;
+        } else {
+            content = `${buffBadgeHtml}${cell.gap}`;
+            if (cell.gap <= 3) cls = 'w-low';
+            else if (cell.gap <= 7) cls = 'w-med';
+            else if (cell.gap <= 12) cls = 'w-high';
+            else cls = 'w-crit';
+        }
+        html += `<td class="${cls}${currentColClass}"${buffTitleAttr}>${content}</td>`;
+    });
+    return html;
+}
+
+function getCharacterTooltip(char, stats, debutVer, isCharPreview) {
+    if (isCharPreview) {
+        return `【${char.name} - 躍遷資訊】\n• 預定登場：${debutVer}\n• 預覽角色`;
+    } else if (stats.isCollab) {
+        return `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 長期聯動角色`;
+    } else if (stats.isTermActive) {
+        return `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 目前狀態：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
+    } else {
+        const overdueFlag = stats.isOverdue ? " ⚠️ (超期警報!)" : "";
+        return `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 目前等待：${stats.currentGap}${overdueFlag}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
+    }
+}
+
+function getCharacterType(char) {
+    if (char.isCollab) return 'collab';
+    if (char.term) {
+        if (char.term.type === 'pool') return 'pool';
+        if (char.term.type === 'shop') return 'shop';
+    }
+    return 'normal';
+}
+
+function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexMap, displayPatches, activePatchName) {
+    const fallbackUrl = getFallbackAvatar(char.name);
+    const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
+    const pathIconUrl = PATH_ICONS[char.path] || "";
+    const seqNum = isCharAscending ? (index + 1) : (totalChars - index);
+
+    const charType = getCharacterType(char);
+    const hasBuff = char.buffs && char.buffs.length > 0;
+    const majorVer = getCharDebutMajorVersion(char, patchesList, patchIndexMap);
+    const debutVer = getCharDebutVersion(char, patchesList, patchIndexMap);
+
+    const isCharPreview = Boolean(char.isPreview);
+    const stats = calculateCharStats(char, patchesList, activePatchName, patchIndexMap);
+    const statsTooltip = getCharacterTooltip(char, stats, debutVer, isCharPreview);
+
+    let html = `<tr data-path="${escapeHtml(char.path)}" data-elem="${escapeHtml(char.elem)}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${escapeHtml(majorVer)}" data-name="${escapeHtml(char.name)}" data-is-preview="${isCharPreview}">
+        <td class="bg-${escapeHtml(char.elem)}">
+            <div class="char-info-cell" title="${escapeHtml(statsTooltip)}">
+                <span class="char-seq">${seqNum}</span>
+                ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${escapeHtml(char.path)}">` : '<div class="char-path-icon"></div>'}
+                <img src="${avatarUrl}" class="char-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
+                <span class="char-name">${escapeHtml(char.name)}</span>
+                ${isCharPreview ? '<span class="preview-badge" title="【預覽角色】">🔮</span>' : ''}
+            </div>
+        </td>`;
+
+    let history = buildCharacterHistory(char, patchesList, patchIndexMap);
+
+    let finalHistory = history.reverse();
+    if (isPatchAscending) {
+        finalHistory.reverse();
+    }
+
+    html += buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchName, avatarUrl, fallbackUrl);
+    html += `</tr>`;
+    return html;
+}
+
 function renderTable() {
     cachedTableCells = null;
     const table = document.getElementById('tracker');
+    if (!table) return;
 
     // 0. 依據預覽開關篩選可用的版本與角色
     const activePatches = isShowPreview ? PATCH_DATA : PATCH_DATA.filter(p => !p.isPreview);
@@ -268,301 +571,23 @@ function renderTable() {
 
     const activePatchName = getCurrentPatchName();
 
-    // 解析大版本選單
-    const versionSet = new Set();
-    CHARACTERS.forEach(char => {
-        const majorVer = getCharDebutMajorVersion(char, patchesList, patchIndexMap);
-        if (majorVer !== "未知") {
-            versionSet.add(majorVer);
-        }
-    });
-    const uniqueVersions = Array.from(versionSet).sort((a, b) => parseFloat(a) - parseFloat(b));
+    renderFilters(CHARACTERS, patchesList, patchIndexMap);
 
-    const pathOrder = (typeof PATH_ORDER !== 'undefined') ? PATH_ORDER : ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
-    const uniquePaths = pathOrder.filter(p => activeCharacters.some(c => c.path === p));
-    const elemOrder = (typeof ELEM_ORDER !== 'undefined') ? ELEM_ORDER : ["物理", "火", "冰", "雷", "風", "量子", "虛數", "未知"];
-    const uniqueElems = elemOrder.filter(e => activeCharacters.some(c => c.elem === e));
+    let html = buildTableHeaderHtml(displayPatches, totalChars, activePatchName);
 
-    // 取得當前已勾選的項目
-    const currentCheckedVersions = new Set(Array.from(document.querySelectorAll('.version-item:checked')).map(i => i.value));
-    const currentCheckedPaths = new Set(Array.from(document.querySelectorAll('.path-item:checked')).map(i => i.value));
-    const currentCheckedElems = new Set(Array.from(document.querySelectorAll('.elem-item:checked')).map(i => i.value));
-
-    // 動態產生大版本選項
-    const versionContainer = document.getElementById('version-items-container');
-    if (versionContainer) {
-        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${v}" ${currentCheckedVersions.has(v) ? 'checked' : ''}> ${v}</label>`).join('');
-    }
-
-    // 動態產生命途選項
-    const pathContainer = document.getElementById('path-items-container');
-    if (pathContainer) {
-        pathContainer.innerHTML = uniquePaths.map(p => {
-            const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
-            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${p}">` : "";
-            return `<label><input type="checkbox" class="path-item" value="${p}" ${currentCheckedPaths.has(p) ? 'checked' : ''}> ${iconHtml}${p}</label>`;
-        }).join('');
-    }
-    
-    // 動態產生屬性選項
-    const elemContainer = document.getElementById('elem-items-container');
-    if (elemContainer) {
-        elemContainer.innerHTML = uniqueElems.map(e => {
-            const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
-            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${e}">` : "";
-            return `<label><input type="checkbox" class="elem-item" value="${e}" ${currentCheckedElems.has(e) ? 'checked' : ''}> ${iconHtml}${e}</label>`;
-        }).join('');
-    }
-
-    // 動態產生取得方法選項
-    const typeContainer = document.getElementById('type-items-container');
-    if (typeContainer && typeContainer.children.length === 0) {
-        typeContainer.innerHTML = `
-            <label><input type="checkbox" class="type-item" value="normal"> 限定躍遷</label>
-            <label class="type-desc-label">
-                <input type="checkbox" class="type-item" value="pool">
-                <span class="label-stack">
-                    <span class="label-title">星緣相邀</span>
-                    <span class="label-sub">加入非UP自選池</span>
-                </span>
-            </label>
-            <label class="type-desc-label">
-                <input type="checkbox" class="type-item" value="shop">
-                <span class="label-stack">
-                    <span class="label-title">聚靈鑄星</span>
-                    <span class="label-sub">加入兌換商店</span>
-                </span>
-            </label>
-            <label><input type="checkbox" class="type-item" value="collab"> 長期聯動</label>
-        `;
-    }
-
-    // 構建表頭 1 (雙軸控制控制項)
-    let html = '<thead><tr>';
-    html += `<th rowspan="2" class="top-left-cell">
-        <div class="top-left-widget">
-            <div class="btn-group">
-                <button type="button" id="sort-char-btn" class="table-sort-btn" title="切換角色登場順序">角色 ${isCharAscending ? '▲' : '▼'}</button>
-                <button type="button" id="sort-patch-btn" class="table-sort-btn" title="切換時間軸順序">版本 ${isPatchAscending ? '◀' : '▶'}</button>
-            </div>
-            <div class="table-count-badge" id="table-count-badge" title="符合條件的角色數量 / 總角色數量">共 ${totalChars} 位</div>
-        </div>
-    </th>`;
-
-    displayPatches.forEach(p => {
-        const isCurrent = (p.patch === activePatchName);
-        const isPreview = Boolean(p.isPreview);
-        let colClass = '';
-        if (isCurrent) colClass = ' class="current-patch-col"';
-        else if (isPreview) colClass = ' class="preview-patch-col"';
-        html += `<th${colClass}>${formatHeaderDate(p.date)}</th>`;
-    });
-
-    // 構建表頭 2 (版本號)
-    html += `</tr><tr>`;
-    displayPatches.forEach(p => {
-        const isCurrent = (p.patch === activePatchName);
-        const isPreview = Boolean(p.isPreview);
-        let colClass = '';
-        if (isCurrent) colClass = ' class="current-patch-col"';
-        else if (isPreview) colClass = ' class="preview-patch-col"';
-        html += `<th${colClass}>${p.patch}</th>`;
-    });
-    html += '</tr></thead><tbody>';
-    
-    // 構建表格主體內容
+    html += '<tbody>';
     CHARACTERS.forEach((char, index) => {
-        const fallbackUrl = getFallbackAvatar(char.name);
-        const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
-        const pathIconUrl = PATH_ICONS[char.path] || "";
-        const seqNum = isCharAscending ? (index + 1) : (totalChars - index);
-        
-        let charType = 'normal';
-        if (char.isCollab) {
-            charType = 'collab';
-        } else if (char.term) {
-            if (char.term.type === 'pool') charType = 'pool';
-            else if (char.term.type === 'shop') charType = 'shop';
-        }
-
-        const hasBuff = char.buffs && char.buffs.length > 0;
-        const majorVer = getCharDebutMajorVersion(char, patchesList, patchIndexMap);
-        const debutVer = getCharDebutVersion(char, patchesList, patchIndexMap);
-
-        const isCharPreview = Boolean(char.isPreview);
-        const stats = calculateCharStats(char, patchesList, activePatchName, patchIndexMap);
-        let statsTooltip = "";
-        if (isCharPreview) {
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 預定登場：${debutVer}\n• 預覽角色`;
-        } else if (stats.isCollab) {
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 長期聯動角色`;
-        } else if (stats.isTermActive) {
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 目前狀態：${stats.currentGap}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
-        } else {
-            const overdueFlag = stats.isOverdue ? " ⚠️ (超期警報!)" : "";
-            statsTooltip = `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 目前等待：${stats.currentGap}${overdueFlag}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
-        }
-        
-        html += `<tr data-path="${escapeHtml(char.path)}" data-elem="${escapeHtml(char.elem)}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${escapeHtml(majorVer)}" data-name="${escapeHtml(char.name)}" data-is-preview="${isCharPreview}">
-            <td class="bg-${escapeHtml(char.elem)}">
-                <div class="char-info-cell" title="${escapeHtml(statsTooltip)}">
-                    <span class="char-seq">${seqNum}</span>
-                    ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${escapeHtml(char.path)}">` : '<div class="char-path-icon"></div>'}
-                    <img src="${avatarUrl}" class="char-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
-                    <span class="char-name">${escapeHtml(char.name)}</span>
-                    ${isCharPreview ? '<span class="preview-badge" title="【預覽角色】">🔮</span>' : ''}
-                </div>
-            </td>`;
-        
-        let history = [];
-        let currentGap = 0;
-        let hasReleased = false;
-        let collabSpanAdded = false;
-
-        patchesList.forEach((patch, pIdx) => {
-            if (char.isCollab) {
-                const collabStart = char.isCollab;
-                const sIdx = patchIndexMap.has(collabStart) ? patchIndexMap.get(collabStart) : -1;
-                const spanCount = Math.min(5, sIdx);
-
-                if (pIdx < sIdx) {
-                    if (spanCount > 0 && pIdx === sIdx - spanCount) {
-                        if (!collabSpanAdded) {
-                            history.push({ status: 'COLLAB_SPAN', count: spanCount });
-                            collabSpanAdded = true;
-                        }
-                    }
-                    // pIdx < sIdx 的所有情況（含 span 內跳過的格）都直接 return
-                    return;
-                } else {
-                    const lIdx = patchesList.length - 1;
-                    if (pIdx === sIdx || pIdx === lIdx) {
-                        history.push({ status: 'COLLAB' });
-                    } else {
-                        history.push({ status: 'COLLAB_EMPTY' });
-                    }
-                    // pIdx >= sIdx 的所有情況也直接 return，不落入 term 判斷
-                    return;
-                }
-            }
-
-            if (char.term) {
-                const termIdx = patchIndexMap.has(char.term.patch) ? patchIndexMap.get(char.term.patch) : -1;
-                if (pIdx === termIdx) {
-                    history.push({ status: 'TERM_START', type: char.term.type });
-                    return;
-                } else if (pIdx > termIdx) {
-                    history.push({ status: 'TERM_EMPTY', type: char.term.type });
-                    return;
-                }
-            }
-
-            if (char.runs && char.runs.includes(patch)) {
-                hasReleased = true;
-                currentGap = 0;
-                history.push({ status: 'UP' });
-            } else {
-                if (hasReleased) {
-                    currentGap++;
-                    history.push({ status: 'WAIT', gap: currentGap });
-                } else {
-                    history.push({ status: 'NONE' });
-                }
-            }
-        });
-
-        let finalHistory = history.reverse();
-        if (isPatchAscending) {
-            finalHistory.reverse();
-        }
-
-        finalHistory.forEach((cell, cellIdx) => {
-            const patchObj = displayPatches[cellIdx];
-            const isCurrentCol = patchObj && (patchObj.patch === activePatchName);
-            const isPreviewCol = patchObj && Boolean(patchObj.isPreview);
-            let currentColClass = '';
-            if (isCurrentCol) currentColClass = ' current-patch-col';
-            else if (isPreviewCol) currentColClass = ' preview-patch-col';
-
-            const cellHasBuff = char.buffs && patchObj && char.buffs.includes(patchObj.patch);
-            const buffBadgeHtml = cellHasBuff ? '<span class="buff-badge" title="【礪爍新輝】角色能力加強">▲</span>' : '';
-            const buffTitleAttr = cellHasBuff ? ' title="【礪爍新輝】角色能力加強"' : '';
-
-            let cls = '';
-            let content = '';
-            
-            if (cell.status === 'COLLAB_SPAN') {
-                let rawDate = char.collabDate || char.isCollab;
-                const parts = rawDate.split(/[\/\-]/);
-                let dateStr = rawDate;
-                if (parts.length === 3) {
-                    dateStr = `${parts[1]}/${parts[2]}`;
-                }
-                const arrowText = isPatchAscending ? `${dateStr}後長期開放→` : `←${dateStr}後長期開放`;
-                html += `<td colspan="${cell.count}" class="collab-text${currentColClass}">${buffBadgeHtml}${arrowText}</td>`;
-                return;
-            }
-
-            if (cell.status === 'UP' || cell.status === 'COLLAB') {
-                cls = 'img-cell';
-                content = `${buffBadgeHtml}<img src="${avatarUrl}" class="grid-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';"${buffTitleAttr}>`;
-            } else if (cell.status === 'COLLAB_EMPTY') {
-                cls = `collab-empty bg-${escapeHtml(char.elem)}`;
-                content = buffBadgeHtml;
-            } else if (cell.status === 'TERM_START') {
-                cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
-                content = `${buffBadgeHtml}${cell.type === 'pool' ? '星緣' : '聚靈'}`;
-            } else if (cell.status === 'TERM_EMPTY') {
-                cls = cell.type === 'pool' ? 'term-pool-empty' : 'term-shop-empty';
-                content = buffBadgeHtml;
-            } else if (cell.status === 'NONE') {
-                cls = 'none';
-                content = `${buffBadgeHtml}-`;
-            } else {
-                content = `${buffBadgeHtml}${cell.gap}`;
-                if (cell.gap <= 3) cls = 'w-low';
-                else if (cell.gap <= 7) cls = 'w-med';
-                else if (cell.gap <= 12) cls = 'w-high';
-                else cls = 'w-crit';
-            }
-            html += `<td class="${cls}${currentColClass}"${buffTitleAttr}>${content}</td>`;
-        });
-        html += `</tr>`;
+        html += buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexMap, displayPatches, activePatchName);
     });
     html += '</tbody>';
     
     table.innerHTML = html;
 
-    function updateColumnIndices() {
-        const rows = table.rows;
-        for (let r = 0; r < rows.length; r++) {
-            let colIdx = 0;
-            for (let c = 0; c < rows[r].cells.length; c++) {
-                const cell = rows[r].cells[c];
-                const span = cell.colSpan || 1;
-                cell.dataset.startCol = colIdx;
-                cell.dataset.endCol = colIdx + span - 1;
-                colIdx += span;
-            }
-        }
-    }
-    updateColumnIndices();
+    updateTableColumnIndices(table);
 
     const jumpLatestBtn = document.getElementById('jump-latest-btn');
     const jumpOldestBtn = document.getElementById('jump-oldest-btn');
-    if (jumpLatestBtn && jumpOldestBtn) {
-        if (!isPatchAscending) {
-            jumpLatestBtn.textContent = '◀ 最新';
-            jumpLatestBtn.title = '快速滾動至最新卡池 (最左側)';
-            jumpOldestBtn.textContent = '最舊 ▶';
-            jumpOldestBtn.title = '快速滾動至最舊卡池 (最右側)';
-        } else {
-            jumpLatestBtn.textContent = '◀ 最舊';
-            jumpLatestBtn.title = '快速滾動至最舊卡池 (最左側)';
-            jumpOldestBtn.textContent = '最新 ▶';
-            jumpOldestBtn.title = '快速滾動至最新卡池 (最右側)';
-        }
-    }
+    updateJumpButtons(jumpLatestBtn, jumpOldestBtn);
 
     rebindControlListeners();
 }
@@ -1152,4 +1177,13 @@ if (typeof module !== 'undefined' && module.exports) {
         mergeContinuousEvents,
         calculateGaps
     };
+}
+
+// Additional exports for refactored renderTable
+if (typeof module !== 'undefined' && module.exports) {
+    Object.assign(module.exports, {
+        getCharacterType,
+        buildCharacterHistory,
+        getCharacterTooltip
+    });
 }
