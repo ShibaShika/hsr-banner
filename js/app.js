@@ -592,7 +592,7 @@ function renderTable() {
     rebindControlListeners();
 }
 
-function setupEventListeners() {
+function setupSortingListeners() {
     document.addEventListener('click', (e) => {
         if (e.target && e.target.id === 'sort-char-btn') {
             isCharAscending = !isCharAscending;
@@ -602,7 +602,9 @@ function setupEventListeners() {
             renderTable();
         }
     });
+}
 
+function setupJumpButtons() {
     const tableWrap = document.querySelector('.table-wrap');
     const jumpLatestBtn = document.getElementById('jump-latest-btn');
     const jumpOldestBtn = document.getElementById('jump-oldest-btn');
@@ -618,7 +620,9 @@ function setupEventListeners() {
             tableWrap.scrollTo({ left: tableWrap.scrollWidth, behavior: 'smooth' });
         });
     }
+}
 
+function setupFilterPanels() {
     const versionBox = document.getElementById('version-select-box');
     const pathBox = document.getElementById('path-select-box');
     const elemBox = document.getElementById('elem-select-box');
@@ -628,29 +632,6 @@ function setupEventListeners() {
     const pathPanel = document.getElementById('path-panel');
     const elemPanel = document.getElementById('elem-panel');
     const typePanel = document.getElementById('type-panel');
-
-    const buffToggleBtn = document.getElementById('buff-toggle-btn');
-    const previewToggleBtn = document.getElementById('preview-toggle-btn');
-    const searchInput = document.getElementById('char-search-input');
-    const searchClearBtn = document.getElementById('search-clear-btn');
-    const resetFiltersBtn = document.getElementById('reset-filters-btn');
-    const exportImgBtn = document.getElementById('export-img-btn');
-
-    if (previewToggleBtn) {
-        previewToggleBtn.classList.toggle('active', isShowPreview);
-        previewToggleBtn.addEventListener('click', () => {
-            isShowPreview = !isShowPreview;
-            localStorage.setItem('hsr_show_preview', isShowPreview);
-            previewToggleBtn.classList.toggle('active', isShowPreview);
-            renderTable();
-            applyFilters();
-        });
-    }
-
-    buffToggleBtn?.addEventListener('click', () => {
-        buffToggleBtn.classList.toggle('active');
-        applyFilters();
-    });
 
     versionBox?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -695,6 +676,34 @@ function setupEventListeners() {
     pathPanel?.addEventListener('click', (e) => e.stopPropagation());
     elemPanel?.addEventListener('click', (e) => e.stopPropagation());
     typePanel?.addEventListener('click', (e) => e.stopPropagation());
+}
+
+function setupUtilityToggles() {
+    const buffToggleBtn = document.getElementById('buff-toggle-btn');
+    const previewToggleBtn = document.getElementById('preview-toggle-btn');
+
+    if (previewToggleBtn) {
+        previewToggleBtn.classList.toggle('active', isShowPreview);
+        previewToggleBtn.addEventListener('click', () => {
+            isShowPreview = !isShowPreview;
+            localStorage.setItem('hsr_show_preview', isShowPreview);
+            previewToggleBtn.classList.toggle('active', isShowPreview);
+            renderTable();
+            applyFilters();
+        });
+    }
+
+    buffToggleBtn?.addEventListener('click', () => {
+        buffToggleBtn.classList.toggle('active');
+        applyFilters();
+    });
+}
+
+function setupSearchAndReset() {
+    const searchInput = document.getElementById('char-search-input');
+    const searchClearBtn = document.getElementById('search-clear-btn');
+    const resetFiltersBtn = document.getElementById('reset-filters-btn');
+    const buffToggleBtn = document.getElementById('buff-toggle-btn');
 
     function clearAllFilters() {
         document.querySelectorAll('.version-item, .path-item, .elem-item, .type-item').forEach(i => i.checked = false);
@@ -715,6 +724,13 @@ function setupEventListeners() {
             searchInput?.focus();
         });
     }
+
+    searchInput?.addEventListener('input', applyFilters);
+    searchInput?.addEventListener('search', applyFilters);
+}
+
+function setupExportButton() {
+    const exportImgBtn = document.getElementById('export-img-btn');
 
     // 📷 匯出截圖邏輯 (修復 html2canvas sticky 錯位毀滅性 Bug)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
@@ -911,10 +927,9 @@ function setupEventListeners() {
             }
         });
     }
+}
 
-    searchInput?.addEventListener('input', applyFilters);
-    searchInput?.addEventListener('search', applyFilters);
-
+function setupTableInteractions() {
     const trackerTable = document.getElementById('tracker');
     trackerTable?.addEventListener('click', (e) => {
         if (e.target?.id !== 'empty-reset-btn') return;
@@ -962,7 +977,9 @@ function setupEventListeners() {
     trackerTable?.addEventListener('mouseleave', () => {
         trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
     });
+}
 
+function setupUIScaleSlider() {
     const scaleSlider = document.getElementById('ui-scale-slider');
     const scaleText = document.getElementById('ui-scale-text');
 
@@ -981,6 +998,17 @@ function setupEventListeners() {
         if (scaleText) scaleText.textContent = Math.round(scaleValue * 100) + '%';
         localStorage.setItem('hsr_ui_scale', scaleValue);
     });
+}
+
+function setupEventListeners() {
+    setupSortingListeners();
+    setupJumpButtons();
+    setupFilterPanels();
+    setupUtilityToggles();
+    setupSearchAndReset();
+    setupExportButton();
+    setupTableInteractions();
+    setupUIScaleSlider();
 }
 
 function rebindControlListeners() {
