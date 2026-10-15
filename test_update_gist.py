@@ -1,6 +1,101 @@
 import unittest
 from datetime import datetime
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_patch_date
+from unittest.mock import patch, mock_open
+from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_patch_date, parse_local_js_array
+
+class TestParseLocalJsArray(unittest.TestCase):
+    @patch('os.path.exists', return_value=False)
+    def test_file_not_found(self, mock_exists):
+        result = parse_local_js_array("dummy.js", "MY_VAR")
+        self.assertEqual(result, [])
+
+    @patch('os.path.exists', return_value=True)
+    def test_variable_not_found(self, mock_exists):
+        js_content = "const OTHER_VAR = [];"
+        with patch('builtins.open', mock_open(read_data=js_content)):
+            result = parse_local_js_array("dummy.js", "MY_VAR")
+            self.assertEqual(result, [])
+
+    @patch('os.path.exists', return_value=True)
+    def test_valid_js_array_simple(self, mock_exists):
+        js_content = """
+        const MY_VAR = [
+            { id: 1, name: 'Alice' },
+            { id: 2, name: "Bob" }
+        ];
+        """
+        with patch('builtins.open', mock_open(read_data=js_content)):
+            result = parse_local_js_array("dummy.js", "MY_VAR")
+            self.assertEqual(result, [{'id': 1, 'name': 'Alice'}, {'id': 2, 'name': 'Bob'}])
+
+    @patch('os.path.exists', return_value=True)
+    def test_valid_js_array_complex(self, mock_exists):
+        js_content = """
+        const MY_VAR = [
+            {
+                name: "CharA",
+                runs: ["1.0上", "1.1下"],
+                info: { path: "Destruction", elem: 'Fire' }
+            },
+            {
+                name: 'CharB',
+                runs: ['2.0上'],
+                info: { path: 'Erudition', elem: "Ice" }
+            }
+        ];
+        const OTHER = [];
+        """
+        with patch('builtins.open', mock_open(read_data=js_content)):
+            result = parse_local_js_array("dummy.js", "MY_VAR")
+            expected = [
+                {
+                    'name': 'CharA',
+                    'runs': ['1.0上', '1.1下'],
+                    'info': {'path': 'Destruction', 'elem': 'Fire'}
+                },
+                {
+                    'name': 'CharB',
+                    'runs': ['2.0上'],
+                    'info': {'path': 'Erudition', 'elem': 'Ice'}
+                }
+            ]
+            self.assertEqual(result, expected)
+
+    @patch('os.path.exists', return_value=True)
+    def test_unclosed_array(self, mock_exists):
+        js_content = """
+        const MY_VAR = [
+            { id: 1, name: 'Alice' },
+            { id: 2, name: "Bob" }
+        """
+        with patch('builtins.open', mock_open(read_data=js_content)):
+            result = parse_local_js_array("dummy.js", "MY_VAR")
+            self.assertEqual(result, [])
+
+    @patch('os.path.exists', return_value=True)
+    def test_json_parse_error(self, mock_exists):
+        js_content = """
+        const MY_VAR = [
+            { id: 1, name: 'Alice', },
+            invalid_syntax:::
+        ];
+        """
+        with patch('builtins.open', mock_open(read_data=js_content)):
+            result = parse_local_js_array("dummy.js", "MY_VAR")
+            self.assertEqual(result, [])
+
+    @patch('os.path.exists', return_value=True)
+    def test_brackets_inside_strings(self, mock_exists):
+        js_content = """
+        const MY_VAR = [
+            { name: "[test]" },
+            { name: "]" }
+        ];
+        """
+        with patch('builtins.open', mock_open(read_data=js_content)):
+            result = parse_local_js_array("dummy.js", "MY_VAR")
+            self.assertEqual(result, [{'name': '[test]'}, {'name': ']'}])
+
 
 class TestSanitizeName(unittest.TestCase):
     def test_empty_or_none(self):
