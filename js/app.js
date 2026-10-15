@@ -1123,6 +1123,7 @@ document.addEventListener('DOMContentLoaded', () => {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         getCharEarliestPatch,
-        getCharDebutVersion
+        getCharDebutVersion,
+        formatHeaderDate
     };
 }
