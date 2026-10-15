@@ -1125,6 +1125,7 @@ if (typeof module !== 'undefined' && module.exports) {
         getCharEarliestPatch,
         getCharDebutVersion,
         formatHeaderDate,
-        escapeHtml
+        escapeHtml,
+        getFallbackAvatar
     };
 }
