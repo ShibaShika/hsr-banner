@@ -393,35 +393,43 @@ def _parse_collaboration_events(session, max_ver):
         }, timeout=REQUEST_TIMEOUT).json()
         collab_titles = [m['title'] for m in collab_res.get('query', {}).get('categorymembers', [])]
 
-        for c_title in collab_titles:
-            p_res = session.get(WIKI_API_URL, params={
-                'action': 'parse',
-                'page': c_title,
-                'prop': 'wikitext',
+        for i in range(0, len(collab_titles), 50):
+            batch = collab_titles[i:i + 50]
+            res = session.get(WIKI_API_URL, params={
+                'action': 'query',
+                'prop': 'revisions',
+                'titles': '|'.join(batch),
+                'rvprop': 'content',
+                'rvslots': 'main',
                 'format': 'json'
             }, timeout=REQUEST_TIMEOUT).json()
-            wt = p_res.get('parse', {}).get('wikitext', {}).get('*', '')
-            if 'Upcoming' in wt or 'begin in' in wt.lower():
-                m_ver = re.search(r'(?:begin in|release in|start in|in)\s*\[\[Version\s*(\d+\.\d+)\]\]', wt, re.IGNORECASE)
-                if not m_ver:
-                    m_ver = re.search(r'Version\s+(\d+\.\d+)', wt)
 
-                if m_ver:
-                    ver_val = float(m_ver.group(1))
-                    if ver_val > max_ver:
-                        max_ver = ver_val
+            pages = res.get('query', {}).get('pages', {})
+            for pid, pinfo in pages.items():
+                wt = pinfo.get('revisions', [{}])[0].get('slots', {}).get('main', {}).get('*', '')
+                if not wt:
+                    continue
+                if 'Upcoming' in wt or 'begin in' in wt.lower():
+                    m_ver = re.search(r'(?:begin in|release in|start in|in)\s*\[\[Version\s*(\d+\.\d+)\]\]', wt, re.IGNORECASE)
+                    if not m_ver:
+                        m_ver = re.search(r'Version\s+(\d+\.\d+)', wt)
 
-                    # 提取登場聯動角色
-                    chars = re.findall(r'feature the characters?\s*\[\[([^\]]+)\]\](?:\s*and\s*\[\[([^\]]+)\]\])?', wt, re.IGNORECASE)
-                    for c_tuple in chars:
-                        for char_en in c_tuple:
-                            if char_en and char_en.strip():
-                                schedules.append({
-                                    'en_name': char_en.strip(),
-                                    'run': f"{m_ver.group(1)}上",
-                                    'is_collab': False,
-                                    'is_preview': True
-                                })
+                    if m_ver:
+                        ver_val = float(m_ver.group(1))
+                        if ver_val > max_ver:
+                            max_ver = ver_val
+
+                        # 提取登場聯動角色
+                        chars = re.findall(r'feature the characters?\s*\[\[([^\]]+)\]\](?:\s*and\s*\[\[([^\]]+)\]\])?', wt, re.IGNORECASE)
+                        for c_tuple in chars:
+                            for char_en in c_tuple:
+                                if char_en and char_en.strip():
+                                    schedules.append({
+                                        'en_name': char_en.strip(),
+                                        'run': f"{m_ver.group(1)}上",
+                                        'is_collab': False,
+                                        'is_preview': True
+                                    })
     except Exception as e:
         print(f"  ⚠️ 探測聯動情報時發生微小異常: {e}")
     return schedules, max_ver
