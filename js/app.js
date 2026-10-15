@@ -1141,6 +1141,8 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         getCharEarliestPatch,
         getCharDebutVersion,
+        getCharDebutMajorVersion,
+        getCurrentPatchName,
         formatHeaderDate,
         escapeHtml,
         getFallbackAvatar,
