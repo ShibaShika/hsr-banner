@@ -412,6 +412,8 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
+    const { getCharacterType, buildCharacterHistory, getCharacterTooltip } = require("./js/app.js");
+
 
     describe("getFallbackAvatar", () => {
         it("should return a data URI SVG with the first character of the name", () => {
@@ -439,4 +441,34 @@ describe('app.js pure functions', () => {
         });
     });
 
+
+    describe('getCharacterType', () => {
+        it('should return collab for collab characters', () => {
+            expect(getCharacterType({ isCollab: true })).toBe('collab');
+        });
+        it('should return pool for pool term', () => {
+            expect(getCharacterType({ term: { type: 'pool' } })).toBe('pool');
+        });
+        it('should return shop for shop term', () => {
+            expect(getCharacterType({ term: { type: 'shop' } })).toBe('shop');
+        });
+        it('should return normal by default', () => {
+            expect(getCharacterType({})).toBe('normal');
+        });
+    });
+
+    describe('getCharacterTooltip', () => {
+        it('should return correct tooltip for preview character', () => {
+            expect(getCharacterTooltip({ name: 'A' }, {}, '2.0', true)).toContain('預定登場');
+        });
+        it('should return correct tooltip for collab character', () => {
+            expect(getCharacterTooltip({ name: 'A' }, { isCollab: true }, '2.0', false)).toContain('長期聯動角色');
+        });
+        it('should return correct tooltip for active term character', () => {
+            expect(getCharacterTooltip({ name: 'A' }, { isTermActive: true, currentGap: 1, maxGap: 2, totalRuns: 3 }, '2.0', false)).toContain('目前狀態：1');
+        });
+        it('should return correct tooltip for regular character', () => {
+            expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
 });
