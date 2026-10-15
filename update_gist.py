@@ -348,35 +348,41 @@ def fetch_starrailres_data(session):
         return {}, {}
 
 
-def fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date):
+def _parse_upcoming_characters(session, next_p, existing_schedules):
     """
-    🔮 全自動探測 Fandom Wiki 官方前瞻預告與未來合作角色。
-    零字典設計：所有名稱、命途、屬性皆直接由 Wiki 原生 Wikitext 動態提取。
+    2. 探測官方前瞻角色 (Category:Upcoming Characters)
+    回傳: (upcoming_schedules_增量)
     """
-    print("\n🔮 正在自動探測 Fandom Wiki 官方前瞻預告與未來角色...")
-    upcoming_schedules = []
+    schedules = []
+    try:
+        up_res = session.get(WIKI_API_URL, params={
+            'action': 'query',
+            'list': 'categorymembers',
+            'cmtitle': 'Category:Upcoming Characters',
+            'cmlimit': 20,
+            'format': 'json'
+        }, timeout=REQUEST_TIMEOUT).json()
+        up_titles = [m['title'] for m in up_res.get('query', {}).get('categorymembers', [])]
 
-    def get_next_patch_and_date(current_patch, current_date_str):
-        m = re.match(r'^(\d+)\.(\d+)([上下])$', current_patch)
-        if not m:
-            return None, None
-        major, minor, phase = int(m.group(1)), int(m.group(2)), m.group(3)
-        if phase == '上':
-            next_p = f"{major}.{minor}下"
-        else:
-            next_p = f"{major}.{minor + 1}上"
+        for title in up_titles:
+            if any(s['en_name'] == title for s in existing_schedules):
+                continue
+            schedules.append({
+                'en_name': title,
+                'run': next_p,
+                'is_collab': False,
+                'is_preview': True
+            })
+    except Exception as e:
+        print(f"  ⚠️ 探測前瞻角色時發生微小異常: {e}")
+    return schedules
 
-        try:
-            dt = datetime.strptime(current_date_str, '%y/%m/%d')
-            next_dt = dt + timedelta(days=21)
-            next_d_str = next_dt.strftime('%y/%m/%d')
-        except Exception:
-            next_d_str = current_date_str
-        return next_p, next_d_str
-
-    max_ver = float(base_patch.replace('上', '').replace('下', '')) if re.match(r'^\d+\.\d+', base_patch) else 4.6
-
-    # 1. 探測未來聯動活動 (Category:Collaboration Events)
+def _parse_collaboration_events(session, max_ver):
+    """
+    1. 探測未來聯動活動 (Category:Collaboration Events)
+    回傳: (upcoming_schedules_增量, 更新後的 max_ver)
+    """
+    schedules = []
     try:
         collab_res = session.get(WIKI_API_URL, params={
             'action': 'query',
@@ -410,7 +416,7 @@ def fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date)
                     for c_tuple in chars:
                         for char_en in c_tuple:
                             if char_en and char_en.strip():
-                                upcoming_schedules.append({
+                                schedules.append({
                                     'en_name': char_en.strip(),
                                     'run': f"{m_ver.group(1)}上",
                                     'is_collab': False,
@@ -418,30 +424,43 @@ def fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date)
                                 })
     except Exception as e:
         print(f"  ⚠️ 探測聯動情報時發生微小異常: {e}")
+    return schedules, max_ver
+
+def fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date):
+    """
+    🔮 全自動探測 Fandom Wiki 官方前瞻預告與未來合作角色。
+    零字典設計：所有名稱、命途、屬性皆直接由 Wiki 原生 Wikitext 動態提取。
+    """
+    print("\n🔮 正在自動探測 Fandom Wiki 官方前瞻預告與未來角色...")
+    upcoming_schedules = []
+
+    def get_next_patch_and_date(current_patch, current_date_str):
+        m = re.match(r'^(\d+)\.(\d+)([上下])$', current_patch)
+        if not m:
+            return None, None
+        major, minor, phase = int(m.group(1)), int(m.group(2)), m.group(3)
+        if phase == '上':
+            next_p = f"{major}.{minor}下"
+        else:
+            next_p = f"{major}.{minor + 1}上"
+
+        try:
+            dt = datetime.strptime(current_date_str, '%y/%m/%d')
+            next_dt = dt + timedelta(days=21)
+            next_d_str = next_dt.strftime('%y/%m/%d')
+        except Exception:
+            next_d_str = current_date_str
+        return next_p, next_d_str
+
+    max_ver = float(base_patch.replace('上', '').replace('下', '')) if re.match(r'^\d+\.\d+', base_patch) else 4.6
+
+    collab_schedules, max_ver = _parse_collaboration_events(session, max_ver)
+    upcoming_schedules.extend(collab_schedules)
 
     # 2. 探測官方前瞻角色 (Category:Upcoming Characters)
     next_p, next_d = get_next_patch_and_date(base_patch, base_date)
-    try:
-        up_res = session.get(WIKI_API_URL, params={
-            'action': 'query',
-            'list': 'categorymembers',
-            'cmtitle': 'Category:Upcoming Characters',
-            'cmlimit': 20,
-            'format': 'json'
-        }, timeout=REQUEST_TIMEOUT).json()
-        up_titles = [m['title'] for m in up_res.get('query', {}).get('categorymembers', [])]
-
-        for title in up_titles:
-            if any(s['en_name'] == title for s in upcoming_schedules):
-                continue
-            upcoming_schedules.append({
-                'en_name': title,
-                'run': next_p,
-                'is_collab': False,
-                'is_preview': True
-            })
-    except Exception as e:
-        print(f"  ⚠️ 探測前瞻角色時發生微小異常: {e}")
+    new_upcoming = _parse_upcoming_characters(session, next_p, upcoming_schedules)
+    upcoming_schedules.extend(new_upcoming)
 
     # 3. 依最大版本號自動推算補齊所有預覽版本節點
     gen_patches = []
