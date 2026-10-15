@@ -2,6 +2,8 @@
    崩壞：星穹鐵道 - 限定躍遷一覽表 主應用程式邏輯 (app.js)
    ========================================================================== */
 
+let cachedTableCells = null;
+
 // 轉義 HTML 特殊字元，避免 innerHTML 注入或屬性斷裂
 function escapeHtml(str) {
     if (str == null) return '';
@@ -249,6 +251,7 @@ async function initTracker() {
 
 // 🔄 核心渲染表格邏輯
 function renderTable() {
+    cachedTableCells = null;
     const table = document.getElementById('tracker');
 
     // 0. 依據預覽開關篩選可用的版本與角色
@@ -922,8 +925,11 @@ function setupEventListeners() {
 
         if (endCol === 0 || isNaN(startCol)) return;
 
-        const allCells = trackerTable.querySelectorAll('th, td');
-        allCells.forEach(c => {
+        if (!cachedTableCells) {
+            cachedTableCells = trackerTable.querySelectorAll('th, td');
+        }
+
+        cachedTableCells.forEach(c => {
             if (c.colSpan > 1) return;
 
             const cStart = parseInt(c.dataset.startCol, 10);
