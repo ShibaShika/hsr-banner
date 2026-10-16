@@ -745,7 +745,7 @@ const RAW_CHARACTERS = [
     },
     {
         cid: "1514",
-        name: "阿哈",
+        name: "星神★阿哈",
         path: "歡愉",
         elem: "量子",
         avatar: "",
@@ -773,17 +773,6 @@ const RAW_CHARACTERS = [
         avatar: "",
         runs: [
             "4.8上"
-        ],
-        isPreview: true
-    },
-    {
-        cid: "",
-        name: "星神★阿哈",
-        path: "歡愉",
-        elem: "量子",
-        avatar: "",
-        runs: [
-            "4.7上"
         ],
         isPreview: true
     }
