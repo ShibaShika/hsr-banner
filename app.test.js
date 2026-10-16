@@ -412,7 +412,7 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
-    const { getCharacterType, buildCharacterHistory, getCharacterTooltip } = require("./js/app.js");
+    const { getCharacterType, buildCharacterHistory, getCharacterTooltip, buildHistoryCellsHtml } = require("./js/app.js");
 
 
     describe("getFallbackAvatar", () => {
@@ -469,6 +469,88 @@ describe('app.js pure functions', () => {
         });
         it('should return correct tooltip for regular character', () => {
             expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
+
+    describe('buildHistoryCellsHtml', () => {
+        const displayPatches = [
+            { patch: '1.0' },
+            { patch: '1.1', isPreview: true },
+            { patch: '1.2' }
+        ];
+
+        it('should generate cell html for COLLAB_SPAN', () => {
+            const char = { name: 'CollabChar', collabDate: '24/01/01' };
+            const history = [{ status: 'COLLAB_SPAN', count: 2 }];
+            const html = buildHistoryCellsHtml(char, history, displayPatches, '1.0', 'avatar.png', 'fallback.png');
+            expect(html).toContain('colspan="2"');
+            expect(html).toContain('collab-text');
+            expect(html).toContain('01/01');
+        });
+
+        it('should generate cell html for UP and COLLAB', () => {
+            const char = { name: 'Hero' };
+            const history = [{ status: 'UP' }, { status: 'COLLAB' }];
+            const html = buildHistoryCellsHtml(char, history, displayPatches, '1.0', 'avatar.png', 'fallback.png');
+            expect(html).toContain('class="img-cell current-patch-col"');
+            expect(html).toContain('src="avatar.png"');
+            expect(html).toContain('alt="Hero"');
+            expect(html).toContain('class="img-cell preview-patch-col"');
+        });
+
+        it('should generate cell html for COLLAB_EMPTY', () => {
+            const char = { name: 'Hero', elem: '火' };
+            const history = [{ status: 'COLLAB_EMPTY' }];
+            const html = buildHistoryCellsHtml(char, history, displayPatches, '1.0', 'avatar.png', 'fallback.png');
+            expect(html).toContain('class="collab-empty bg-火 current-patch-col"');
+        });
+
+        it('should generate cell html for TERM_START and TERM_EMPTY', () => {
+            const char = { name: 'Hero' };
+            const history = [
+                { status: 'TERM_START', type: 'pool' },
+                { status: 'TERM_START', type: 'shop' },
+                { status: 'TERM_EMPTY', type: 'pool' },
+                { status: 'TERM_EMPTY', type: 'shop' }
+            ];
+            const html = buildHistoryCellsHtml(char, history, displayPatches, '1.0', 'avatar.png', 'fallback.png');
+            expect(html).toContain('term-pool');
+            expect(html).toContain('星緣');
+            expect(html).toContain('term-shop');
+            expect(html).toContain('聚靈');
+            expect(html).toContain('term-pool-empty');
+            expect(html).toContain('term-shop-empty');
+        });
+
+        it('should generate cell html for NONE', () => {
+            const char = { name: 'Hero' };
+            const history = [{ status: 'NONE' }];
+            const html = buildHistoryCellsHtml(char, history, displayPatches, '1.0', 'avatar.png', 'fallback.png');
+            expect(html).toContain('class="none current-patch-col"');
+            expect(html).toContain('>-<');
+        });
+
+        it('should generate cell html for WAIT with different gap tiers', () => {
+            const char = { name: 'Hero' };
+            const history = [
+                { status: 'WAIT', gap: 2 },
+                { status: 'WAIT', gap: 5 },
+                { status: 'WAIT', gap: 10 },
+                { status: 'WAIT', gap: 15 }
+            ];
+            const html = buildHistoryCellsHtml(char, history, displayPatches, '1.0', 'avatar.png', 'fallback.png');
+            expect(html).toContain('class="w-low current-patch-col"');
+            expect(html).toContain('class="w-med preview-patch-col"');
+            expect(html).toContain('class="w-high"');
+            expect(html).toContain('class="w-crit"');
+        });
+
+        it('should render buff badges when character has buffs for active patch', () => {
+            const char = { name: 'Hero', buffs: ['1.0'] };
+            const history = [{ status: 'UP' }];
+            const html = buildHistoryCellsHtml(char, history, displayPatches, '1.0', 'avatar.png', 'fallback.png');
+            expect(html).toContain('class="buff-badge"');
+            expect(html).toContain('title="【礪爍新輝】角色能力加強"');
         });
     });
 });
