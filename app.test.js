@@ -412,7 +412,7 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
-    const { getCharacterType, buildCharacterHistory, getCharacterTooltip } = require("./js/app.js");
+    const { getCharacterType, buildCharacterHistory, getCharacterTooltip, filterTableRows } = require("./js/app.js");
 
 
     describe("getFallbackAvatar", () => {
@@ -469,6 +469,168 @@ describe('app.js pure functions', () => {
         });
         it('should return correct tooltip for regular character', () => {
             expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
+
+    describe('filterTableRows', () => {
+        function createMockTable() {
+            const table = document.createElement('table');
+            table.innerHTML = `
+                <tbody>
+                    <tr data-major-version="1.x" data-path="智識" data-elem="雷" data-type="normal" data-has-buff="true" data-name="景元"></tr>
+                    <tr data-major-version="1.x" data-path="虛無" data-elem="雷" data-type="normal" data-has-buff="false" data-name="卡芙卡"></tr>
+                    <tr data-major-version="2.x" data-path="智識" data-elem="量子" data-type="pool" data-has-buff="false" data-name="翡翠"></tr>
+                    <tr data-major-version="2.x" data-path="巡獵" data-elem="物理" data-type="collab" data-has-buff="true" data-name="飛霄"></tr>
+                    <tr class="empty-row"><td colspan="2">沒有符合條件的角色</td></tr>
+                </tbody>
+            `;
+            return table;
+        }
+
+        function createDefaultState() {
+            return {
+                selectedVersions: [],
+                selectedPaths: [],
+                selectedElems: [],
+                selectedTypes: [],
+                keyword: '',
+                onlyBuffs: false
+            };
+        }
+
+        it('returns all non-empty rows as visible when state filters are empty/default', () => {
+            const table = createMockTable();
+            const result = filterTableRows(table, createDefaultState());
+
+            expect(result.visibleCount).toBe(4);
+            expect(result.totalChars).toBe(4);
+
+            const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
+            rows.forEach(row => {
+                expect(row.style.display).toBe('');
+            });
+        });
+
+        it('filters rows by selectedVersions', () => {
+            const table = createMockTable();
+            const state = createDefaultState();
+            state.selectedVersions = ['1.x'];
+
+            const result = filterTableRows(table, state);
+
+            expect(result.visibleCount).toBe(2);
+            expect(result.totalChars).toBe(4);
+
+            const rows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)'));
+            expect(rows[0].style.display).toBe('');
+            expect(rows[1].style.display).toBe('');
+            expect(rows[2].style.display).toBe('none');
+            expect(rows[3].style.display).toBe('none');
+        });
+
+        it('filters rows by selectedPaths', () => {
+            const table = createMockTable();
+            const state = createDefaultState();
+            state.selectedPaths = ['智識'];
+
+            const result = filterTableRows(table, state);
+
+            expect(result.visibleCount).toBe(2);
+            const rows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)'));
+            expect(rows[0].style.display).toBe('');
+            expect(rows[1].style.display).toBe('none');
+            expect(rows[2].style.display).toBe('');
+            expect(rows[3].style.display).toBe('none');
+        });
+
+        it('filters rows by selectedElems', () => {
+            const table = createMockTable();
+            const state = createDefaultState();
+            state.selectedElems = ['雷'];
+
+            const result = filterTableRows(table, state);
+
+            expect(result.visibleCount).toBe(2);
+            const rows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)'));
+            expect(rows[0].style.display).toBe('');
+            expect(rows[1].style.display).toBe('');
+            expect(rows[2].style.display).toBe('none');
+            expect(rows[3].style.display).toBe('none');
+        });
+
+        it('filters rows by selectedTypes', () => {
+            const table = createMockTable();
+            const state = createDefaultState();
+            state.selectedTypes = ['pool', 'collab'];
+
+            const result = filterTableRows(table, state);
+
+            expect(result.visibleCount).toBe(2);
+            const rows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)'));
+            expect(rows[0].style.display).toBe('none');
+            expect(rows[1].style.display).toBe('none');
+            expect(rows[2].style.display).toBe('');
+            expect(rows[3].style.display).toBe('');
+        });
+
+        it('filters rows by keyword matching row data-name (case-insensitive substring match)', () => {
+            const table = createMockTable();
+            const state = createDefaultState();
+            state.keyword = '卡芙';
+
+            const result = filterTableRows(table, state);
+
+            expect(result.visibleCount).toBe(1);
+            const rows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)'));
+            expect(rows[0].style.display).toBe('none');
+            expect(rows[1].style.display).toBe('');
+            expect(rows[2].style.display).toBe('none');
+            expect(rows[3].style.display).toBe('none');
+        });
+
+        it('filters rows by onlyBuffs flag', () => {
+            const table = createMockTable();
+            const state = createDefaultState();
+            state.onlyBuffs = true;
+
+            const result = filterTableRows(table, state);
+
+            expect(result.visibleCount).toBe(2);
+            const rows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)'));
+            expect(rows[0].style.display).toBe('');
+            expect(rows[1].style.display).toBe('none');
+            expect(rows[2].style.display).toBe('none');
+            expect(rows[3].style.display).toBe('');
+        });
+
+        it('combines multiple filter options correctly', () => {
+            const table = createMockTable();
+            const state = createDefaultState();
+            state.selectedVersions = ['1.x'];
+            state.selectedPaths = ['智識'];
+            state.onlyBuffs = true;
+
+            const result = filterTableRows(table, state);
+
+            expect(result.visibleCount).toBe(1);
+            const rows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)'));
+            expect(rows[0].style.display).toBe('');
+            expect(rows[1].style.display).toBe('none');
+            expect(rows[2].style.display).toBe('none');
+            expect(rows[3].style.display).toBe('none');
+        });
+
+        it('returns visibleCount of 0 when no rows match', () => {
+            const table = createMockTable();
+            const state = createDefaultState();
+            state.keyword = 'nonexistent';
+
+            const result = filterTableRows(table, state);
+
+            expect(result.visibleCount).toBe(0);
+            expect(result.totalChars).toBe(4);
+            const rows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)'));
+            rows.forEach(r => expect(r.style.display).toBe('none'));
         });
     });
 });
