@@ -842,6 +842,11 @@ function setupExportButton() {
                     } else {
                         el.style.position = 'static';
                     }
+                    el.style.top = 'auto';
+                    el.style.left = 'auto';
+                    el.style.right = 'auto';
+                    el.style.bottom = 'auto';
+                    el.style.transform = 'none';
                     el.style.boxShadow = 'none';
                     el.classList.remove('col-highlight');
                 });
