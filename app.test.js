@@ -412,7 +412,7 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
-    const { getCharacterType, buildCharacterHistory, getCharacterTooltip } = require("./js/app.js");
+    const { getCharacterType, buildCharacterHistory, getCharacterTooltip, buildTableHeaderHtml } = require("./js/app.js");
 
 
     describe("getFallbackAvatar", () => {
@@ -469,6 +469,31 @@ describe('app.js pure functions', () => {
         });
         it('should return correct tooltip for regular character', () => {
             expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
+
+    describe('buildTableHeaderHtml', () => {
+        it('should render header with top-left controls and character count when displayPatches is empty', () => {
+            const html = buildTableHeaderHtml([], 10, '2.0');
+            expect(html).toContain('<thead><tr>');
+            expect(html).toContain('共 10 位');
+            expect(html).toContain('</tr></thead>');
+        });
+
+        it('should render header with patches and correctly apply current and preview patch column classes', () => {
+            const displayPatches = [
+                { patch: '2.0', date: '24/01/01' },
+                { patch: '2.1', date: '24/02/01' },
+                { patch: '2.2', date: '24/03/01', isPreview: true }
+            ];
+            const html = buildTableHeaderHtml(displayPatches, 15, '2.1');
+            expect(html).toContain('共 15 位');
+            expect(html).toContain('<th class="current-patch-col">2024<br>02/01</th>');
+            expect(html).toContain('<th class="current-patch-col">2.1</th>');
+            expect(html).toContain('<th class="preview-patch-col">2024<br>03/01</th>');
+            expect(html).toContain('<th class="preview-patch-col">2.2</th>');
+            expect(html).toContain('<th>2024<br>01/01</th>');
+            expect(html).toContain('<th>2.0</th>');
         });
     });
 });
