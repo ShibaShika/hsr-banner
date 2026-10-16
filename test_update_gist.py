@@ -353,6 +353,13 @@ class TestNormalizePatchDate(unittest.TestCase):
         self.assertIsNone(normalize_patch_date("26/04/2023")) # DD/MM/YYYY is not in fmt list
         self.assertIsNone(normalize_patch_date("2023.04.26"))
 
+    def test_value_error_handling(self):
+        # Out-of-bounds dates that trigger ValueError during strptime parsing
+        self.assertIsNone(normalize_patch_date("2023/13/01")) # Month 13
+        self.assertIsNone(normalize_patch_date("2023/02/29")) # Not a leap year
+        self.assertIsNone(normalize_patch_date("2023/04/31")) # April only has 30 days
+        self.assertIsNone(normalize_patch_date("February 29, 2023"))
+
 
 
 
