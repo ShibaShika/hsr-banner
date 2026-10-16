@@ -3,6 +3,7 @@
    ========================================================================== */
 
 let cachedTableCells = null;
+let cachedRowData = null;
 
 // 轉義 HTML 特殊字元，避免 innerHTML 注入或屬性斷裂
 function escapeHtml(str) {
@@ -545,6 +546,7 @@ function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexM
 
 function renderTable() {
     cachedTableCells = null;
+    cachedRowData = null;
     const table = document.getElementById('tracker');
     if (!table) return;
 
@@ -1089,30 +1091,35 @@ function updateFilterUI(state) {
 }
 
 function filterTableRows(table, state) {
-    const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
+    if (!cachedRowData) {
+        const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
+        cachedRowData = Array.from(rows).map(row => ({
+            row,
+            majorVer: row.getAttribute('data-major-version'),
+            path: row.getAttribute('data-path'),
+            elem: row.getAttribute('data-elem'),
+            type: row.getAttribute('data-type'),
+            hasBuff: row.getAttribute('data-has-buff') === 'true',
+            name: (row.getAttribute('data-name') || '').toLowerCase()
+        }));
+    }
+
     let visibleCount = 0;
-    const totalChars = rows.length;
+    const totalChars = cachedRowData.length;
 
-    rows.forEach(row => {
-        const rowMajorVer = row.getAttribute('data-major-version');
-        const rowPath = row.getAttribute('data-path');
-        const rowElem = row.getAttribute('data-elem');
-        const rowType = row.getAttribute('data-type');
-        const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
-        const rowName = row.getAttribute('data-name').toLowerCase();
-
-        const matchVersion = state.selectedVersions.length === 0 || state.selectedVersions.includes(rowMajorVer);
-        const matchPath = state.selectedPaths.length === 0 || state.selectedPaths.includes(rowPath);
-        const matchElem = state.selectedElems.length === 0 || state.selectedElems.includes(rowElem);
-        const matchType = state.selectedTypes.length === 0 || state.selectedTypes.includes(rowType);
-        const matchName = state.keyword === '' || rowName.includes(state.keyword);
-        const matchBuff = !state.onlyBuffs || hasBuffAttr;
+    cachedRowData.forEach(item => {
+        const matchVersion = state.selectedVersions.length === 0 || state.selectedVersions.includes(item.majorVer);
+        const matchPath = state.selectedPaths.length === 0 || state.selectedPaths.includes(item.path);
+        const matchElem = state.selectedElems.length === 0 || state.selectedElems.includes(item.elem);
+        const matchType = state.selectedTypes.length === 0 || state.selectedTypes.includes(item.type);
+        const matchName = state.keyword === '' || item.name.includes(state.keyword);
+        const matchBuff = !state.onlyBuffs || item.hasBuff;
 
         if (matchVersion && matchPath && matchElem && matchType && matchName && matchBuff) {
-            row.style.display = '';
+            item.row.style.display = '';
             visibleCount++;
         } else {
-            row.style.display = 'none';
+            item.row.style.display = 'none';
         }
     });
 
@@ -1212,6 +1219,7 @@ if (typeof module !== 'undefined' && module.exports) {
     Object.assign(module.exports, {
         getCharacterType,
         buildCharacterHistory,
-        getCharacterTooltip
+        getCharacterTooltip,
+        filterTableRows
     });
 }

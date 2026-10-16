@@ -412,7 +412,7 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
-    const { getCharacterType, buildCharacterHistory, getCharacterTooltip } = require("./js/app.js");
+    const { getCharacterType, buildCharacterHistory, getCharacterTooltip, filterTableRows } = require("./js/app.js");
 
 
     describe("getFallbackAvatar", () => {
@@ -469,6 +469,42 @@ describe('app.js pure functions', () => {
         });
         it('should return correct tooltip for regular character', () => {
             expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
+
+    describe('filterTableRows', () => {
+        it('should filter table rows based on state criteria and use row object cache', () => {
+            document.body.innerHTML = `
+                <table id="tracker">
+                    <tbody>
+                        <tr data-major-version="1.x" data-path="毀滅" data-elem="物理" data-type="normal" data-has-buff="false" data-name="Kafka"></tr>
+                        <tr data-major-version="2.x" data-path="巡獵" data-elem="火" data-type="pool" data-has-buff="true" data-name="Blade"></tr>
+                    </tbody>
+                </table>
+            `;
+            const table = document.getElementById('tracker');
+            const state = {
+                selectedVersions: ['1.x'],
+                selectedPaths: [],
+                selectedElems: [],
+                selectedTypes: [],
+                keyword: '',
+                onlyBuffs: false
+            };
+
+            const result1 = filterTableRows(table, state);
+            expect(result1).toEqual({ visibleCount: 1, totalChars: 2 });
+            const rows = table.querySelectorAll('tbody tr');
+            expect(rows[0].style.display).toBe('');
+            expect(rows[1].style.display).toBe('none');
+
+            // Second pass tests cached array
+            state.selectedVersions = [];
+            state.onlyBuffs = true;
+            const result2 = filterTableRows(table, state);
+            expect(result2).toEqual({ visibleCount: 1, totalChars: 2 });
+            expect(rows[0].style.display).toBe('none');
+            expect(rows[1].style.display).toBe('');
         });
     });
 });
