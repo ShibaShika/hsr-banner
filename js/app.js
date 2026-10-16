@@ -837,10 +837,12 @@ function setupExportButton() {
 
                 // 🌟 關鍵修復：強行取消所有凍結視窗 (sticky) 避免 html2canvas 算錯座標把表頭/角色欄甩出去
                 clonedTable.querySelectorAll('th, td, thead, tr, div, span').forEach(el => {
+                    const compStyle = window.getComputedStyle(el);
+                    if (compStyle.position === 'sticky') {
+                        el.style.position = 'relative';
+                    }
                     if (el.classList.contains('buff-badge')) {
                         el.style.position = 'absolute';
-                    } else {
-                        el.style.position = 'static';
                     }
                     el.style.boxShadow = 'none';
                     el.classList.remove('col-highlight');
