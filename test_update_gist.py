@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
 from unittest.mock import patch, mock_open, MagicMock
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_patch_date, parse_local_js_array, execute_auto_update
+from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update
 
 class TestParseLocalJsArray(unittest.TestCase):
     @patch('os.path.exists', return_value=False)
@@ -95,6 +95,32 @@ class TestParseLocalJsArray(unittest.TestCase):
         with patch('builtins.open', mock_open(read_data=js_content)):
             result = parse_local_js_array("dummy.js", "MY_VAR")
             self.assertEqual(result, [{'name': '[test]'}, {'name': ']'}])
+
+
+class TestNormalizeCjkName(unittest.TestCase):
+    def test_empty_or_none(self):
+        self.assertEqual(normalize_cjk_name(""), "")
+        self.assertEqual(normalize_cjk_name(None), "")
+
+    def test_normal_cjk_name(self):
+        self.assertEqual(normalize_cjk_name("丹恆"), "丹恆")
+
+    def test_interpuncts(self):
+        # Test ・ (U+30FB), · (U+00B7), • (U+2022)
+        self.assertEqual(normalize_cjk_name("丹・恆"), "丹恆")
+        self.assertEqual(normalize_cjk_name("丹·恆"), "丹恆")
+        self.assertEqual(normalize_cjk_name("丹•恆"), "丹恆")
+        self.assertEqual(normalize_cjk_name("丹・·•恆"), "丹恆")
+
+    def test_whitespace(self):
+        self.assertEqual(normalize_cjk_name("丹 恆"), "丹恆")
+        self.assertEqual(normalize_cjk_name("  丹\t恆\n "), "丹恆")
+
+    def test_combined_interpuncts_and_whitespace(self):
+        self.assertEqual(normalize_cjk_name(" 丹 ・ 恆 "), "丹恆")
+
+    def test_non_string_types(self):
+        self.assertEqual(normalize_cjk_name(12345), "12345")
 
 
 class TestSanitizeName(unittest.TestCase):
