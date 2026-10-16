@@ -412,7 +412,7 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
-    const { getCharacterType, buildCharacterHistory, getCharacterTooltip } = require("./js/app.js");
+    const { getCharacterType, buildCharacterHistory, getCharacterTooltip, renderFilters } = require("./js/app.js");
 
 
     describe("getFallbackAvatar", () => {
@@ -469,6 +469,32 @@ describe('app.js pure functions', () => {
         });
         it('should return correct tooltip for regular character', () => {
             expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
+
+    describe('renderFilters XSS prevention', () => {
+        beforeEach(() => {
+            document.body.innerHTML = `
+                <div id="version-items-container"></div>
+                <div id="path-items-container"></div>
+                <div id="elem-items-container"></div>
+                <div id="type-items-container"></div>
+            `;
+        });
+
+        it('should escape HTML special characters in path names to prevent XSS', () => {
+            const maliciousPath = '<script>alert("xss")</script>';
+            const activeCharacters = [
+                { path: maliciousPath, elem: '火' }
+            ];
+            global.PATH_ORDER = [maliciousPath];
+
+            renderFilters(activeCharacters, [], new Map());
+
+            const pathContainer = document.getElementById('path-items-container');
+            expect(pathContainer.querySelector('script')).toBeNull();
+            expect(pathContainer.innerHTML).toContain('&lt;script&gt;');
+            delete global.PATH_ORDER;
         });
     });
 });

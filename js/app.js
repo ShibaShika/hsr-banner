@@ -297,8 +297,9 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
     if (pathContainer) {
         pathContainer.innerHTML = uniquePaths.map(p => {
             const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
-            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${p}">` : "";
-            return `<label><input type="checkbox" class="path-item" value="${p}" ${currentCheckedPaths.has(p) ? 'checked' : ''}> ${iconHtml}${p}</label>`;
+            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${escapeHtml(p)}">` : "";
+            const safeP = escapeHtml(p);
+            return `<label><input type="checkbox" class="path-item" value="${safeP}" ${currentCheckedPaths.has(p) ? 'checked' : ''}> ${iconHtml}${safeP}</label>`;
         }).join('');
     }
     
@@ -1212,6 +1213,7 @@ if (typeof module !== 'undefined' && module.exports) {
     Object.assign(module.exports, {
         getCharacterType,
         buildCharacterHistory,
-        getCharacterTooltip
+        getCharacterTooltip,
+        renderFilters
     });
 }
