@@ -334,6 +334,12 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
     }
 }
 
+function getPatchColClass(p, activePatchName) {
+    if (p.patch === activePatchName) return ' class="current-patch-col"';
+    if (p.isPreview) return ' class="preview-patch-col"';
+    return '';
+}
+
 function buildTableHeaderHtml(displayPatches, totalChars, activePatchName) {
     let html = '<thead><tr>';
     html += `<th rowspan="2" class="top-left-cell">
@@ -347,22 +353,12 @@ function buildTableHeaderHtml(displayPatches, totalChars, activePatchName) {
     </th>`;
 
     displayPatches.forEach(p => {
-        const isCurrent = (p.patch === activePatchName);
-        const isPreview = Boolean(p.isPreview);
-        let colClass = '';
-        if (isCurrent) colClass = ' class="current-patch-col"';
-        else if (isPreview) colClass = ' class="preview-patch-col"';
-        html += `<th${colClass}>${formatHeaderDate(p.date)}</th>`;
+        html += `<th${getPatchColClass(p, activePatchName)}>${formatHeaderDate(p.date)}</th>`;
     });
 
     html += `</tr><tr>`;
     displayPatches.forEach(p => {
-        const isCurrent = (p.patch === activePatchName);
-        const isPreview = Boolean(p.isPreview);
-        let colClass = '';
-        if (isCurrent) colClass = ' class="current-patch-col"';
-        else if (isPreview) colClass = ' class="preview-patch-col"';
-        html += `<th${colClass}>${p.patch}</th>`;
+        html += `<th${getPatchColClass(p, activePatchName)}>${p.patch}</th>`;
     });
     html += '</tr></thead>';
     return html;
@@ -1212,6 +1208,7 @@ if (typeof module !== 'undefined' && module.exports) {
     Object.assign(module.exports, {
         getCharacterType,
         buildCharacterHistory,
-        getCharacterTooltip
+        getCharacterTooltip,
+        getPatchColClass
     });
 }

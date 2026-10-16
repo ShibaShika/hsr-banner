@@ -412,8 +412,24 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
-    const { getCharacterType, buildCharacterHistory, getCharacterTooltip } = require("./js/app.js");
+    const { getCharacterType, buildCharacterHistory, getCharacterTooltip, getPatchColClass } = require("./js/app.js");
 
+    describe("getPatchColClass", () => {
+        it("should return current patch col class if patch is current", () => {
+            const p = { patch: "1.0", isPreview: false };
+            expect(getPatchColClass(p, "1.0")).toBe(' class="current-patch-col"');
+        });
+
+        it("should return preview patch col class if patch is preview and not current", () => {
+            const p = { patch: "1.1", isPreview: true };
+            expect(getPatchColClass(p, "1.0")).toBe(' class="preview-patch-col"');
+        });
+
+        it("should return empty string for normal patch", () => {
+            const p = { patch: "1.1", isPreview: false };
+            expect(getPatchColClass(p, "1.0")).toBe('');
+        });
+    });
 
     describe("getFallbackAvatar", () => {
         it("should return a data URI SVG with the first character of the name", () => {
