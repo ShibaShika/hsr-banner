@@ -412,7 +412,7 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
-    const { getCharacterType, buildCharacterHistory, getCharacterTooltip } = require("./js/app.js");
+    const { getCharacterType, buildCharacterHistory, getCharacterTooltip, getFilterState } = require("./js/app.js");
 
 
     describe("getFallbackAvatar", () => {
@@ -469,6 +469,75 @@ describe('app.js pure functions', () => {
         });
         it('should return correct tooltip for regular character', () => {
             expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
+
+    describe('getFilterState', () => {
+        beforeEach(() => {
+            document.body.innerHTML = '';
+        });
+
+        it('should return default values when elements are missing from the DOM', () => {
+            const state = getFilterState();
+            expect(state).toEqual({
+                selectedVersions: [],
+                selectedPaths: [],
+                selectedElems: [],
+                selectedTypes: [],
+                keyword: '',
+                onlyBuffs: false
+            });
+        });
+
+        it('should correctly extract checked values from filter checkboxes', () => {
+            document.body.innerHTML = `
+                <input type="checkbox" class="version-item" value="1.x" checked />
+                <input type="checkbox" class="version-item" value="2.x" />
+                <input type="checkbox" class="version-item" value="3.x" checked />
+
+                <input type="checkbox" class="path-item" value="毀滅" checked />
+                <input type="checkbox" class="path-item" value="巡獵" />
+
+                <input type="checkbox" class="elem-item" value="火" checked />
+                <input type="checkbox" class="elem-item" value="冰" checked />
+
+                <input type="checkbox" class="type-item" value="normal" checked />
+                <input type="checkbox" class="type-item" value="collab" />
+            `;
+
+            const state = getFilterState();
+            expect(state.selectedVersions).toEqual(['1.x', '3.x']);
+            expect(state.selectedPaths).toEqual(['毀滅']);
+            expect(state.selectedElems).toEqual(['火', '冰']);
+            expect(state.selectedTypes).toEqual(['normal']);
+        });
+
+        it('should extract, trim, and lower-case search keyword', () => {
+            document.body.innerHTML = `
+                <input type="text" id="char-search-input" value="  Kafka  " />
+            `;
+
+            const state = getFilterState();
+            expect(state.keyword).toBe('kafka');
+        });
+
+        it('should return empty keyword when search input value is empty or only whitespace', () => {
+            document.body.innerHTML = `
+                <input type="text" id="char-search-input" value="   " />
+            `;
+
+            const state = getFilterState();
+            expect(state.keyword).toBe('');
+        });
+
+        it('should correctly set onlyBuffs based on buff toggle button active class', () => {
+            document.body.innerHTML = `
+                <button id="buff-toggle-btn" class="active"></button>
+            `;
+            expect(getFilterState().onlyBuffs).toBe(true);
+
+            document.getElementById('buff-toggle-btn').classList.remove('active');
+            expect(getFilterState().onlyBuffs).toBe(false);
         });
     });
 });
