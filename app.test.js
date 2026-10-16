@@ -358,13 +358,14 @@ describe('app.js pure functions', () => {
             expect(escapeHtml(">")).toBe("&gt;");
             expect(escapeHtml("\"")).toBe("&quot;");
             expect(escapeHtml("'")).toBe("&#39;");
+            expect(escapeHtml("/")).toBe("&#x2F;");
         });
 
         it("should correctly escape multiple special characters in a single string", () => {
             expect(escapeHtml("<div class=\"test\">Bob & Alice's String</div>"))
-                .toBe("&lt;div class=&quot;test&quot;&gt;Bob &amp; Alice&#39;s String&lt;/div&gt;");
-            expect(escapeHtml("<<<>>>&&&\"\"\"'''"))
-                .toBe("&lt;&lt;&lt;&gt;&gt;&gt;&amp;&amp;&amp;&quot;&quot;&quot;&#39;&#39;&#39;");
+                .toBe("&lt;div class=&quot;test&quot;&gt;Bob &amp; Alice&#39;s String&lt;&#x2F;div&gt;");
+            expect(escapeHtml("<<<>>>&&&\"\"\"'''///"))
+                .toBe("&lt;&lt;&lt;&gt;&gt;&gt;&amp;&amp;&amp;&quot;&quot;&quot;&#39;&#39;&#39;&#x2F;&#x2F;&#x2F;");
         });
 
         it("should coerce non-string inputs to strings and escape them if necessary", () => {
