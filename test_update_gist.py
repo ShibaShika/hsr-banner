@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
 from unittest.mock import patch, mock_open, MagicMock
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_patch_date, parse_local_js_array, execute_auto_update
+from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_patch_date, parse_local_js_array, execute_auto_update, find_matching_character
 
 class TestParseLocalJsArray(unittest.TestCase):
     @patch('os.path.exists', return_value=False)
@@ -95,6 +95,51 @@ class TestParseLocalJsArray(unittest.TestCase):
         with patch('builtins.open', mock_open(read_data=js_content)):
             result = parse_local_js_array("dummy.js", "MY_VAR")
             self.assertEqual(result, [{'name': '[test]'}, {'name': ']'}])
+
+
+class TestFindMatchingCharacter(unittest.TestCase):
+    def setUp(self):
+        self.char1 = {'cid': '1001', 'name': '三月七', 'runs': ['1.0上']}
+        self.char2 = {'cid': '1002', 'name': 'Dan Heng', 'runs': ['1.0下']}
+        self.char3 = {'cid': '1003', 'name': '黑塔・改', 'runs': ['1.1上']}
+        self.merged_chars = [self.char1, self.char2, self.char3]
+        self.existing_by_name = {c['name']: c for c in self.merged_chars}
+        self.existing_by_cid = {c['cid']: c for c in self.merged_chars}
+
+    def test_exact_target_name_match(self):
+        res = find_matching_character(
+            '三月七', 'March 7th', '1001',
+            self.merged_chars, self.existing_by_name, self.existing_by_cid
+        )
+        self.assertEqual(res, self.char1)
+
+    def test_sanitized_en_name_match(self):
+        res = find_matching_character(
+            'Dan Heng', 'dan-heng', None,
+            self.merged_chars, {}, self.existing_by_cid
+        )
+        self.assertEqual(res, self.char2)
+
+    def test_cjk_normalized_name_match(self):
+        res = find_matching_character(
+            '黑塔·改', 'Herta', None,
+            self.merged_chars, {}, self.existing_by_cid
+        )
+        self.assertEqual(res, self.char3)
+
+    def test_cid_fallback_match(self):
+        res = find_matching_character(
+            'Unknown Target', 'Unknown EN', '1001',
+            self.merged_chars, {}, self.existing_by_cid
+        )
+        self.assertEqual(res, self.char1)
+
+    def test_no_match(self):
+        res = find_matching_character(
+            'Unknown Target', 'Unknown EN', '9999',
+            self.merged_chars, {}, self.existing_by_cid
+        )
+        self.assertIsNone(res)
 
 
 class TestSanitizeName(unittest.TestCase):

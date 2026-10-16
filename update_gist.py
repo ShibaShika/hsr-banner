@@ -710,6 +710,29 @@ def _generate_summary_and_save(
     return True
 
 
+def find_matching_character(target_name, en_name, target_cid, merged_chars, existing_char_map_by_name, existing_char_map_by_cid):
+    """根據名稱或 CID 比對專案中已存在的角色資料"""
+    if target_name in existing_char_map_by_name:
+        return existing_char_map_by_name[target_name]
+
+    sanitized_en_name = sanitize_name(en_name)
+    target_is_cjk = contains_cjk(target_name)
+    normalized_target_name = normalize_cjk_name(target_name) if target_is_cjk else None
+
+    for char in merged_chars:
+        c_name = char.get('name', '')
+        if sanitize_name(c_name) == sanitized_en_name:
+            return char
+        if target_is_cjk and contains_cjk(c_name):
+            if normalized_target_name == normalize_cjk_name(c_name):
+                return char
+
+    if target_cid and target_cid in existing_char_map_by_cid:
+        return existing_char_map_by_cid[target_cid]
+
+    return None
+
+
 def _merge_characters(original_chars, all_incoming_schedules, session):
     """合併角色清單與排程"""
     en_data, cht_data = fetch_starrailres_data(session)
@@ -736,26 +759,10 @@ def _merge_characters(original_chars, all_incoming_schedules, session):
             en_name, en_data, cht_data, wiki_char_cache, session, sanitized_en_dict
         )
 
-        matched_char = None
-        if target_name in existing_char_map_by_name:
-            matched_char = existing_char_map_by_name[target_name]
-        else:
-            sanitized_en_name = sanitize_name(en_name)
-            target_is_cjk = contains_cjk(target_name)
-            normalized_target_name = normalize_cjk_name(target_name) if target_is_cjk else None
-
-            for char in merged_chars:
-                c_name = char.get('name', '')
-                if sanitize_name(c_name) == sanitized_en_name:
-                    matched_char = char
-                    break
-                if target_is_cjk and contains_cjk(c_name):
-                    if normalized_target_name == normalize_cjk_name(c_name):
-                        matched_char = char
-                        break
-
-        if not matched_char and target_cid and target_cid in existing_char_map_by_cid:
-            matched_char = existing_char_map_by_cid[target_cid]
+        matched_char = find_matching_character(
+            target_name, en_name, target_cid, merged_chars,
+            existing_char_map_by_name, existing_char_map_by_cid
+        )
 
         if matched_char:
             # 升級名稱
