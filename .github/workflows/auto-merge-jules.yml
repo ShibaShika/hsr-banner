@@ -1,0 +1,24 @@
+name: Auto Merge Jules PRs
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    # 僅針對 Jules 建立的分支或 PR 觸發
+    if: contains(github.head_ref, 'jules') || contains(github.actor, 'jules')
+    steps:
+      - name: Wait for CI and Merge PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # 使用 squash 合併並自動刪除分支，完成結單
+          gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --squash --delete-branch --auto || \
+          gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --squash --delete-branch
