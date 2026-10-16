@@ -1,4 +1,4 @@
-// 更新日期: 2026/10/08
+// 更新日期: 2026/10/16
 
 const RAW_CHARACTERS = [
     {
@@ -773,6 +773,17 @@ const RAW_CHARACTERS = [
         avatar: "",
         runs: [
             "4.8上"
+        ],
+        isPreview: true
+    },
+    {
+        cid: "",
+        name: "星神★阿哈",
+        path: "歡愉",
+        elem: "量子",
+        avatar: "",
+        runs: [
+            "4.7上"
         ],
         isPreview: true
     }
