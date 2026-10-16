@@ -1,7 +1,12 @@
 import unittest
 from datetime import datetime
 from unittest.mock import patch, mock_open, MagicMock
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_patch_date, parse_local_js_array, execute_auto_update
+from bs4 import BeautifulSoup
+from update_gist import (
+    validate_data_integrity, clean_wikitext_value, sanitize_name,
+    normalize_patch_date, parse_local_js_array, execute_auto_update,
+    parse_warp_list_tables
+)
 
 class TestParseLocalJsArray(unittest.TestCase):
     @patch('os.path.exists', return_value=False)
@@ -417,6 +422,116 @@ class TestExecuteAutoUpdate(unittest.TestCase):
         self.assertTrue(result)
         self.assertEqual(mock_serialize.call_count, 2)
         mock_validate.assert_called_once()
+
+class TestParseWarpListTables(unittest.TestCase):
+    def dummy_parse_date(self, s):
+        if s == "April 26, 2023":
+            return datetime(2023, 4, 26)
+        if s == "May 17, 2023":
+            return datetime(2023, 5, 17)
+        if s == "January 1, 2025":
+            return datetime(2025, 1, 1)
+        return None
+
+    def test_empty_tables(self):
+        records, v_dates = parse_warp_list_tables([], self.dummy_parse_date)
+        self.assertEqual(records, [])
+        self.assertEqual(v_dates, {})
+
+    def test_standard_warp_table(self):
+        html = """
+        <table>
+            <tr><th colspan="2">Version 1.0 : Since April 26, 2023</th></tr>
+            <tr>
+                <td>Character Event Warp</td>
+                <td><a title="Butterfly on Swordtip/1.0">Butterfly</a></td>
+            </tr>
+        </table>
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        tables = soup.find_all('table')
+        records, v_dates = parse_warp_list_tables(tables, self.dummy_parse_date)
+
+        expected_dt = datetime(2023, 4, 26)
+        self.assertEqual(records, [{
+            'warp_page': 'Butterfly on Swordtip/1.0',
+            'version': '1.0',
+            'start_dt': expected_dt,
+            'is_collab': False
+        }])
+        self.assertEqual(v_dates, {'1.0': {expected_dt}})
+
+    def test_collaboration_indefinite_warp_table(self):
+        html = """
+        <table>
+            <tr><th colspan="2">Version 3.0 : Since January 1, 2025 (Collaboration/Indefinite)</th></tr>
+            <tr>
+                <td>Character Event Warp</td>
+                <td><a title="Fate Stay Night/3.0">Collab Warp</a></td>
+            </tr>
+        </table>
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        tables = soup.find_all('table')
+        records, v_dates = parse_warp_list_tables(tables, self.dummy_parse_date)
+
+        expected_dt = datetime(2025, 1, 1)
+        self.assertEqual(records, [{
+            'warp_page': 'Fate Stay Night/3.0',
+            'version': '3.0',
+            'start_dt': expected_dt,
+            'is_collab': True
+        }])
+        # Collaboration dates are excluded from version_dates dict
+        self.assertEqual(v_dates, {})
+
+    def test_max_3_tables_limit(self):
+        html_tables = "".join([
+            f"""
+            <table>
+                <tr><th colspan="2">Version 1.{i} : Since April 26, 2023</th></tr>
+                <tr>
+                    <td>Character Event Warp</td>
+                    <td><a title="Warp/{i}">Warp {i}</a></td>
+                </tr>
+            </table>
+            """ for i in range(5)
+        ])
+        soup = BeautifulSoup(html_tables, 'html.parser')
+        tables = soup.find_all('table')
+        self.assertEqual(len(tables), 5)
+
+        records, v_dates = parse_warp_list_tables(tables, self.dummy_parse_date)
+        # Should process only the first 3 tables
+        self.assertEqual(len(records), 3)
+        self.assertEqual([r['warp_page'] for r in records], ['Warp/0', 'Warp/1', 'Warp/2'])
+
+    def test_filtering_non_character_and_invalid_links(self):
+        html = """
+        <table>
+            <tr><th colspan="2">Version 1.0 : Since April 26, 2023</th></tr>
+            <tr>
+                <td>Light Cone Event Warp</td>
+                <td><a title="Brilliant Fixation/1.0">LightCone</a></td>
+            </tr>
+            <tr>
+                <td>Character Event Warp</td>
+                <td>
+                    <a title="File:Character.png">Image</a>
+                    <a title="NoSlashTitle">No Slash</a>
+                    <a>No Title</a>
+                    <a title="Valid/Title">Valid</a>
+                </td>
+            </tr>
+        </table>
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        tables = soup.find_all('table')
+        records, v_dates = parse_warp_list_tables(tables, self.dummy_parse_date)
+
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]['warp_page'], 'Valid/Title')
+
 
 if __name__ == '__main__':
     unittest.main()
