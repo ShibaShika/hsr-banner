@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
 from unittest.mock import patch, mock_open, MagicMock
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_patch_date, parse_local_js_array, execute_auto_update
+from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update
 
 class TestParseLocalJsArray(unittest.TestCase):
     @patch('os.path.exists', return_value=False)
@@ -95,6 +95,32 @@ class TestParseLocalJsArray(unittest.TestCase):
         with patch('builtins.open', mock_open(read_data=js_content)):
             result = parse_local_js_array("dummy.js", "MY_VAR")
             self.assertEqual(result, [{'name': '[test]'}, {'name': ']'}])
+
+
+class TestNormalizeCjkName(unittest.TestCase):
+    def test_empty_or_none(self):
+        self.assertEqual(normalize_cjk_name(""), "")
+        self.assertEqual(normalize_cjk_name(None), "")
+
+    def test_cjk_with_dots(self):
+        self.assertEqual(normalize_cjk_name("丹・恆"), "丹恆")
+        self.assertEqual(normalize_cjk_name("丹·恆"), "丹恆")
+        self.assertEqual(normalize_cjk_name("丹•恆"), "丹恆")
+
+    def test_cjk_with_spaces(self):
+        self.assertEqual(normalize_cjk_name(" 丹 恆 "), "丹恆")
+        self.assertEqual(normalize_cjk_name("丹\t恆\n"), "丹恆")
+
+    def test_cjk_with_dots_and_spaces(self):
+        self.assertEqual(normalize_cjk_name(" 丹 ・ 恆 "), "丹恆")
+        self.assertEqual(normalize_cjk_name("三月七・狩獵 • 巡獵"), "三月七狩獵巡獵")
+
+    def test_regular_text(self):
+        self.assertEqual(normalize_cjk_name("March 7th"), "March7th")
+        self.assertEqual(normalize_cjk_name("DanHeng"), "DanHeng")
+
+    def test_non_string_types(self):
+        self.assertEqual(normalize_cjk_name(123), "123")
 
 
 class TestSanitizeName(unittest.TestCase):
