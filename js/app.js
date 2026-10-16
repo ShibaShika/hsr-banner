@@ -250,6 +250,8 @@ function updateTableColumnIndices(table) {
             const span = cell.colSpan || 1;
             cell.dataset.startCol = colIdx;
             cell.dataset.endCol = colIdx + span - 1;
+            cell._startCol = colIdx;
+            cell._endCol = colIdx + span - 1;
             colIdx += span;
         }
     }
@@ -952,8 +954,8 @@ function setupTableInteractions() {
             return;
         }
 
-        const startCol = parseInt(cell.dataset.startCol, 10);
-        const endCol = parseInt(cell.dataset.endCol, 10);
+        const startCol = cell._startCol !== undefined ? cell._startCol : parseInt(cell.dataset.startCol, 10);
+        const endCol = cell._endCol !== undefined ? cell._endCol : parseInt(cell.dataset.endCol, 10);
 
         trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
 
@@ -966,8 +968,8 @@ function setupTableInteractions() {
         cachedTableCells.forEach(c => {
             if (c.colSpan > 1) return;
 
-            const cStart = parseInt(c.dataset.startCol, 10);
-            const cEnd = parseInt(c.dataset.endCol, 10);
+            const cStart = c._startCol !== undefined ? c._startCol : parseInt(c.dataset.startCol, 10);
+            const cEnd = c._endCol !== undefined ? c._endCol : parseInt(c.dataset.endCol, 10);
             if (cEnd >= startCol && cStart <= endCol && cEnd > 0) {
                 c.classList.add('col-highlight');
             }
@@ -1212,6 +1214,8 @@ if (typeof module !== 'undefined' && module.exports) {
     Object.assign(module.exports, {
         getCharacterType,
         buildCharacterHistory,
-        getCharacterTooltip
+        getCharacterTooltip,
+        updateTableColumnIndices,
+        setupTableInteractions
     });
 }

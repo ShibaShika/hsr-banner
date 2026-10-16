@@ -412,7 +412,7 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
-    const { getCharacterType, buildCharacterHistory, getCharacterTooltip } = require("./js/app.js");
+    const { getCharacterType, buildCharacterHistory, getCharacterTooltip, updateTableColumnIndices, setupTableInteractions } = require("./js/app.js");
 
 
     describe("getFallbackAvatar", () => {
@@ -469,6 +469,72 @@ describe('app.js pure functions', () => {
         });
         it('should return correct tooltip for regular character', () => {
             expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
+
+    describe('updateTableColumnIndices and hover interactions', () => {
+        let table;
+
+        beforeEach(() => {
+            document.body.innerHTML = `
+                <table id="tracker">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">Header 0</th>
+                            <th>Header 1</th>
+                            <th>Header 2</th>
+                        </tr>
+                        <tr>
+                            <th>Sub 1</th>
+                            <th>Sub 2</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Char Name</td>
+                            <td>Run 1</td>
+                            <td>Run 2</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+            table = document.getElementById('tracker');
+        });
+
+        it('should populate _startCol and _endCol properties on cells', () => {
+            updateTableColumnIndices(table);
+            const row0 = table.rows[0];
+            expect(row0.cells[0]._startCol).toBe(0);
+            expect(row0.cells[0]._endCol).toBe(0);
+            expect(row0.cells[1]._startCol).toBe(1);
+            expect(row0.cells[1]._endCol).toBe(1);
+
+            const bodyRow = table.rows[2];
+            expect(bodyRow.cells[0]._startCol).toBe(0);
+            expect(bodyRow.cells[0]._endCol).toBe(0);
+            expect(bodyRow.cells[1]._startCol).toBe(1);
+            expect(bodyRow.cells[1]._endCol).toBe(1);
+            expect(bodyRow.cells[2]._startCol).toBe(2);
+            expect(bodyRow.cells[2]._endCol).toBe(2);
+        });
+
+        it('should add col-highlight class on hover using pre-calculated column indices', () => {
+            updateTableColumnIndices(table);
+            setupTableInteractions();
+
+            const targetCell = table.rows[2].cells[1]; // col 1
+            const mouseoverEvent = new MouseEvent('mouseover', {
+                bubbles: true,
+                cancelable: true
+            });
+            targetCell.dispatchEvent(mouseoverEvent);
+
+            const highlighted = table.querySelectorAll('.col-highlight');
+            expect(highlighted.length).toBeGreaterThan(0);
+            highlighted.forEach(cell => {
+                expect(cell._startCol).toBeLessThanOrEqual(1);
+                expect(cell._endCol).toBeGreaterThanOrEqual(1);
+            });
         });
     });
 });
