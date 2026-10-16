@@ -207,6 +207,8 @@ async function initTracker() {
             } else {
                 document.getElementById('update-date-text').textContent = "未知";
             }
+        } else {
+            document.getElementById('update-date-text').textContent = "未知";
         }
     } catch (error) {
         console.warn("無法讀取本地更新日期:", error);
@@ -1220,5 +1222,12 @@ if (typeof module !== 'undefined' && module.exports) {
         buildCharacterHistory,
         getCharacterTooltip,
         buildTableHeaderHtml
+    });
+}
+
+// Export initTracker for testing
+if (typeof module !== 'undefined' && module.exports) {
+    Object.assign(module.exports, {
+        initTracker
     });
 }

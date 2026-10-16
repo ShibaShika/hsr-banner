@@ -497,4 +497,53 @@ describe('app.js pure functions', () => {
             expect(html).toContain('<th>2.0</th>');
         });
     });
+
+    const { initTracker } = require("./js/app.js");
+
+    describe("initTracker", () => {
+        let originalFetch;
+        let consoleWarnSpy;
+
+        beforeEach(() => {
+            originalFetch = global.fetch;
+            consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+            // Setup DOM elements expected by initTracker
+            document.body.innerHTML = `
+                <span id="update-date-text"></span>
+                <table id="tracker"></table>
+            `;
+
+            // Mock global variables used in renderTable
+            global.PATCH_DATA = [];
+            global.RAW_CHARACTERS = [];
+        });
+
+        afterEach(() => {
+            global.fetch = originalFetch;
+            consoleWarnSpy.mockRestore();
+            delete global.PATCH_DATA;
+            delete global.RAW_CHARACTERS;
+        });
+
+        it("logs warning if fetch for characters.js rejects", async () => {
+            const mockError = new Error("Network Error");
+            global.fetch = jest.fn().mockRejectedValue(mockError);
+
+            await initTracker();
+
+            expect(global.fetch).toHaveBeenCalledWith('js/characters.js');
+            expect(consoleWarnSpy).toHaveBeenCalledWith("無法讀取本地更新日期:", mockError);
+            expect(document.getElementById('update-date-text').textContent).toBe("未知");
+        });
+
+        it("logs warning if fetch for characters.js is not ok", async () => {
+            global.fetch = jest.fn().mockResolvedValue({ ok: false });
+
+            await initTracker();
+
+            expect(global.fetch).toHaveBeenCalledWith('js/characters.js');
+            expect(document.getElementById('update-date-text').textContent).toBe("未知");
+        });
+    });
 });
