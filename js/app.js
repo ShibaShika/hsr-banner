@@ -290,7 +290,7 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
 
     const versionContainer = document.getElementById('version-items-container');
     if (versionContainer) {
-        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${v}" ${currentCheckedVersions.has(v) ? 'checked' : ''}> ${v}</label>`).join('');
+        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${escapeHtml(v)}" ${currentCheckedVersions.has(v) ? 'checked' : ''}> ${escapeHtml(v)}</label>`).join('');
     }
 
     const pathContainer = document.getElementById('path-items-container');
@@ -1212,6 +1212,7 @@ if (typeof module !== 'undefined' && module.exports) {
     Object.assign(module.exports, {
         getCharacterType,
         buildCharacterHistory,
-        getCharacterTooltip
+        getCharacterTooltip,
+        renderFilters
     });
 }

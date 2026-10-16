@@ -412,7 +412,7 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
-    const { getCharacterType, buildCharacterHistory, getCharacterTooltip } = require("./js/app.js");
+    const { getCharacterType, buildCharacterHistory, getCharacterTooltip, renderFilters } = require("./js/app.js");
 
 
     describe("getFallbackAvatar", () => {
@@ -469,6 +469,36 @@ describe('app.js pure functions', () => {
         });
         it('should return correct tooltip for regular character', () => {
             expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
+
+    describe('renderFilters XSS prevention', () => {
+        beforeEach(() => {
+            document.body.innerHTML = `
+                <div id="version-items-container"></div>
+                <div id="path-items-container"></div>
+                <div id="elem-items-container"></div>
+                <div id="type-items-container"></div>
+            `;
+        });
+
+        it('should escape HTML characters in version values to prevent XSS', () => {
+            const malformedPatch = '<script>alert("xss")</script>';
+            const activeCharacters = [
+                { runs: [malformedPatch + '.1上'] }
+            ];
+            const patchesList = [malformedPatch + '.1上'];
+            const patchIndexMap = new Map([[malformedPatch + '.1上', 0]]);
+
+            renderFilters(activeCharacters, patchesList, patchIndexMap);
+
+            const container = document.getElementById('version-items-container');
+            expect(container.querySelector('script')).toBeNull();
+            expect(container.textContent.trim()).toBe('<script>alert("xss")</script>.x');
+
+            const checkbox = container.querySelector('.version-item');
+            expect(checkbox).not.toBeNull();
+            expect(checkbox.value).toBe('<script>alert("xss")</script>.x');
         });
     });
 });
