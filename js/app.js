@@ -306,8 +306,8 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
     if (elemContainer) {
         elemContainer.innerHTML = uniqueElems.map(e => {
             const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
-            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${e}">` : "";
-            return `<label><input type="checkbox" class="elem-item" value="${e}" ${currentCheckedElems.has(e) ? 'checked' : ''}> ${iconHtml}${e}</label>`;
+            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${escapeHtml(e)}">` : "";
+            return `<label><input type="checkbox" class="elem-item" value="${escapeHtml(e)}" ${currentCheckedElems.has(e) ? 'checked' : ''}> ${iconHtml}${escapeHtml(e)}</label>`;
         }).join('');
     }
 
@@ -1212,6 +1212,7 @@ if (typeof module !== 'undefined' && module.exports) {
     Object.assign(module.exports, {
         getCharacterType,
         buildCharacterHistory,
-        getCharacterTooltip
+        getCharacterTooltip,
+        renderFilters
     });
 }

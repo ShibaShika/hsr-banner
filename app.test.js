@@ -10,7 +10,8 @@ const {
     getPatchIndex,
     getTermStatus,
     mergeContinuousEvents,
-    calculateGaps
+    calculateGaps,
+    renderFilters
 } = require('./js/app');
 
 describe('app.js pure functions', () => {
@@ -469,6 +470,35 @@ describe('app.js pure functions', () => {
         });
         it('should return correct tooltip for regular character', () => {
             expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
+
+    describe('renderFilters', () => {
+        beforeEach(() => {
+            document.body.innerHTML = `
+                <div id="version-items-container"></div>
+                <div id="path-items-container"></div>
+                <div id="elem-items-container"></div>
+                <div id="type-items-container"></div>
+            `;
+        });
+
+        it('escapes element names in checkboxes to prevent XSS', () => {
+            const maliciousElem = '"><script>alert(1)</script>';
+            global.ELEM_ORDER = [maliciousElem];
+            const activeCharacters = [
+                { path: '毀滅', elem: maliciousElem, runs: ['1.0'] }
+            ];
+            const patchesList = ['1.0'];
+            const patchIndexMap = new Map([['1.0', 0]]);
+
+            renderFilters(activeCharacters, patchesList, patchIndexMap);
+
+            const elemContainer = document.getElementById('elem-items-container');
+            expect(elemContainer.querySelectorAll('script').length).toBe(0);
+            expect(elemContainer.innerHTML).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+
+            delete global.ELEM_ORDER;
         });
     });
 });
