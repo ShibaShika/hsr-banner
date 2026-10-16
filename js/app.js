@@ -1228,6 +1228,7 @@ if (typeof module !== 'undefined' && module.exports) {
 // Export initTracker for testing
 if (typeof module !== 'undefined' && module.exports) {
     Object.assign(module.exports, {
-        initTracker
+        initTracker,
+        updateTableColumnIndices
     });
 }

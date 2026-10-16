@@ -10,7 +10,8 @@ const {
     getPatchIndex,
     getTermStatus,
     mergeContinuousEvents,
-    calculateGaps
+    calculateGaps,
+    updateTableColumnIndices
 } = require('./js/app');
 
 describe('app.js pure functions', () => {
@@ -499,6 +500,93 @@ describe('app.js pure functions', () => {
     });
 
     const { initTracker } = require("./js/app.js");
+
+    describe("updateTableColumnIndices", () => {
+        let table;
+
+        beforeEach(() => {
+            table = document.createElement('table');
+            document.body.appendChild(table);
+        });
+
+        afterEach(() => {
+            document.body.removeChild(table);
+        });
+
+        it("should handle an empty table", () => {
+            expect(() => updateTableColumnIndices(table)).not.toThrow();
+        });
+
+        it("should correctly calculate startCol and endCol for a simple table", () => {
+            table.innerHTML = `
+                <tbody>
+                    <tr><td>1</td><td>2</td></tr>
+                    <tr><td>3</td><td>4</td></tr>
+                </tbody>
+            `;
+            updateTableColumnIndices(table);
+
+            const rows = table.rows;
+            expect(rows[0].cells[0].dataset.startCol).toBe("0");
+            expect(rows[0].cells[0].dataset.endCol).toBe("0");
+            expect(rows[0].cells[1].dataset.startCol).toBe("1");
+            expect(rows[0].cells[1].dataset.endCol).toBe("1");
+
+            expect(rows[1].cells[0].dataset.startCol).toBe("0");
+            expect(rows[1].cells[0].dataset.endCol).toBe("0");
+            expect(rows[1].cells[1].dataset.startCol).toBe("1");
+            expect(rows[1].cells[1].dataset.endCol).toBe("1");
+        });
+
+        it("should correctly calculate startCol and endCol for a table with colspans", () => {
+            table.innerHTML = `
+                <tbody>
+                    <tr><td colspan="2">1</td><td>2</td></tr>
+                    <tr><td>3</td><td colspan="3">4</td></tr>
+                </tbody>
+            `;
+            updateTableColumnIndices(table);
+
+            const rows = table.rows;
+            expect(rows[0].cells[0].dataset.startCol).toBe("0");
+            expect(rows[0].cells[0].dataset.endCol).toBe("1");
+            expect(rows[0].cells[1].dataset.startCol).toBe("2");
+            expect(rows[0].cells[1].dataset.endCol).toBe("2");
+
+            expect(rows[1].cells[0].dataset.startCol).toBe("0");
+            expect(rows[1].cells[0].dataset.endCol).toBe("0");
+            expect(rows[1].cells[1].dataset.startCol).toBe("1");
+            expect(rows[1].cells[1].dataset.endCol).toBe("3");
+        });
+
+        it("should correctly handle rows with different number of cells", () => {
+             table.innerHTML = `
+                <tbody>
+                    <tr><td colspan="4">1</td></tr>
+                    <tr><td>2</td><td>3</td><td>4</td><td>5</td></tr>
+                    <tr><td colspan="2">6</td><td colspan="2">7</td></tr>
+                </tbody>
+            `;
+            updateTableColumnIndices(table);
+
+            const rows = table.rows;
+            // Row 0
+            expect(rows[0].cells[0].dataset.startCol).toBe("0");
+            expect(rows[0].cells[0].dataset.endCol).toBe("3");
+
+            // Row 1
+            expect(rows[1].cells[0].dataset.startCol).toBe("0");
+            expect(rows[1].cells[0].dataset.endCol).toBe("0");
+            expect(rows[1].cells[3].dataset.startCol).toBe("3");
+            expect(rows[1].cells[3].dataset.endCol).toBe("3");
+
+            // Row 2
+            expect(rows[2].cells[0].dataset.startCol).toBe("0");
+            expect(rows[2].cells[0].dataset.endCol).toBe("1");
+            expect(rows[2].cells[1].dataset.startCol).toBe("2");
+            expect(rows[2].cells[1].dataset.endCol).toBe("3");
+        });
+    });
 
     describe("initTracker", () => {
         let originalFetch;
