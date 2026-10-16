@@ -39,3 +39,19 @@ jobs:
 
     - name: Run Python tests
       run: python -m unittest
+
+  auto-merge:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && (contains(github.head_ref, 'jules') || contains(github.actor, 'jules'))
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Wait for CI and Merge PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --squash --delete-branch --auto || \
+          gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --squash --delete-branch
