@@ -412,7 +412,7 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
-    const { getCharacterType, buildCharacterHistory, getCharacterTooltip } = require("./js/app.js");
+    const { getCharacterType, buildCharacterHistory, getCharacterTooltip, renderFilters } = require("./js/app.js");
 
 
     describe("getFallbackAvatar", () => {
@@ -469,6 +469,59 @@ describe('app.js pure functions', () => {
         });
         it('should return correct tooltip for regular character', () => {
             expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
+
+    describe('renderFilters', () => {
+        beforeEach(() => {
+            document.body.innerHTML = `
+                <div id="version-items-container"></div>
+                <div id="path-items-container"></div>
+                <div id="elem-items-container"></div>
+                <div id="type-items-container"></div>
+            `;
+        });
+
+        afterEach(() => {
+            delete global.ELEM_ORDER;
+            delete global.PATH_ORDER;
+        });
+
+        it('should safely escape element names containing potential XSS payloads', () => {
+            const xssElem = '<script>alert("xss")</script>';
+            global.ELEM_ORDER = [xssElem];
+            const activeCharacters = [
+                { elem: xssElem, path: '毀滅', runs: ['1.0'] }
+            ];
+            const patchesList = ['1.0'];
+            const patchIndexMap = new Map([['1.0', 0]]);
+
+            renderFilters(activeCharacters, patchesList, patchIndexMap);
+
+            const elemContainer = document.getElementById('elem-items-container');
+            expect(elemContainer.querySelector('script')).toBeNull();
+            expect(elemContainer.textContent).toContain('<script>alert("xss")</script>');
+            const checkbox = elemContainer.querySelector('input.elem-item');
+            expect(checkbox).not.toBeNull();
+            expect(checkbox.value).toBe(xssElem);
+        });
+
+        it('should safely escape version and path filter values containing special characters', () => {
+            const xssPath = 'Path"><img src=x onerror=alert(1)>';
+            global.PATH_ORDER = [xssPath];
+            const activeCharacters = [
+                { elem: '火', path: xssPath, runs: ['1.0'] }
+            ];
+            const patchesList = ['1.0'];
+            const patchIndexMap = new Map([['1.0', 0]]);
+
+            renderFilters(activeCharacters, patchesList, patchIndexMap);
+
+            const pathContainer = document.getElementById('path-items-container');
+            expect(pathContainer.querySelector('img')).toBeNull();
+            const checkbox = pathContainer.querySelector('input.path-item');
+            expect(checkbox).not.toBeNull();
+            expect(checkbox.value).toBe(xssPath);
         });
     });
 });

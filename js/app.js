@@ -290,15 +290,15 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
 
     const versionContainer = document.getElementById('version-items-container');
     if (versionContainer) {
-        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${v}" ${currentCheckedVersions.has(v) ? 'checked' : ''}> ${v}</label>`).join('');
+        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${escapeHtml(v)}" ${currentCheckedVersions.has(v) ? 'checked' : ''}> ${escapeHtml(v)}</label>`).join('');
     }
 
     const pathContainer = document.getElementById('path-items-container');
     if (pathContainer) {
         pathContainer.innerHTML = uniquePaths.map(p => {
             const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
-            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${p}">` : "";
-            return `<label><input type="checkbox" class="path-item" value="${p}" ${currentCheckedPaths.has(p) ? 'checked' : ''}> ${iconHtml}${p}</label>`;
+            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${escapeHtml(p)}">` : "";
+            return `<label><input type="checkbox" class="path-item" value="${escapeHtml(p)}" ${currentCheckedPaths.has(p) ? 'checked' : ''}> ${iconHtml}${escapeHtml(p)}</label>`;
         }).join('');
     }
     
@@ -306,8 +306,8 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
     if (elemContainer) {
         elemContainer.innerHTML = uniqueElems.map(e => {
             const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
-            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${e}">` : "";
-            return `<label><input type="checkbox" class="elem-item" value="${e}" ${currentCheckedElems.has(e) ? 'checked' : ''}> ${iconHtml}${e}</label>`;
+            const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${escapeHtml(e)}">` : "";
+            return `<label><input type="checkbox" class="elem-item" value="${escapeHtml(e)}" ${currentCheckedElems.has(e) ? 'checked' : ''}> ${iconHtml}${escapeHtml(e)}</label>`;
         }).join('');
     }
 
@@ -1212,6 +1212,7 @@ if (typeof module !== 'undefined' && module.exports) {
     Object.assign(module.exports, {
         getCharacterType,
         buildCharacterHistory,
-        getCharacterTooltip
+        getCharacterTooltip,
+        renderFilters
     });
 }
