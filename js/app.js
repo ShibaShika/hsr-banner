@@ -5,14 +5,18 @@
 let cachedTableCells = null;
 
 // 轉義 HTML 特殊字元，避免 innerHTML 注入或屬性斷裂
+const HTML_ESCAPE_MAP = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+    '/': '&#x2F;'
+};
+
 function escapeHtml(str) {
     if (str == null) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+    return String(str).replace(/[&<>"'/]/g, match => HTML_ESCAPE_MAP[match]);
 }
 
 // 🎨 本地 SVG Data URI 備用頭像產生器
