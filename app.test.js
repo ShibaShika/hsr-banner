@@ -367,6 +367,16 @@ describe('app.js pure functions', () => {
                 .toBe("&lt;&lt;&lt;&gt;&gt;&gt;&amp;&amp;&amp;&quot;&quot;&quot;&#39;&#39;&#39;");
         });
 
+        it("should correctly escape patch header variables containing HTML/XSS payloads", () => {
+            const yearNum = "<script>alert(1)</script>";
+            const firstPatch = "1.0<img src=x onerror=alert(1)>";
+            const lastPatch = "2.0'\"";
+
+            expect(escapeHtml(yearNum)).toBe("&lt;script&gt;alert(1)&lt;/script&gt;");
+            expect(escapeHtml(firstPatch)).toBe("1.0&lt;img src=x onerror=alert(1)&gt;");
+            expect(escapeHtml(lastPatch)).toBe("2.0&#39;&quot;");
+        });
+
         it("should coerce non-string inputs to strings and escape them if necessary", () => {
             expect(escapeHtml(123)).toBe("123");
             expect(escapeHtml(true)).toBe("true");
