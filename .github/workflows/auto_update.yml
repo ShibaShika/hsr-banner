@@ -13,8 +13,9 @@ on:
         type: boolean
 
 permissions:
-  contents: write
-  issues: write
+  contents: write  # Required to push changes to characters.js
+  issues: write  # Required to create failure alerts
+  # Minimally scoped permissions following security best practices
 
 jobs:
   update-banner-data:
