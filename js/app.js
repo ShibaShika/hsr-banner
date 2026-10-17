@@ -434,51 +434,36 @@ function buildCharacterHistory(char, patchesList, patchIndexMap) {
         }
     });
 
-    return history;
-}
-
-function buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchName, avatarUrl, fallbackUrl) {
-    let html = '';
-
-    // If it's a collab character, we need to process the COLLAB_BEFORE cells to create the span
     if (char.isCollab) {
         let beforeCount = 0;
         let beforeStartIndex = -1;
 
-        for (let i = 0; i < finalHistory.length; i++) {
-            if (finalHistory[i].status === 'COLLAB_BEFORE') {
+        for (let i = 0; i < history.length; i++) {
+            if (history[i].status === 'COLLAB_BEFORE') {
                 if (beforeStartIndex === -1) beforeStartIndex = i;
                 beforeCount++;
             }
         }
 
         if (beforeCount > 0) {
-            // We want a span of up to 5 cells.
             const spanCount = Math.min(5, beforeCount);
+            const spanStartIdx = beforeStartIndex + beforeCount - spanCount;
 
-            // Depending on the sorting direction, the span should be placed adjacent to the collab release
-            if (isPatchAscending) {
-                // Latest at right. The span should be right before the release (end of COLLAB_BEFORE block)
-                const spanStartIdx = beforeStartIndex + beforeCount - spanCount;
-                for (let i = beforeStartIndex; i < spanStartIdx; i++) {
-                    finalHistory[i] = { status: 'HIDDEN' };
-                }
-                finalHistory[spanStartIdx] = { status: 'COLLAB_SPAN', count: spanCount };
-                for (let i = spanStartIdx + 1; i < beforeStartIndex + beforeCount; i++) {
-                    finalHistory[i] = { status: 'HIDDEN' };
-                }
-            } else {
-                // Latest at left. The span should be right after the release (start of COLLAB_BEFORE block)
-                finalHistory[beforeStartIndex] = { status: 'COLLAB_SPAN', count: spanCount };
-                for (let i = beforeStartIndex + 1; i < beforeStartIndex + spanCount; i++) {
-                    finalHistory[i] = { status: 'HIDDEN' };
-                }
-                for (let i = beforeStartIndex + spanCount; i < beforeStartIndex + beforeCount; i++) {
-                    finalHistory[i] = { status: 'HIDDEN' };
-                }
+            for (let i = beforeStartIndex; i < spanStartIdx; i++) {
+                history[i] = { status: 'NONE' };
+            }
+            history[spanStartIdx] = { status: 'COLLAB_SPAN', count: spanCount };
+            for (let i = spanStartIdx + 1; i < beforeStartIndex + beforeCount; i++) {
+                history[i] = { status: 'HIDDEN' };
             }
         }
     }
+
+    return history;
+}
+
+function buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchName, avatarUrl, fallbackUrl) {
+    let html = '';
 
     finalHistory.forEach((cell, cellIdx) => {
         if (cell.status === 'HIDDEN') return;
