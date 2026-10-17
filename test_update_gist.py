@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
 from unittest.mock import patch, mock_open, MagicMock
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update, fetch_fandom_schedules_and_patches
+from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update, fetch_fandom_schedules_and_patches, serialize_js_file
 
 class TestParseLocalJsArray(unittest.TestCase):
     @patch('os.path.exists', return_value=False)
@@ -683,6 +683,30 @@ class TestFetchFandomSchedulesAndPatches(unittest.TestCase):
 
         self.assertEqual(schedules, [])
         self.assertEqual(new_patches, [])
+
+class TestSerializeJsFile(unittest.TestCase):
+    @patch('update_gist.datetime')
+    def test_serialize_js_file(self, mock_datetime):
+        mock_date = datetime(2023, 10, 25)
+        mock_datetime.now.return_value = mock_date
+
+        var_name = "TEST_DATA"
+        data = [
+            {"name": "Seeley", "element": "Quantum"},
+            {"name": "Kafka", "element": "Lightning"}
+        ]
+        filepath = "test_output.js"
+
+        expected_json_str = '[\n    {\n        "name": "Seeley",\n        "element": "Quantum"\n    },\n    {\n        "name": "Kafka",\n        "element": "Lightning"\n    }\n]'
+        expected_js_str = '[\n    {\n        name: "Seeley",\n        element: "Quantum"\n    },\n    {\n        name: "Kafka",\n        element: "Lightning"\n    }\n]'
+        expected_content = f"// 更新日期: 2023/10/25\n\nconst {var_name} = {expected_js_str};\n"
+
+        m = mock_open()
+        with patch('builtins.open', m):
+            serialize_js_file(var_name, data, filepath)
+
+        m.assert_called_once_with(filepath, 'w', encoding='utf-8')
+        m().write.assert_called_once_with(expected_content)
 
 if __name__ == '__main__':
     unittest.main()
