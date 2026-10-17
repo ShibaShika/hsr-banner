@@ -669,6 +669,22 @@ def validate_data_integrity(original_chars, original_patches, new_chars, new_pat
 # ──────────────────────────────────────────────────
 # 輔助函式
 # ──────────────────────────────────────────────────
+def _format_summary_text(new_patches_added, patch_dates_updated_log, new_chars_added, runs_added_log, name_upgraded_log):
+    """產生摘要文字"""
+    summary_lines = []
+    if new_patches_added:
+        summary_lines.append(f"🆕 新增版本 ({len(new_patches_added)} 個): {', '.join(new_patches_added)}")
+    if patch_dates_updated_log:
+        summary_lines.append(f"📅 版本日期校正 ({len(patch_dates_updated_log)} 項):\n  • " + "\n  • ".join(patch_dates_updated_log))
+    if new_chars_added:
+        summary_lines.append(f"✨ 發現新角色 ({len(new_chars_added)} 位):\n  • " + "\n  • ".join(new_chars_added))
+    if runs_added_log:
+        summary_lines.append(f"📅 新增排程登場 ({len(runs_added_log)} 項):\n  • " + "\n  • ".join(runs_added_log))
+    if name_upgraded_log:
+        summary_lines.append(f"🔄 名稱繁體中文化 ({len(name_upgraded_log)} 位):\n  • " + "\n  • ".join(name_upgraded_log))
+    return "\n".join(summary_lines)
+
+
 def _generate_summary_and_save(
     original_chars, original_patches, merged_chars, merged_patches,
     new_patches_added, patch_dates_updated_log, new_chars_added,
@@ -687,19 +703,10 @@ def _generate_summary_and_save(
     serialize_js_file('RAW_CHARACTERS', merged_chars, chars_file)
 
     # 產生日誌摘要檔案（供 CI Commit Message 使用）
-    summary_lines = []
-    if new_patches_added:
-        summary_lines.append(f"🆕 新增版本 ({len(new_patches_added)} 個): {', '.join(new_patches_added)}")
-    if patch_dates_updated_log:
-        summary_lines.append(f"📅 版本日期校正 ({len(patch_dates_updated_log)} 項):\n  • " + "\n  • ".join(patch_dates_updated_log))
-    if new_chars_added:
-        summary_lines.append(f"✨ 發現新角色 ({len(new_chars_added)} 位):\n  • " + "\n  • ".join(new_chars_added))
-    if runs_added_log:
-        summary_lines.append(f"📅 新增排程登場 ({len(runs_added_log)} 項):\n  • " + "\n  • ".join(runs_added_log))
-    if name_upgraded_log:
-        summary_lines.append(f"🔄 名稱繁體中文化 ({len(name_upgraded_log)} 位):\n  • " + "\n  • ".join(name_upgraded_log))
-
-    summary_text = "\n".join(summary_lines)
+    summary_text = _format_summary_text(
+        new_patches_added, patch_dates_updated_log, new_chars_added,
+        runs_added_log, name_upgraded_log
+    )
     with open(".update_summary.md", "w", encoding="utf-8") as f:
         f.write(summary_text)
 
