@@ -21,6 +21,11 @@ REQUEST_TIMEOUT = 25
 PATCH_NAME_RE = re.compile(r'^\d+\.\d+[上下中]$')
 WIKI_API_URL = "https://honkai-star-rail.fandom.com/api.php"
 
+# Regexes for extracting collaboration/upcoming versions and characters
+RE_UPCOMING_VERSION_1 = re.compile(r'(?:begin in|release in|start in|in)\s*\[\[Version\s*(\d+\.\d+)\]\]', re.IGNORECASE)
+RE_UPCOMING_VERSION_2 = re.compile(r'Version\s+(\d+\.\d+)')
+RE_UPCOMING_CHARS = re.compile(r'feature the characters?\s*\[\[([^\]]+)\]\](?:\s*and\s*\[\[([^\]]+)\]\])?', re.IGNORECASE)
+
 PATH_MAP = {
     "Destruction": "毀滅", "Warrior": "毀滅",
     "Hunt": "巡獵", "Rogue": "巡獵",
@@ -411,9 +416,9 @@ def _parse_collaboration_events(session, max_ver):
                 if not wt:
                     continue
                 if 'Upcoming' in wt or 'begin in' in wt.lower():
-                    m_ver = re.search(r'(?:begin in|release in|start in|in)\s*\[\[Version\s*(\d+\.\d+)\]\]', wt, re.IGNORECASE)
+                    m_ver = RE_UPCOMING_VERSION_1.search(wt)
                     if not m_ver:
-                        m_ver = re.search(r'Version\s+(\d+\.\d+)', wt)
+                        m_ver = RE_UPCOMING_VERSION_2.search(wt)
 
                     if m_ver:
                         ver_val = float(m_ver.group(1))
@@ -421,7 +426,7 @@ def _parse_collaboration_events(session, max_ver):
                             max_ver = ver_val
 
                         # 提取登場聯動角色
-                        chars = re.findall(r'feature the characters?\s*\[\[([^\]]+)\]\](?:\s*and\s*\[\[([^\]]+)\]\])?', wt, re.IGNORECASE)
+                        chars = RE_UPCOMING_CHARS.findall(wt)
                         for c_tuple in chars:
                             for char_en in c_tuple:
                                 if char_en and char_en.strip():
