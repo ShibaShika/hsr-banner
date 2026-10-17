@@ -885,11 +885,19 @@
                 
                 let isExpanded = isLatest;
 
-                header.innerHTML = `
-                    <span class="collapse-icon" style="font-size: 14px; width: 16px; text-align: center;">${isExpanded ? '▼' : '▶'}</span>
-                    <span>第 ${escapeHtml(yearData.yearNum)} 年</span>
-                    <span style="color: #888; font-size: 14px; font-weight: normal;">(${escapeHtml(firstPatch)} ~ ${escapeHtml(lastPatch)})</span>
-                `;
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'collapse-icon';
+                iconSpan.style.cssText = 'font-size: 14px; width: 16px; text-align: center;';
+                iconSpan.textContent = isExpanded ? '▼' : '▶';
+
+                const yearSpan = document.createElement('span');
+                yearSpan.textContent = `第 ${yearData.yearNum} 年`;
+
+                const rangeSpan = document.createElement('span');
+                rangeSpan.style.cssText = 'color: #888; font-size: 14px; font-weight: normal;';
+                rangeSpan.textContent = `(${firstPatch} ~ ${lastPatch})`;
+
+                header.append(iconSpan, yearSpan, rangeSpan);
                 container.appendChild(header);
 
                 const grid = document.createElement('div');
