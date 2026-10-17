@@ -11,7 +11,10 @@ const {
     getTermStatus,
     mergeContinuousEvents,
     calculateGaps,
-    updateTableColumnIndices
+    updateTableColumnIndices,
+    buildHistoryCellsHtml,
+    buildCharacterRowHtml,
+    renderTable
 } = require('./js/app');
 
 describe('app.js pure functions', () => {
@@ -560,6 +563,131 @@ describe('app.js pure functions', () => {
         });
         it('should return correct tooltip for regular character', () => {
             expect(getCharacterTooltip({ name: 'A' }, { isOverdue: true, currentGap: 5, maxGap: 3, totalRuns: 2 }, '2.0', false)).toContain('⚠️ (超期警報!)');
+        });
+    });
+
+
+
+
+    describe('buildCharacterRowHtml', () => {
+        beforeAll(() => {
+            global.PATH_ICONS = { "pathA": "pathA.png" };
+            global.isCharAscending = true;
+            global.isPatchAscending = true;
+        });
+
+        afterAll(() => {
+            delete global.PATH_ICONS;
+        });
+
+        it('returns complete tr with proper data attributes and cells', () => {
+            const char = { name: 'Char1', elem: 'Fire', path: 'pathA', isPreview: true };
+            const patchesList = ['1.0'];
+            const patchIndexMap = new Map([['1.0', 0]]);
+            const displayPatches = [{ patch: '1.0' }];
+            const activePatchName = '1.0';
+
+            const html = buildCharacterRowHtml(char, 0, 1, patchesList, patchIndexMap, displayPatches, activePatchName);
+            expect(html).toContain('<tr data-path="pathA" data-elem="Fire" data-type="normal"');
+            expect(html).toContain('data-name="Char1" data-is-preview="true"');
+            expect(html).toContain('bg-Fire');
+            expect(html).toContain('pathA.png');
+            expect(html).toContain('preview-badge');
+        });
+    });
+
+    describe('renderTable', () => {
+        beforeEach(() => {
+            document.body.innerHTML = `<table id="tracker"></table><div id="version-items-container"></div>`;
+            global.PATCH_DATA = [{ patch: '1.0', isPreview: false, date: '24/01/01' }];
+            global.RAW_CHARACTERS = [{ name: 'A', elem: 'Fire', path: 'A' }];
+            global.PATH_ICONS = {};
+            global.isCharAscending = false;
+            global.isPatchAscending = false;
+        });
+
+        afterEach(() => {
+            document.body.innerHTML = '';
+            delete global.PATCH_DATA;
+            delete global.RAW_CHARACTERS;
+            delete global.isCharAscending;
+            delete global.isPatchAscending;
+        });
+
+        it('renders nothing if tracker element is missing', () => {
+            document.body.innerHTML = '';
+            renderTable();
+            expect(document.getElementById('tracker')).toBeNull();
+        });
+
+        it('renders table headers and body', () => {
+            renderTable();
+            const tracker = document.getElementById('tracker');
+            expect(tracker.innerHTML).toContain('<thead>');
+            expect(tracker.innerHTML).toContain('<tbody>');
+            expect(tracker.innerHTML).toContain('data-name="A"');
+        });
+    });
+
+    describe('buildHistoryCellsHtml', () => {
+        const fallbackUrl = 'fallback.png';
+        const avatarUrl = 'avatar.png';
+
+        it('renders COLLAB_SPAN', () => {
+            const char = { isCollab: '1.0' };
+            const finalHistory = [{ status: 'COLLAB_SPAN', count: 2 }];
+            const displayPatches = [{ patch: '1.0' }];
+            const html = buildHistoryCellsHtml(char, finalHistory, displayPatches, '1.0', avatarUrl, fallbackUrl);
+            expect(html).toContain('colspan="2"');
+            expect(html).toContain('collab-text current-patch-col');
+        });
+
+        it('renders UP and COLLAB', () => {
+            const char = { name: 'A', buffs: ['1.0'] };
+            const finalHistory = [{ status: 'UP' }, { status: 'COLLAB' }];
+            const displayPatches = [{ patch: '1.0' }, { patch: '1.1', isPreview: true }];
+            const html = buildHistoryCellsHtml(char, finalHistory, displayPatches, '1.0', avatarUrl, fallbackUrl);
+            expect(html).toContain('img-cell');
+            expect(html).toContain('buff-badge');
+            expect(html).toContain('preview-patch-col');
+        });
+
+        it('renders TERM_START and TERM_EMPTY', () => {
+            const char = {};
+            const finalHistory = [
+                { status: 'TERM_START', type: 'pool' },
+                { status: 'TERM_START', type: 'shop' },
+                { status: 'TERM_EMPTY', type: 'pool' },
+                { status: 'TERM_EMPTY', type: 'shop' }
+            ];
+            const displayPatches = [{}, {}, {}, {}];
+            const html = buildHistoryCellsHtml(char, finalHistory, displayPatches, '', avatarUrl, fallbackUrl);
+            expect(html).toContain('term-pool');
+            expect(html).toContain('星緣');
+            expect(html).toContain('term-shop');
+            expect(html).toContain('聚靈');
+            expect(html).toContain('term-pool-empty');
+            expect(html).toContain('term-shop-empty');
+        });
+
+        it('renders WAIT and NONE', () => {
+            const char = {};
+            const finalHistory = [
+                { status: 'WAIT', gap: 2 },
+                { status: 'WAIT', gap: 5 },
+                { status: 'WAIT', gap: 10 },
+                { status: 'WAIT', gap: 15 },
+                { status: 'NONE' },
+                { status: 'COLLAB_EMPTY' }
+            ];
+            const displayPatches = [{}, {}, {}, {}, {}, {}];
+            const html = buildHistoryCellsHtml(char, finalHistory, displayPatches, '', avatarUrl, fallbackUrl);
+            expect(html).toContain('w-low');
+            expect(html).toContain('w-med');
+            expect(html).toContain('w-high');
+            expect(html).toContain('w-crit');
+            expect(html).toContain('none');
+            expect(html).toContain('collab-empty');
         });
     });
 
