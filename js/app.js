@@ -377,59 +377,66 @@ function buildTableHeaderHtml(displayPatches, totalChars, activePatchName) {
     return html;
 }
 
+function getHistoryElement(char, patch, pIdx, state, patchIndexMap) {
+    if (char.isCollab) {
+        const collabStart = char.isCollab;
+        const sIdx = patchIndexMap.has(collabStart) ? patchIndexMap.get(collabStart) : -1;
+        const spanCount = Math.min(5, sIdx);
+
+        if (pIdx < sIdx) {
+            if (spanCount > 0 && pIdx === sIdx - spanCount) {
+                if (!state.collabSpanAdded) {
+                    state.collabSpanAdded = true;
+                    return { status: 'COLLAB_SPAN', count: spanCount };
+                }
+            }
+            return null;
+        } else {
+            const lIdx = state.patchesListLength - 1;
+            if (pIdx === sIdx || pIdx === lIdx) {
+                return { status: 'COLLAB' };
+            } else {
+                return { status: 'COLLAB_EMPTY' };
+            }
+        }
+    }
+
+    if (char.term) {
+        const termIdx = patchIndexMap.has(char.term.patch) ? patchIndexMap.get(char.term.patch) : -1;
+        if (pIdx === termIdx) {
+            return { status: 'TERM_START', type: char.term.type };
+        } else if (pIdx > termIdx) {
+            return { status: 'TERM_EMPTY', type: char.term.type };
+        }
+    }
+
+    if (char.runs && char.runs.includes(patch)) {
+        state.hasReleased = true;
+        state.currentGap = 0;
+        return { status: 'UP' };
+    } else {
+        if (state.hasReleased) {
+            state.currentGap++;
+            return { status: 'WAIT', gap: state.currentGap };
+        } else {
+            return { status: 'NONE' };
+        }
+    }
+}
+
 function buildCharacterHistory(char, patchesList, patchIndexMap) {
     let history = [];
-    let currentGap = 0;
-    let hasReleased = false;
-    let collabSpanAdded = false;
+    let state = {
+        currentGap: 0,
+        hasReleased: false,
+        collabSpanAdded: false,
+        patchesListLength: patchesList.length
+    };
 
     patchesList.forEach((patch, pIdx) => {
-        if (char.isCollab) {
-            const collabStart = char.isCollab;
-            const sIdx = patchIndexMap.has(collabStart) ? patchIndexMap.get(collabStart) : -1;
-            const spanCount = Math.min(5, sIdx);
-
-            if (pIdx < sIdx) {
-                if (spanCount > 0 && pIdx === sIdx - spanCount) {
-                    if (!collabSpanAdded) {
-                        history.push({ status: 'COLLAB_SPAN', count: spanCount });
-                        collabSpanAdded = true;
-                    }
-                }
-                return;
-            } else {
-                const lIdx = patchesList.length - 1;
-                if (pIdx === sIdx || pIdx === lIdx) {
-                    history.push({ status: 'COLLAB' });
-                } else {
-                    history.push({ status: 'COLLAB_EMPTY' });
-                }
-                return;
-            }
-        }
-
-        if (char.term) {
-            const termIdx = patchIndexMap.has(char.term.patch) ? patchIndexMap.get(char.term.patch) : -1;
-            if (pIdx === termIdx) {
-                history.push({ status: 'TERM_START', type: char.term.type });
-                return;
-            } else if (pIdx > termIdx) {
-                history.push({ status: 'TERM_EMPTY', type: char.term.type });
-                return;
-            }
-        }
-
-        if (char.runs && char.runs.includes(patch)) {
-            hasReleased = true;
-            currentGap = 0;
-            history.push({ status: 'UP' });
-        } else {
-            if (hasReleased) {
-                currentGap++;
-                history.push({ status: 'WAIT', gap: currentGap });
-            } else {
-                history.push({ status: 'NONE' });
-            }
+        const element = getHistoryElement(char, patch, pIdx, state, patchIndexMap);
+        if (element) {
+            history.push(element);
         }
     });
 
@@ -1221,6 +1228,7 @@ if (typeof module !== 'undefined' && module.exports) {
 // Additional exports for refactored renderTable
 if (typeof module !== 'undefined' && module.exports) {
     Object.assign(module.exports, {
+        getHistoryElement,
         getCharacterType,
         buildCharacterHistory,
         getCharacterTooltip,

@@ -414,8 +414,97 @@ describe('app.js pure functions', () => {
     });
 
     const { getFallbackAvatar } = require("./js/app.js");
-    const { getCharacterType, buildCharacterHistory, getCharacterTooltip, buildTableHeaderHtml } = require("./js/app.js");
+    const { getHistoryElement, getCharacterType, buildCharacterHistory, getCharacterTooltip, buildTableHeaderHtml } = require("./js/app.js");
 
+
+    describe('getHistoryElement', () => {
+        let patchIndexMap;
+        beforeEach(() => {
+            patchIndexMap = new Map();
+            const patches = ['1.0', '1.1', '1.2', '1.3', '1.4'];
+            patches.forEach((p, i) => patchIndexMap.set(p, i));
+        });
+
+        it('should handle collab characters during span', () => {
+            const state = { collabSpanAdded: false, patchesListLength: 5 };
+            const char = { isCollab: '1.2' }; // index 2
+
+            // pIdx 0 (< sIdx - spanCount, which is 2 - 2 = 0, so pIdx === sIdx - spanCount is 0 === 0)
+            const result1 = getHistoryElement(char, '1.0', 0, state, patchIndexMap);
+            expect(result1).toEqual({ status: 'COLLAB_SPAN', count: 2 });
+            expect(state.collabSpanAdded).toBe(true);
+
+            // pIdx 1 (< sIdx)
+            const result2 = getHistoryElement(char, '1.1', 1, state, patchIndexMap);
+            expect(result2).toBeNull();
+        });
+
+        it('should handle collab characters exactly on start patch or end patch', () => {
+            const state = { collabSpanAdded: true, patchesListLength: 5 };
+            const char = { isCollab: '1.2' }; // index 2
+
+            // pIdx 2 (=== sIdx)
+            const result1 = getHistoryElement(char, '1.2', 2, state, patchIndexMap);
+            expect(result1).toEqual({ status: 'COLLAB' });
+
+            // pIdx 4 (=== lIdx)
+            const result2 = getHistoryElement(char, '1.4', 4, state, patchIndexMap);
+            expect(result2).toEqual({ status: 'COLLAB' });
+        });
+
+        it('should handle collab characters between start and end patch', () => {
+            const state = { collabSpanAdded: true, patchesListLength: 5 };
+            const char = { isCollab: '1.2' }; // index 2
+
+            // pIdx 3
+            const result = getHistoryElement(char, '1.3', 3, state, patchIndexMap);
+            expect(result).toEqual({ status: 'COLLAB_EMPTY' });
+        });
+
+        it('should handle term characters on start patch', () => {
+            const state = {};
+            const char = { term: { patch: '1.1', type: 'shop' } }; // index 1
+
+            const result = getHistoryElement(char, '1.1', 1, state, patchIndexMap);
+            expect(result).toEqual({ status: 'TERM_START', type: 'shop' });
+        });
+
+        it('should handle term characters after start patch', () => {
+            const state = {};
+            const char = { term: { patch: '1.1', type: 'shop' } }; // index 1
+
+            const result = getHistoryElement(char, '1.2', 2, state, patchIndexMap);
+            expect(result).toEqual({ status: 'TERM_EMPTY', type: 'shop' });
+        });
+
+        it('should return UP when character is running', () => {
+            const state = { hasReleased: false, currentGap: 0 };
+            const char = { runs: ['1.1', '1.3'] };
+
+            const result = getHistoryElement(char, '1.1', 1, state, patchIndexMap);
+            expect(result).toEqual({ status: 'UP' });
+            expect(state.hasReleased).toBe(true);
+            expect(state.currentGap).toBe(0);
+        });
+
+        it('should return WAIT when character has released but is not running', () => {
+            const state = { hasReleased: true, currentGap: 0 };
+            const char = { runs: ['1.1', '1.3'] };
+
+            const result = getHistoryElement(char, '1.2', 2, state, patchIndexMap);
+            expect(result).toEqual({ status: 'WAIT', gap: 1 });
+            expect(state.currentGap).toBe(1);
+        });
+
+        it('should return NONE when character has not released and is not running', () => {
+            const state = { hasReleased: false, currentGap: 0 };
+            const char = { runs: ['1.1', '1.3'] };
+
+            const result = getHistoryElement(char, '1.0', 0, state, patchIndexMap);
+            expect(result).toEqual({ status: 'NONE' });
+            expect(state.currentGap).toBe(0);
+        });
+    });
 
     describe("getFallbackAvatar", () => {
         it("should return a data URI SVG with the first character of the name", () => {
