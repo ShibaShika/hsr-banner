@@ -859,3 +859,57 @@ class TestParseWarpListTables(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestWikiQueryPerformanceOptimization(unittest.TestCase):
+    @patch('update_gist.fetch_starrailres_data')
+    def test_batch_query_optimization(self, mock_fetch_res):
+        """
+        Verify that processing multiple missing characters triggers a single batched query
+        instead of N+1 individual queries.
+        """
+        from update_gist import _merge_characters
+
+        mock_fetch_res.return_value = ({}, {})
+
+        session = MagicMock()
+        session.get.return_value.json.return_value = {
+            'query': {
+                'pages': {
+                    '1': {
+                        'title': 'A',
+                        'revisions': [{'slots': {'main': {'*': '|zht = A繁體'}}}]
+                    },
+                    '2': {
+                        'title': 'B',
+                        'revisions': [{'slots': {'main': {'*': '|zht = B繁體'}}}]
+                    },
+                    '3': {
+                        'title': 'C',
+                        'revisions': [{'slots': {'main': {'*': '|zht = C繁體'}}}]
+                    }
+                }
+            }
+        }
+
+        original_chars = []
+        all_incoming_schedules = [
+            {'en_name': 'A', 'run': '1.0上'},
+            {'en_name': 'B', 'run': '1.0下'},
+            {'en_name': 'C', 'run': '1.1上'}
+        ]
+
+        _merge_characters(original_chars, all_incoming_schedules, session)
+
+        # Verify that only 1 batch request was made instead of 3 individual requests
+        self.assertEqual(session.get.call_count, 1)
+
+        # Verify the requested titles contains all 3 characters combined
+        call_args = session.get.call_args[1]
+        titles = call_args['params']['titles']
+        self.assertIn('A', titles.split('|'))
+        self.assertIn('B', titles.split('|'))
+        self.assertIn('C', titles.split('|'))
+
+if __name__ == '__main__':
+    unittest.main()
