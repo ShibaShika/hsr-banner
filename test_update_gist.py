@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
 from unittest.mock import patch, mock_open, MagicMock
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update
+from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update, fetch_fandom_schedules_and_patches
 
 class TestParseLocalJsArray(unittest.TestCase):
     @patch('os.path.exists', return_value=False)
@@ -450,6 +450,239 @@ class TestExecuteAutoUpdate(unittest.TestCase):
         self.assertTrue(result)
         self.assertEqual(mock_serialize.call_count, 2)
         mock_validate.assert_called_once()
+
+
+class TestFetchFandomSchedulesAndPatches(unittest.TestCase):
+    def setUp(self):
+        self.session = MagicMock()
+
+    def test_fetch_success(self):
+        # mock normal response
+        html = """
+        <table>
+          <tr>
+            <th colspan="2">Version 1.0 : April 26, 2023</th>
+          </tr>
+          <tr>
+            <td>Character Event Warp</td>
+            <td>
+              <a title="Butterfly on Swordtip/2023-04-26" href="...">Seele</a>
+            </td>
+          </tr>
+          <tr>
+            <th colspan="2">Version 1.0 : May 17, 2023</th>
+          </tr>
+          <tr>
+            <td>Character Event Warp</td>
+            <td>
+              <a title="Swirl of Heavenly Spear/2023-05-17" href="...">Jing Yuan</a>
+            </td>
+          </tr>
+        </table>
+        """
+        resp_parse = MagicMock()
+        resp_parse.json.return_value = {
+            'parse': {
+                'text': {
+                    '*': html
+                }
+            }
+        }
+        resp_query = MagicMock()
+        resp_query.json.return_value = {
+          "query": {
+            "pages": {
+              "123": {
+                "title": "Butterfly on Swordtip/2023-04-26",
+                "revisions": [
+                  {
+                    "slots": {
+                      "main": {
+                        "*": "character_5_F = Seele"
+                      }
+                    }
+                  }
+                ]
+              },
+              "124": {
+                "title": "Swirl of Heavenly Spear/2023-05-17",
+                "revisions": [
+                  {
+                    "slots": {
+                      "main": {
+                        "*": "5{{star}} Character===\n* {{Character Intro|Jing Yuan}}"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+
+        def side_effect(*args, **kwargs):
+            params = kwargs.get('params', {})
+            if params.get('action') == 'parse':
+                return resp_parse
+            elif params.get('action') == 'query':
+                return resp_query
+            return MagicMock()
+
+        self.session.get.side_effect = side_effect
+
+        schedules, new_patches = fetch_fandom_schedules_and_patches(self.session)
+
+        self.assertEqual(len(schedules), 2)
+
+        # order is not guaranteed because of set
+        seele_sched = next((s for s in schedules if s['en_name'] == 'Seele'), None)
+        self.assertIsNotNone(seele_sched)
+        self.assertEqual(seele_sched['run'], '1.0上')
+        self.assertEqual(seele_sched['is_collab'], False)
+        self.assertEqual(seele_sched['patch_date'], '23/04/26')
+
+        jing_yuan_sched = next((s for s in schedules if s['en_name'] == 'Jing Yuan'), None)
+        self.assertIsNotNone(jing_yuan_sched)
+        self.assertEqual(jing_yuan_sched['run'], '1.0下')
+        self.assertEqual(jing_yuan_sched['is_collab'], False)
+        self.assertEqual(jing_yuan_sched['patch_date'], '23/05/17')
+
+        self.assertEqual(len(new_patches), 2)
+
+    def test_fetch_success_multiple_phases(self):
+        # mock normal response with multiple phases
+        html = """
+        <table>
+          <tr>
+            <th colspan="2">Version 1.0 : April 26, 2023</th>
+          </tr>
+          <tr>
+            <td>Character Event Warp</td>
+            <td>
+              <a title="Event/Phase 1" href="...">Char 1</a>
+            </td>
+          </tr>
+          <tr>
+            <th colspan="2">Version 1.0 : May 17, 2023</th>
+          </tr>
+          <tr>
+            <td>Character Event Warp</td>
+            <td>
+              <a title="Event/Phase 2" href="...">Char 2</a>
+            </td>
+          </tr>
+          <tr>
+            <th colspan="2">Version 1.0 : June 1, 2023</th>
+          </tr>
+          <tr>
+            <td>Character Event Warp</td>
+            <td>
+              <a title="Event/Phase 3" href="...">Char 3</a>
+            </td>
+          </tr>
+        </table>
+        """
+        resp_parse = MagicMock()
+        resp_parse.json.return_value = {
+            'parse': {
+                'text': {
+                    '*': html
+                }
+            }
+        }
+        resp_query = MagicMock()
+        resp_query.json.return_value = {
+          "query": {
+            "pages": {
+              "1": {
+                "title": "Event/Phase 1",
+                "revisions": [
+                  {
+                    "slots": {
+                      "main": {
+                        "*": "character_5_F = Char 1"
+                      }
+                    }
+                  }
+                ]
+              },
+              "2": {
+                "title": "Event/Phase 2",
+                "revisions": [
+                  {
+                    "slots": {
+                      "main": {
+                        "*": "character_5_F = Char 2"
+                      }
+                    }
+                  }
+                ]
+              },
+              "3": {
+                "title": "Event/Phase 3",
+                "revisions": [
+                  {
+                    "slots": {
+                      "main": {
+                        "*": "character_5_F = Char 3"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+
+        def side_effect(*args, **kwargs):
+            params = kwargs.get('params', {})
+            if params.get('action') == 'parse':
+                return resp_parse
+            elif params.get('action') == 'query':
+                return resp_query
+            return MagicMock()
+
+        self.session.get.side_effect = side_effect
+
+        schedules, new_patches = fetch_fandom_schedules_and_patches(self.session)
+
+        self.assertEqual(len(schedules), 3)
+        self.assertEqual(len(new_patches), 3)
+
+        char1 = next((s for s in schedules if s['en_name'] == 'Char 1'), None)
+        self.assertEqual(char1['run'], '1.0上')
+
+        char2 = next((s for s in schedules if s['en_name'] == 'Char 2'), None)
+        self.assertEqual(char2['run'], '1.0中')
+
+        char3 = next((s for s in schedules if s['en_name'] == 'Char 3'), None)
+        self.assertEqual(char3['run'], '1.0下')
+
+    def test_fetch_no_html(self):
+        resp_parse = MagicMock()
+        resp_parse.json.return_value = {}
+        self.session.get.return_value = resp_parse
+
+        schedules, new_patches = fetch_fandom_schedules_and_patches(self.session)
+
+        self.assertEqual(schedules, [])
+        self.assertEqual(new_patches, [])
+
+    def test_fetch_no_tables(self):
+        resp_parse = MagicMock()
+        resp_parse.json.return_value = {
+            'parse': {
+                'text': {
+                    '*': '<html><body><h1>No Tables Here!</h1></body></html>'
+                }
+            }
+        }
+        self.session.get.return_value = resp_parse
+
+        schedules, new_patches = fetch_fandom_schedules_and_patches(self.session)
+
+        self.assertEqual(schedules, [])
+        self.assertEqual(new_patches, [])
 
 if __name__ == '__main__':
     unittest.main()
