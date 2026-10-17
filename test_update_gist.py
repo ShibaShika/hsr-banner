@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
 from unittest.mock import patch, mock_open, MagicMock
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update, fetch_fandom_schedules_and_patches, serialize_js_file
+from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update, fetch_fandom_schedules_and_patches, serialize_js_file, contains_cjk
 
 class TestParseLocalJsArray(unittest.TestCase):
     @patch('os.path.exists', return_value=False)
@@ -707,6 +707,49 @@ class TestSerializeJsFile(unittest.TestCase):
 
         m.assert_called_once_with(filepath, 'w', encoding='utf-8')
         m().write.assert_called_once_with(expected_content)
+
+class TestContainsCjk(unittest.TestCase):
+    def test_empty_and_none(self):
+        self.assertFalse(contains_cjk(""))
+        self.assertFalse(contains_cjk(None))
+
+    def test_non_cjk_strings(self):
+        self.assertFalse(contains_cjk("Hello World!"))
+        self.assertFalse(contains_cjk("1234567890"))
+        self.assertFalse(contains_cjk("!@#$%^&*()_+"))
+        self.assertFalse(contains_cjk("   "))
+        self.assertFalse(contains_cjk("   \n \t "))
+        self.assertFalse(contains_cjk("Ruan Mei"))
+
+    def test_pure_cjk_strings(self):
+        self.assertTrue(contains_cjk("漢字"))  # Chinese
+        self.assertTrue(contains_cjk("卡芙卡")) # Chinese
+        self.assertTrue(contains_cjk("丹恆"))   # Chinese
+
+    def test_mixed_strings(self):
+        self.assertTrue(contains_cjk("Ruan Mei 阮•梅"))
+        self.assertTrue(contains_cjk("Kafka 卡芙卡 1.2"))
+        self.assertTrue(contains_cjk("Dan Heng 丹恆"))
+
+    def test_boundary_characters(self):
+        self.assertTrue(contains_cjk("\u4e00"))
+        self.assertTrue(contains_cjk("\u9fff"))
+        self.assertTrue(contains_cjk("\u3400"))
+        self.assertTrue(contains_cjk("\u4dbf"))
+        self.assertTrue(contains_cjk("\uf900"))
+        self.assertTrue(contains_cjk("\ufaff"))
+        self.assertTrue(contains_cjk("\U00020000"))
+        self.assertTrue(contains_cjk("\U0002A6DF"))
+        self.assertTrue(contains_cjk("\U0002A700"))
+        self.assertTrue(contains_cjk("\U0002B73F"))
+        self.assertTrue(contains_cjk("\U0002B740"))
+        self.assertTrue(contains_cjk("\U0002B81F"))
+        self.assertTrue(contains_cjk("\U0002B820"))
+        self.assertTrue(contains_cjk("\U0002CEAF"))
+        self.assertTrue(contains_cjk("\U0002CEB0"))
+        self.assertTrue(contains_cjk("\U0002EBEF"))
+        self.assertTrue(contains_cjk("\U0002F800"))
+        self.assertTrue(contains_cjk("\U0002FA1F"))
 
 if __name__ == '__main__':
     unittest.main()
