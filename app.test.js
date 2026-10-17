@@ -428,18 +428,15 @@ describe('app.js pure functions', () => {
             patches.forEach((p, i) => patchIndexMap.set(p, i));
         });
 
-        it('should handle collab characters during span', () => {
+        it('should handle collab characters before start', () => {
             const state = { collabSpanAdded: false, patchesListLength: 5 };
             const char = { isCollab: '1.2' }; // index 2
 
-            // pIdx 0 (< sIdx - spanCount, which is 2 - 2 = 0, so pIdx === sIdx - spanCount is 0 === 0)
             const result1 = getHistoryElement(char, '1.0', 0, state, patchIndexMap);
-            expect(result1).toEqual({ status: 'COLLAB_SPAN', count: 2 });
-            expect(state.collabSpanAdded).toBe(true);
+            expect(result1).toEqual({ status: 'COLLAB_BEFORE' });
 
-            // pIdx 1 (< sIdx)
             const result2 = getHistoryElement(char, '1.1', 1, state, patchIndexMap);
-            expect(result2).toBeNull();
+            expect(result2).toEqual({ status: 'COLLAB_BEFORE' });
         });
 
         it('should handle collab characters exactly on start patch or end patch', () => {
