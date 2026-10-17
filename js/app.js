@@ -434,6 +434,7 @@ function buildCharacterHistory(char, patchesList, patchIndexMap) {
         }
     });
 
+    // Process COLLAB_BEFORE cells to create the span while the history is still in chronological order
     if (char.isCollab) {
         let beforeCount = 0;
         let beforeStartIndex = -1;
@@ -448,7 +449,6 @@ function buildCharacterHistory(char, patchesList, patchIndexMap) {
         if (beforeCount > 0) {
             const spanCount = Math.min(5, beforeCount);
             const spanStartIdx = beforeStartIndex + beforeCount - spanCount;
-
             for (let i = beforeStartIndex; i < spanStartIdx; i++) {
                 history[i] = { status: 'NONE' };
             }
