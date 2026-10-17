@@ -887,8 +887,8 @@
 
                 header.innerHTML = `
                     <span class="collapse-icon" style="font-size: 14px; width: 16px; text-align: center;">${isExpanded ? '▼' : '▶'}</span>
-                    <span>第 ${yearData.yearNum} 年</span>
-                    <span style="color: #888; font-size: 14px; font-weight: normal;">(${firstPatch} ~ ${lastPatch})</span>
+                    <span>第 ${escapeHtml(yearData.yearNum)} 年</span>
+                    <span style="color: #888; font-size: 14px; font-weight: normal;">(${escapeHtml(firstPatch)} ~ ${escapeHtml(lastPatch)})</span>
                 `;
                 container.appendChild(header);
 

@@ -1,7 +1,8 @@
 import unittest
 from datetime import datetime
 from unittest.mock import patch, mock_open, MagicMock
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update, fetch_fandom_schedules_and_patches, serialize_js_file, contains_cjk, _format_summary_text
+from bs4 import BeautifulSoup
+from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update, fetch_fandom_schedules_and_patches, serialize_js_file, contains_cjk, _format_summary_text, parse_warp_list_tables
 
 class TestFormatSummaryText(unittest.TestCase):
     def test_empty_logs(self):
@@ -783,6 +784,78 @@ class TestContainsCjk(unittest.TestCase):
         self.assertTrue(contains_cjk("\U0002EBEF"))
         self.assertTrue(contains_cjk("\U0002F800"))
         self.assertTrue(contains_cjk("\U0002FA1F"))
+
+
+class TestParseWarpListTables(unittest.TestCase):
+    def parse_date(self, value):
+        dates = {
+            'April 26, 2023': datetime(2023, 4, 26),
+            'January 1, 2025': datetime(2025, 1, 1)
+        }
+        return dates.get(value)
+
+    def test_empty_tables(self):
+        self.assertEqual(parse_warp_list_tables([], self.parse_date), ([], {}))
+
+    def test_standard_and_collaboration_records(self):
+        html = """
+        <table>
+            <tr><th colspan="2">Version 1.0 : Since April 26, 2023</th></tr>
+            <tr><td>Character Event Warp</td><td><a title="Banner/1.0">Banner</a></td></tr>
+        </table>
+        <table>
+            <tr><th colspan="2">Version 3.0 : Since January 1, 2025 (Collaboration/Indefinite)</th></tr>
+            <tr><td>Character Event Warp</td><td><a title="Collab/3.0">Collab</a></td></tr>
+        </table>
+        """
+        records, version_dates = parse_warp_list_tables(
+            BeautifulSoup(html, 'html.parser').find_all('table'),
+            self.parse_date
+        )
+
+        self.assertEqual(records, [
+            {
+                'warp_page': 'Banner/1.0',
+                'version': '1.0',
+                'start_dt': datetime(2023, 4, 26),
+                'is_collab': False
+            },
+            {
+                'warp_page': 'Collab/3.0',
+                'version': '3.0',
+                'start_dt': datetime(2025, 1, 1),
+                'is_collab': True
+            }
+        ])
+        self.assertEqual(version_dates, {'1.0': {datetime(2023, 4, 26)}})
+
+    def test_limits_tables_and_skips_non_character_or_invalid_links(self):
+        html = """
+        <table>
+            <tr><th colspan="2">Version 1.0 : Since April 26, 2023</th></tr>
+            <tr><td>Light Cone Event Warp</td><td><a title="Light Cone/1.0">Light Cone</a></td></tr>
+            <tr><td>Character Event Warp</td><td>
+                <a title="File:Character.png">Image</a>
+                <a title="NoSlashTitle">Invalid</a>
+                <a title="Valid/Title">Valid</a>
+            </td></tr>
+        </table>
+        """ + ''.join(
+            f"""
+            <table>
+                <tr><th colspan="2">Version 1.{index} : Since April 26, 2023</th></tr>
+                <tr><td>Character Event Warp</td><td><a title="Warp/{index}">Warp</a></td></tr>
+            </table>
+            """
+            for index in range(1, 5)
+        )
+
+        records, _ = parse_warp_list_tables(
+            BeautifulSoup(html, 'html.parser').find_all('table'),
+            self.parse_date
+        )
+
+        self.assertEqual([record['warp_page'] for record in records], ['Valid/Title', 'Warp/1', 'Warp/2'])
 
 if __name__ == '__main__':
     unittest.main()
