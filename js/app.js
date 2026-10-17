@@ -3,6 +3,7 @@
    ========================================================================== */
 
 let cachedTableCells = null;
+let cachedRowData = new WeakMap();
 
 // 轉義 HTML 特殊字元，避免 innerHTML 注入或屬性斷裂
 const HTML_ESCAPE_MAP = {
@@ -248,6 +249,7 @@ async function initTracker() {
 
 // 🔄 核心渲染表格邏輯
 function updateTableColumnIndices(table) {
+    cachedTableCells = null;
     const rows = table.rows;
     const rowLen = rows.length;
     for (let r = 0; r < rowLen; r++) {
@@ -259,6 +261,8 @@ function updateTableColumnIndices(table) {
             const span = cell.colSpan || 1;
             cell.dataset.startCol = colIdx;
             cell.dataset.endCol = colIdx + span - 1;
+            cell._startCol = colIdx;
+            cell._endCol = colIdx + span - 1;
             colIdx += span;
         }
     }
@@ -343,6 +347,12 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
     }
 }
 
+function getPatchColClass(patch, activePatchName) {
+    if (patch.patch === activePatchName) return ' class="current-patch-col"';
+    if (patch.isPreview) return ' class="preview-patch-col"';
+    return '';
+}
+
 function buildTableHeaderHtml(displayPatches, totalChars, activePatchName) {
     let html = '<thead><tr>';
     html += `<th rowspan="2" class="top-left-cell">
@@ -356,22 +366,12 @@ function buildTableHeaderHtml(displayPatches, totalChars, activePatchName) {
     </th>`;
 
     displayPatches.forEach(p => {
-        const isCurrent = (p.patch === activePatchName);
-        const isPreview = Boolean(p.isPreview);
-        let colClass = '';
-        if (isCurrent) colClass = ' class="current-patch-col"';
-        else if (isPreview) colClass = ' class="preview-patch-col"';
-        html += `<th${colClass}>${formatHeaderDate(p.date)}</th>`;
+        html += `<th${getPatchColClass(p, activePatchName)}>${formatHeaderDate(p.date)}</th>`;
     });
 
     html += `</tr><tr>`;
     displayPatches.forEach(p => {
-        const isCurrent = (p.patch === activePatchName);
-        const isPreview = Boolean(p.isPreview);
-        let colClass = '';
-        if (isCurrent) colClass = ' class="current-patch-col"';
-        else if (isPreview) colClass = ' class="preview-patch-col"';
-        html += `<th${colClass}>${p.patch}</th>`;
+        html += `<th${getPatchColClass(p, activePatchName)}>${p.patch}</th>`;
     });
     html += '</tr></thead>';
     return html;
@@ -589,6 +589,7 @@ function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexM
 
 function renderTable() {
     cachedTableCells = null;
+    cachedRowData = new WeakMap();
     const table = document.getElementById('tracker');
     if (!table) return;
 
@@ -878,6 +879,11 @@ function setupExportButton() {
                     const compStyle = window.getComputedStyle(el);
                     if (compStyle.position === 'sticky') {
                         el.style.position = 'relative';
+                        el.style.top = 'auto';
+                        el.style.left = 'auto';
+                        el.style.right = 'auto';
+                        el.style.bottom = 'auto';
+                        el.style.transform = 'none';
                     }
                     if (el.classList.contains('buff-badge')) {
                         el.style.position = 'absolute';
@@ -992,8 +998,8 @@ function setupTableInteractions() {
             return;
         }
 
-        const startCol = parseInt(cell.dataset.startCol, 10);
-        const endCol = parseInt(cell.dataset.endCol, 10);
+        const startCol = cell._startCol !== undefined ? cell._startCol : parseInt(cell.dataset.startCol, 10);
+        const endCol = cell._endCol !== undefined ? cell._endCol : parseInt(cell.dataset.endCol, 10);
 
         trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
 
@@ -1006,8 +1012,8 @@ function setupTableInteractions() {
         cachedTableCells.forEach(c => {
             if (c.colSpan > 1) return;
 
-            const cStart = parseInt(c.dataset.startCol, 10);
-            const cEnd = parseInt(c.dataset.endCol, 10);
+            const cStart = c._startCol !== undefined ? c._startCol : parseInt(c.dataset.startCol, 10);
+            const cEnd = c._endCol !== undefined ? c._endCol : parseInt(c.dataset.endCol, 10);
             if (cEnd >= startCol && cStart <= endCol && cEnd > 0) {
                 c.classList.add('col-highlight');
             }
@@ -1128,35 +1134,42 @@ function updateFilterUI(state) {
     }
 }
 
-function isRowMatchingFilters(row, state) {
-    const rowMajorVer = row.getAttribute('data-major-version');
-    const rowPath = row.getAttribute('data-path');
-    const rowElem = row.getAttribute('data-elem');
-    const rowType = row.getAttribute('data-type');
-    const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
-    const rowName = row.getAttribute('data-name').toLowerCase();
-
-    const matchVersion = state.selectedVersions.length === 0 || state.selectedVersions.includes(rowMajorVer);
-    const matchPath = state.selectedPaths.length === 0 || state.selectedPaths.includes(rowPath);
-    const matchElem = state.selectedElems.length === 0 || state.selectedElems.includes(rowElem);
-    const matchType = state.selectedTypes.length === 0 || state.selectedTypes.includes(rowType);
-    const matchName = state.keyword === '' || rowName.includes(state.keyword);
-    const matchBuff = !state.onlyBuffs || hasBuffAttr;
+function isRowMatchingFilters(rowData, state) {
+    const matchVersion = state.selectedVersions.length === 0 || state.selectedVersions.includes(rowData.majorVer);
+    const matchPath = state.selectedPaths.length === 0 || state.selectedPaths.includes(rowData.path);
+    const matchElem = state.selectedElems.length === 0 || state.selectedElems.includes(rowData.elem);
+    const matchType = state.selectedTypes.length === 0 || state.selectedTypes.includes(rowData.type);
+    const matchName = state.keyword === '' || rowData.name.includes(state.keyword);
+    const matchBuff = !state.onlyBuffs || rowData.hasBuff;
 
     return matchVersion && matchPath && matchElem && matchType && matchName && matchBuff;
 }
 
 function filterTableRows(table, state) {
-    const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
-    let visibleCount = 0;
-    const totalChars = rows.length;
+    let rowData = cachedRowData.get(table);
+    if (!rowData) {
+        const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
+        rowData = Array.from(rows, row => ({
+            row,
+            majorVer: row.getAttribute('data-major-version'),
+            path: row.getAttribute('data-path'),
+            elem: row.getAttribute('data-elem'),
+            type: row.getAttribute('data-type'),
+            hasBuff: row.getAttribute('data-has-buff') === 'true',
+            name: (row.getAttribute('data-name') || '').toLowerCase()
+        }));
+        cachedRowData.set(table, rowData);
+    }
 
-    rows.forEach(row => {
-        if (isRowMatchingFilters(row, state)) {
-            row.style.display = '';
+    let visibleCount = 0;
+    const totalChars = rowData.length;
+
+    rowData.forEach(item => {
+        if (isRowMatchingFilters(item, state)) {
+            item.row.style.display = '';
             visibleCount++;
         } else {
-            row.style.display = 'none';
+            item.row.style.display = 'none';
         }
     });
 
@@ -1275,6 +1288,11 @@ if (typeof module !== 'undefined' && module.exports) {
     Object.assign(module.exports, {
         renderTable,
         buildCharacterRowHtml,
-        buildHistoryCellsHtml
+        buildHistoryCellsHtml,
+        getPatchColClass,
+        getFilterState,
+        filterTableRows,
+        renderFilters,
+        setupTableInteractions
     });
 }

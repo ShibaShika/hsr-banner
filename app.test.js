@@ -14,7 +14,12 @@ const {
     updateTableColumnIndices,
     buildHistoryCellsHtml,
     buildCharacterRowHtml,
-    renderTable
+    renderTable,
+    getPatchColClass,
+    getFilterState,
+    filterTableRows,
+    renderFilters,
+    setupTableInteractions
 } = require('./js/app');
 
 describe('app.js pure functions', () => {
@@ -773,6 +778,8 @@ describe('app.js pure functions', () => {
             expect(rows[1].cells[0].dataset.endCol).toBe("0");
             expect(rows[1].cells[1].dataset.startCol).toBe("1");
             expect(rows[1].cells[1].dataset.endCol).toBe("1");
+            expect(rows[1].cells[1]._startCol).toBe(1);
+            expect(rows[1].cells[1]._endCol).toBe(1);
         });
 
         it("should correctly calculate startCol and endCol for a table with colspans", () => {
@@ -823,6 +830,28 @@ describe('app.js pure functions', () => {
             expect(rows[2].cells[1].dataset.startCol).toBe("2");
             expect(rows[2].cells[1].dataset.endCol).toBe("3");
         });
+
+        it('uses precomputed columns to highlight the hovered column', () => {
+            table.id = 'tracker';
+            table.innerHTML = `
+                <thead>
+                    <tr><th rowspan="2">Name</th><th>Header 1</th><th>Header 2</th></tr>
+                    <tr><th>Sub 1</th><th>Sub 2</th></tr>
+                </thead>
+                <tbody><tr><td>Name</td><td>Value 1</td><td>Value 2</td></tr></tbody>
+            `;
+            updateTableColumnIndices(table);
+            setupTableInteractions();
+
+            table.rows[2].cells[1].dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+
+            const highlighted = Array.from(table.querySelectorAll('.col-highlight'));
+            expect(highlighted.length).toBeGreaterThan(0);
+            highlighted.forEach(cell => {
+                expect(cell._startCol).toBeLessThanOrEqual(1);
+                expect(cell._endCol).toBeGreaterThanOrEqual(1);
+            });
+        });
     });
 
     describe("initTracker", () => {
@@ -869,6 +898,178 @@ describe('app.js pure functions', () => {
 
             expect(global.fetch).toHaveBeenCalledWith('js/characters.js');
             expect(document.getElementById('update-date-text').textContent).toBe("未知");
+        });
+    });
+
+    describe('getPatchColClass', () => {
+        it('prioritizes the current patch over the preview class', () => {
+            expect(getPatchColClass({ patch: '1.0', isPreview: true }, '1.0')).toBe(' class="current-patch-col"');
+        });
+
+        it('marks preview patches and leaves regular patches unclassified', () => {
+            expect(getPatchColClass({ patch: '1.1', isPreview: true }, '1.0')).toBe(' class="preview-patch-col"');
+            expect(getPatchColClass({ patch: '1.1' }, '1.0')).toBe('');
+        });
+    });
+
+    describe('getFilterState', () => {
+        afterEach(() => {
+            document.body.innerHTML = '';
+        });
+
+        it('returns defaults when controls are absent', () => {
+            expect(getFilterState()).toEqual({
+                selectedVersions: [],
+                selectedPaths: [],
+                selectedElems: [],
+                selectedTypes: [],
+                keyword: '',
+                onlyBuffs: false
+            });
+        });
+
+        it('reads checked filters, normalized search text, and the buff toggle', () => {
+            document.body.innerHTML = `
+                <input type="checkbox" class="version-item" value="1.x" checked>
+                <input type="checkbox" class="path-item" value="毀滅" checked>
+                <input type="checkbox" class="elem-item" value="火" checked>
+                <input type="checkbox" class="type-item" value="collab" checked>
+                <input id="char-search-input" value="  Kafka  ">
+                <button id="buff-toggle-btn" class="active"></button>
+            `;
+
+            expect(getFilterState()).toEqual({
+                selectedVersions: ['1.x'],
+                selectedPaths: ['毀滅'],
+                selectedElems: ['火'],
+                selectedTypes: ['collab'],
+                keyword: 'kafka',
+                onlyBuffs: true
+            });
+        });
+
+        it('normalizes a whitespace-only search term to empty', () => {
+            document.body.innerHTML = '<input id="char-search-input" value="   ">';
+            expect(getFilterState().keyword).toBe('');
+        });
+    });
+
+    describe('filterTableRows', () => {
+        function createTable() {
+            const table = document.createElement('table');
+            table.innerHTML = `
+                <tbody>
+                    <tr data-major-version="1.x" data-path="智識" data-elem="雷" data-type="normal" data-has-buff="true" data-name="景元"></tr>
+                    <tr data-major-version="1.x" data-path="虛無" data-elem="雷" data-type="normal" data-has-buff="false" data-name="卡芙卡"></tr>
+                    <tr data-major-version="2.x" data-path="智識" data-elem="量子" data-type="pool" data-has-buff="false" data-name="翡翠"></tr>
+                    <tr data-major-version="2.x" data-path="巡獵" data-elem="物理" data-type="collab" data-has-buff="true" data-name="飛霄"></tr>
+                    <tr class="empty-row"><td>empty</td></tr>
+                </tbody>
+            `;
+            return table;
+        }
+
+        const defaultState = () => ({
+            selectedVersions: [],
+            selectedPaths: [],
+            selectedElems: [],
+            selectedTypes: [],
+            keyword: '',
+            onlyBuffs: false
+        });
+
+        it.each([
+            ['version', { selectedVersions: ['1.x'] }, [0, 1]],
+            ['path', { selectedPaths: ['智識'] }, [0, 2]],
+            ['element', { selectedElems: ['雷'] }, [0, 1]],
+            ['type', { selectedTypes: ['pool', 'collab'] }, [2, 3]],
+            ['name', { keyword: '芙卡' }, [1]],
+            ['buff', { onlyBuffs: true }, [0, 3]]
+        ])('filters rows by %s', (_name, filters, expectedIndexes) => {
+            const table = createTable();
+            const state = { ...defaultState(), ...filters };
+
+            const result = filterTableRows(table, state);
+            const rows = Array.from(table.querySelectorAll('tbody tr:not(.empty-row)'));
+
+            expect(result.visibleCount).toBe(expectedIndexes.length);
+            expect(rows.flatMap((row, index) => row.style.display === '' ? [index] : [])).toEqual(expectedIndexes);
+        });
+
+        it('excludes the empty row and matches every supported filter', () => {
+            const table = createTable();
+            const state = defaultState();
+            state.selectedVersions = ['1.x'];
+            state.selectedPaths = ['智識'];
+            state.selectedElems = ['雷'];
+            state.selectedTypes = ['normal'];
+            state.keyword = '景';
+            state.onlyBuffs = true;
+
+            expect(filterTableRows(table, state)).toEqual({ visibleCount: 1, totalChars: 4 });
+            expect(table.querySelectorAll('tbody tr')[0].style.display).toBe('');
+            expect(table.querySelectorAll('tbody tr')[1].style.display).toBe('none');
+            expect(table.querySelectorAll('tbody tr')[4].style.display).toBe('');
+        });
+
+        it('filters rows by type, case-normalized name substring, and buffs', () => {
+            const table = createTable();
+            const state = defaultState();
+            state.selectedTypes = ['pool', 'collab'];
+            state.keyword = '飛';
+            state.onlyBuffs = true;
+
+            expect(filterTableRows(table, state)).toEqual({ visibleCount: 1, totalChars: 4 });
+            expect(table.querySelectorAll('tbody tr')[3].style.display).toBe('');
+            expect(table.querySelectorAll('tbody tr')[0].style.display).toBe('none');
+        });
+
+        it('caches row attributes between filter passes', () => {
+            const table = createTable();
+            const row = table.querySelector('tbody tr');
+            const getAttribute = jest.spyOn(row, 'getAttribute');
+
+            filterTableRows(table, defaultState());
+            const firstPassCalls = getAttribute.mock.calls.length;
+            filterTableRows(table, { ...defaultState(), onlyBuffs: true });
+
+            expect(firstPassCalls).toBeGreaterThan(0);
+            expect(getAttribute).toHaveBeenCalledTimes(firstPassCalls);
+            getAttribute.mockRestore();
+        });
+    });
+
+    describe('renderFilters input escaping', () => {
+        afterEach(() => {
+            document.body.innerHTML = '';
+            delete global.PATH_ORDER;
+            delete global.ELEM_ORDER;
+        });
+
+        it('escapes generated version, path, and element labels and values', () => {
+            const patch = '<img src=x onerror=alert(1)>.0';
+            const path = 'Path"><img src=x onerror=alert(1)>';
+            const elem = '"><script>alert(1)</script>';
+            global.PATH_ORDER = [path];
+            global.ELEM_ORDER = [elem];
+            document.body.innerHTML = `
+                <div id="version-items-container"></div>
+                <div id="path-items-container"></div>
+                <div id="elem-items-container"></div>
+                <div id="type-items-container"></div>
+            `;
+
+            renderFilters([{ runs: [patch], path, elem }], [patch], new Map([[patch, 0]]));
+
+            const versionContainer = document.getElementById('version-items-container');
+            const pathContainer = document.getElementById('path-items-container');
+            const elemContainer = document.getElementById('elem-items-container');
+            expect(versionContainer.querySelector('img, script')).toBeNull();
+            expect(pathContainer.querySelector('img, script')).toBeNull();
+            expect(elemContainer.querySelector('img, script')).toBeNull();
+            expect(versionContainer.querySelector('input').value).toBe('<img src=x onerror=alert(1)>.x');
+            expect(pathContainer.querySelector('input').value).toBe(path);
+            expect(elemContainer.querySelector('input').value).toBe(elem);
         });
     });
 });
