@@ -303,25 +303,85 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
 
     const versionContainer = document.getElementById('version-items-container');
     if (versionContainer) {
-        versionContainer.innerHTML = uniqueVersions.map(v => `<label><input type="checkbox" class="version-item" value="${escapeHtml(v)}" ${currentCheckedVersions.has(v) ? 'checked' : ''}> ${escapeHtml(v)}</label>`).join('');
+        const fragment = document.createDocumentFragment();
+        uniqueVersions.forEach(v => {
+            const label = document.createElement('label');
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'version-item';
+            input.value = v;
+            if (currentCheckedVersions.has(v)) {
+                input.checked = true;
+            }
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(` ${v}`));
+            fragment.appendChild(label);
+        });
+        versionContainer.replaceChildren(fragment);
     }
 
     const pathContainer = document.getElementById('path-items-container');
     if (pathContainer) {
-        pathContainer.innerHTML = uniquePaths.map(p => {
+        const fragment = document.createDocumentFragment();
+        uniquePaths.forEach(p => {
+            const label = document.createElement('label');
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'path-item';
+            input.value = p;
+            if (currentCheckedPaths.has(p)) {
+                input.checked = true;
+            }
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(' '));
+
             const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
-            const iconHtml = iconUrl ? `<img src="${escapeHtml(iconUrl)}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${escapeHtml(p)}">` : "";
-            return `<label><input type="checkbox" class="path-item" value="${escapeHtml(p)}" ${currentCheckedPaths.has(p) ? 'checked' : ''}> ${iconHtml}${escapeHtml(p)}</label>`;
-        }).join('');
+            if (iconUrl) {
+                const img = document.createElement('img');
+                img.src = iconUrl;
+                img.alt = p;
+                img.style.width = '16px';
+                img.style.height = '16px';
+                img.style.flexShrink = '0';
+                img.style.filter = 'drop-shadow(0 0 1.5px rgba(0,0,0,0.9))';
+                label.appendChild(img);
+            }
+            label.appendChild(document.createTextNode(p));
+            fragment.appendChild(label);
+        });
+        pathContainer.replaceChildren(fragment);
     }
     
     const elemContainer = document.getElementById('elem-items-container');
     if (elemContainer) {
-        elemContainer.innerHTML = uniqueElems.map(e => {
+        const fragment = document.createDocumentFragment();
+        uniqueElems.forEach(e => {
+            const label = document.createElement('label');
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'elem-item';
+            input.value = e;
+            if (currentCheckedElems.has(e)) {
+                input.checked = true;
+            }
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(' '));
+
             const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
-            const iconHtml = iconUrl ? `<img src="${escapeHtml(iconUrl)}" style="width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9));" alt="${escapeHtml(e)}">` : "";
-            return `<label><input type="checkbox" class="elem-item" value="${escapeHtml(e)}" ${currentCheckedElems.has(e) ? 'checked' : ''}> ${iconHtml}${escapeHtml(e)}</label>`;
-        }).join('');
+            if (iconUrl) {
+                const img = document.createElement('img');
+                img.src = iconUrl;
+                img.alt = e;
+                img.style.width = '16px';
+                img.style.height = '16px';
+                img.style.flexShrink = '0';
+                img.style.filter = 'drop-shadow(0 0 1.5px rgba(0,0,0,0.9))';
+                label.appendChild(img);
+            }
+            label.appendChild(document.createTextNode(e));
+            fragment.appendChild(label);
+        });
+        elemContainer.replaceChildren(fragment);
     }
 
     const typeContainer = document.getElementById('type-items-container');
