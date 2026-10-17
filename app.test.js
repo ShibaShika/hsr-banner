@@ -506,6 +506,29 @@ describe('app.js pure functions', () => {
         });
     });
 
+    describe('buildCharacterHistory', () => {
+        it('preserves columns before the collab span', () => {
+            const patchesList = ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7'];
+            const patchIndexMap = new Map(patchesList.map((patch, index) => [patch, index]));
+            const char = { isCollab: '1.6' };
+
+            const history = buildCharacterHistory(char, patchesList, patchIndexMap);
+
+            expect(history).toHaveLength(patchesList.length);
+            expect(history.map(cell => cell.status)).toEqual([
+                'NONE',
+                'COLLAB_SPAN',
+                'HIDDEN',
+                'HIDDEN',
+                'HIDDEN',
+                'HIDDEN',
+                'COLLAB',
+                'COLLAB'
+            ]);
+            expect(history[1]).toEqual({ status: 'COLLAB_SPAN', count: 5 });
+        });
+    });
+
     describe("getFallbackAvatar", () => {
         it("should return a data URI SVG with the first character of the name", () => {
             const svgUri = getFallbackAvatar("Jules");
