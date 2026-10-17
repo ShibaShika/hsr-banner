@@ -495,7 +495,7 @@ def fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date)
     return upcoming_schedules, gen_patches
 
 
-def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session, sanitized_en_dict=None):
+def resolve_local_character_info(en_name, en_data, cht_data, sanitized_en_dict=None):
     sanitized = sanitize_name(en_name)
     target_cid = None
     target_name = en_name
@@ -522,6 +522,11 @@ def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session, 
             raw_elem = db_elem.get("name") if isinstance(db_elem, dict) else db_elem
             elem = ELEM_MAP.get(raw_elem, raw_elem or "未知")
 
+    return target_cid, target_name, path, elem
+
+def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session, sanitized_en_dict=None):
+    target_cid, target_name, path, elem = resolve_local_character_info(en_name, en_data, cht_data, sanitized_en_dict)
+
     # 2. 備援向 Fandom Wiki 動態抽取繁中名稱與屬性（零字典，純動態解析）
     if target_name == en_name or not contains_cjk(target_name) or path == "未知" or elem == "未知":
         if en_name in wiki_char_cache:
@@ -543,7 +548,102 @@ def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session, 
     return target_cid, target_name, path, elem
 
 
+def query_wiki_character_pages_batch(char_names, session):
+    """Batch queries Wiki pages for characters and maps the results back to the original queried names."""
+    results = {}
+    if not char_names:
+        return results
+
+    for name in char_names:
+        results[name] = {"cht_name": None, "path": None, "elem": None}
+
+    char_names = list(set(char_names))
+    for i in range(0, len(char_names), 50):
+        batch = char_names[i:i + 50]
+        try:
+            res = session.get(WIKI_API_URL, params={
+                'action': 'query',
+                'titles': '|'.join(batch),
+                'prop': 'revisions',
+                'rvslots': 'main',
+                'rvprop': 'content',
+                'redirects': '1',
+                'format': 'json'
+            }, timeout=REQUEST_TIMEOUT).json()
+
+            query_data = res.get('query', {})
+
+            # Create a mapping from final title to original query name
+            title_to_original = {name: name for name in batch}
+
+            # Map normalized titles
+            for norm in query_data.get('normalized', []):
+                if norm['from'] in title_to_original:
+                    original = title_to_original.pop(norm['from'])
+                    title_to_original[norm['to']] = original
+
+            # Map redirects
+            for redir in query_data.get('redirects', []):
+                if redir['from'] in title_to_original:
+                    original = title_to_original.pop(redir['from'])
+                    title_to_original[redir['to']] = original
+
+            pages = query_data.get('pages', {})
+            for pid, p in pages.items():
+                if pid == "-1":
+                    continue
+
+                title = p.get('title', '')
+                original_name = title_to_original.get(title, title)
+
+                content = p.get('revisions', [{}])[0].get('slots', {}).get('main', {}).get('*', '')
+
+                info = {"cht_name": None, "path": None, "elem": None}
+
+                matches = re.findall(r'\|((\d+_)?(zht|zh[-_]?(?:tw|hk)))\s*=\s*([^\n\|\}]+)', content, re.IGNORECASE)
+                if not matches:
+                    matches = re.findall(r'\|((\d+_)?(zhs|zh))\s*=\s*([^\n\|\}]+)', content, re.IGNORECASE)
+
+                name_dict = {}
+                for full_k, prefix, lang, val in matches:
+                    cleaned_val = clean_wikitext_value(val)
+                    if cleaned_val:
+                        name_dict[full_k.lower()] = cleaned_val
+
+                n1 = name_dict.get('1_zht') or name_dict.get('1_zhs')
+                n2 = name_dict.get('2_zht') or name_dict.get('2_zhs')
+                nz = name_dict.get('zht') or name_dict.get('zhs')
+
+                chosen = None
+                if n1 and n2:
+                    chosen = n2 if n1 in n2 else n1
+                elif nz:
+                    chosen = nz
+                elif n1:
+                    chosen = n1
+                elif name_dict:
+                    chosen = list(name_dict.values())[0]
+
+                if chosen:
+                    info["cht_name"] = chosen
+
+                m_path = re.search(r'\|path\s*=\s*([^\n\|\}]+)', content)
+                if m_path:
+                    info["path"] = clean_wikitext_value(m_path.group(1))
+
+                m_elem = re.search(r'\|(?:combatType|element)\s*=\s*([^\n\|\}]+)', content)
+                if m_elem:
+                    info["elem"] = clean_wikitext_value(m_elem.group(1))
+
+                results[original_name] = info
+
+        except Exception as e:
+            print(f"  ⚠️ 批次查詢 Wiki 角色頁面失敗: {e}")
+
+    return results
+
 def query_wiki_character_page(char_name, session):
+
     info = {"cht_name": None, "path": None, "elem": None}
     try:
         res = session.get(WIKI_API_URL, params={
@@ -743,6 +843,23 @@ def _merge_characters(original_chars, all_incoming_schedules, session):
     # Precompute maps for faster lookup
     sanitized_char_map = {sanitize_name(c.get('name', '')): c for c in merged_chars if c.get('name')}
     normalized_cjk_char_map = {normalize_cjk_name(c.get('name', '')): c for c in merged_chars if c.get('name') and contains_cjk(c.get('name', ''))}
+
+    # First pass: pre-calculate the list of characters to batch query from Wiki
+    needed_wiki_chars = []
+    for sched in all_incoming_schedules:
+        en_name = sched['en_name']
+
+        # We only need to check what the local info will be
+        _, target_name, path, elem = resolve_local_character_info(en_name, en_data, cht_data, sanitized_en_dict)
+
+        # If any of the conditions for Wiki fallback are met, we add it to the batch
+        if target_name == en_name or not contains_cjk(target_name) or path == "未知" or elem == "未知":
+            needed_wiki_chars.append(en_name)
+
+    # Batch query Fandom Wiki and populate the cache
+    if needed_wiki_chars:
+        wiki_results = query_wiki_character_pages_batch(needed_wiki_chars, session)
+        wiki_char_cache.update(wiki_results)
 
     for sched in all_incoming_schedules:
         en_name = sched['en_name']
