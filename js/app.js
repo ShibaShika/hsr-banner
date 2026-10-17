@@ -834,7 +834,6 @@ function setupExportButton() {
     // 📷 匯出截圖邏輯 (修復 html2canvas sticky 錯位毀滅性 Bug)
     if (exportImgBtn && typeof html2canvas !== 'undefined') {
         exportImgBtn.addEventListener('click', async () => {
-            let cloneContainer = null;
             try {
                 exportImgBtn.textContent = '📷 繪製中...';
                 exportImgBtn.disabled = true;
@@ -879,89 +878,7 @@ function setupExportButton() {
                     maxActiveCol = 1;
                 }
 
-                cloneContainer = document.createElement('div');
-                cloneContainer.style.position = 'absolute';
-                cloneContainer.style.left = '-9999px';
-                cloneContainer.style.top = '-9999px';
-                cloneContainer.style.width = 'max-content';
-                cloneContainer.style.background = '#1e1e1e';
-                cloneContainer.style.padding = '12px';
-                cloneContainer.style.zIndex = '-9999';
-
-                const clonedTable = table.cloneNode(true);
-                
-                clonedTable.querySelectorAll('tbody tr').forEach(r => {
-                    if (r.style.display === 'none' || r.classList.contains('empty-row')) {
-                        r.remove();
-                    }
-                });
-
-                const allClonedRows = clonedTable.querySelectorAll('tr');
-                allClonedRows.forEach(row => {
-                    const cells = Array.from(row.children);
-                    
-                    let colIdx = 0;
-                    if (row.parentElement && row.parentElement.tagName.toLowerCase() === 'thead' && !row.querySelector('.top-left-cell')) {
-                        colIdx = 1;
-                    }
-
-                    cells.forEach(cell => {
-                        const span = parseInt(cell.getAttribute('colspan') || '1', 10);
-                        const cellStart = colIdx;
-                        const cellEnd = colIdx + span - 1;
-
-                        if (cellStart === 0) {
-                            colIdx += span;
-                            return;
-                        }
-
-                        const overlapStart = Math.max(cellStart, minActiveCol);
-                        const overlapEnd = Math.min(cellEnd, maxActiveCol);
-
-                        if (overlapStart <= overlapEnd) {
-                            const newSpan = overlapEnd - overlapStart + 1;
-                            if (newSpan !== span) {
-                                cell.setAttribute('colspan', newSpan);
-                            }
-                        } else {
-                            cell.remove();
-                        }
-                        colIdx += span;
-                    });
-                });
-
-                // 🌟 關鍵修復：先掛載到 DOM 樹上，才能正常操作與繪製
-                cloneContainer.appendChild(clonedTable);
-                document.body.appendChild(cloneContainer);
-
-                // 🌟 關鍵修復：強行取消所有凍結視窗 (sticky) 避免 html2canvas 算錯座標把表頭/角色欄甩出去
-                clonedTable.querySelectorAll('th, td, thead, tr, div, span').forEach(el => {
-                    const compStyle = window.getComputedStyle(el);
-                    if (compStyle.position === 'sticky') {
-                        el.style.position = 'relative';
-                        el.style.top = 'auto';
-                        el.style.left = 'auto';
-                        el.style.right = 'auto';
-                        el.style.bottom = 'auto';
-                        el.style.transform = 'none';
-                    }
-                    if (el.classList.contains('buff-badge')) {
-                        el.style.position = 'absolute';
-                    }
-                    el.style.boxShadow = 'none';
-                    el.classList.remove('col-highlight');
-                });
-
-                // 🌟 確保包含角標的儲存格有 relative 作為定位基準
-                clonedTable.querySelectorAll('td, th').forEach(cell => {
-                    if (cell.querySelector('.buff-badge')) {
-                        cell.style.position = 'relative';
-                    }
-                });
-
-                clonedTable.style.zoom = '1';
-
-                const imgs = Array.from(clonedTable.querySelectorAll('img'));
+                const imgs = Array.from(table.querySelectorAll('img'));
                 await Promise.all(imgs.map(img => {
                     if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
                     return new Promise(resolve => {
@@ -974,15 +891,97 @@ function setupExportButton() {
                     });
                 }));
 
-                const canvas = await html2canvas(clonedTable, {
+                const canvas = await html2canvas(table, {
                     backgroundColor: '#1e1e1e',
                     scale: 2,
                     useCORS: true,
-                    logging: false
-                });
+                    logging: false,
+                    scrollX: 0,
+                    scrollY: 0,
+                    onclone: (clonedDoc) => {
+                        const clonedTable = clonedDoc.getElementById('tracker');
+                        if (!clonedTable) return;
 
-                document.body.removeChild(cloneContainer);
-                cloneContainer = null;
+                        // Set table wrapper to full width/height and visible to prevent clipping
+                        const tableWrap = clonedTable.closest('.table-wrap');
+                        if (tableWrap) {
+                            tableWrap.style.setProperty('overflow', 'visible', 'important');
+                            tableWrap.style.setProperty('width', 'fit-content', 'important');
+                            tableWrap.style.setProperty('max-width', 'none', 'important');
+                            tableWrap.style.setProperty('max-height', 'none', 'important');
+                            tableWrap.scrollLeft = 0;
+                            tableWrap.scrollTop = 0;
+                        }
+
+                        // Apply the trimming logic directly to the clonedTable
+                        clonedTable.querySelectorAll('tbody tr').forEach(r => {
+                            if (r.style.display === 'none' || r.classList.contains('empty-row')) {
+                                r.remove();
+                            }
+                        });
+
+                        const allClonedRows = clonedTable.querySelectorAll('tr');
+                        allClonedRows.forEach(row => {
+                            const cells = Array.from(row.children);
+
+                            let colIdx = 0;
+                            if (row.parentElement && row.parentElement.tagName.toLowerCase() === 'thead' && !row.querySelector('.top-left-cell')) {
+                                colIdx = 1;
+                            }
+
+                            cells.forEach(cell => {
+                                const span = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                const cellStart = colIdx;
+                                const cellEnd = colIdx + span - 1;
+
+                                if (cellStart === 0) {
+                                    colIdx += span;
+                                    return;
+                                }
+
+                                const overlapStart = Math.max(cellStart, minActiveCol);
+                                const overlapEnd = Math.min(cellEnd, maxActiveCol);
+
+                                if (overlapStart <= overlapEnd) {
+                                    const newSpan = overlapEnd - overlapStart + 1;
+                                    if (newSpan !== span) {
+                                        cell.setAttribute('colspan', newSpan);
+                                    }
+                                } else {
+                                    cell.remove();
+                                }
+                                colIdx += span;
+                            });
+                        });
+
+                        // 🌟 關鍵修復：強行取消所有凍結視窗 (sticky) 避免 html2canvas 算錯座標把表頭/角色欄甩出去
+                        clonedTable.querySelectorAll('th, td, thead, tr, div, span').forEach(el => {
+                            const compStyle = clonedDoc.defaultView.getComputedStyle(el);
+                            if (compStyle.position === 'sticky') {
+                                el.style.setProperty('position', 'static', 'important');
+                                el.style.setProperty('top', 'auto', 'important');
+                                el.style.setProperty('left', 'auto', 'important');
+                                el.style.setProperty('right', 'auto', 'important');
+                                el.style.setProperty('bottom', 'auto', 'important');
+                                el.style.setProperty('transform', 'none', 'important');
+                            }
+                            if (el.classList.contains('buff-badge')) {
+                                el.style.setProperty('position', 'absolute', 'important');
+                            }
+                            el.style.setProperty('box-shadow', 'none', 'important');
+                            el.classList.remove('col-highlight');
+                        });
+
+                        // 🌟 確保包含角標的儲存格有 relative 作為定位基準
+                        clonedTable.querySelectorAll('td, th').forEach(cell => {
+                            if (cell.querySelector('.buff-badge')) {
+                                cell.style.setProperty('position', 'relative', 'important');
+                            }
+                        });
+
+                        clonedTable.style.setProperty('zoom', '1', 'important');
+                    }
+                });
 
                 const imgData = canvas.toDataURL('image/png');
                 const newTab = window.open();
@@ -1025,9 +1024,6 @@ function setupExportButton() {
                 console.error('截圖繪製失敗:', err);
                 alert('截圖失敗，請重試！');
             } finally {
-                if (cloneContainer && cloneContainer.parentNode) {
-                    cloneContainer.parentNode.removeChild(cloneContainer);
-                }
                 exportImgBtn.textContent = '📷 截圖';
                 exportImgBtn.disabled = false;
             }
