@@ -364,8 +364,9 @@ def _parse_upcoming_characters(session, next_p, existing_schedules):
         }, timeout=REQUEST_TIMEOUT).json()
         up_titles = [m['title'] for m in up_res.get('query', {}).get('categorymembers', [])]
 
+        existing_names = {s.get('en_name') for s in existing_schedules}
         for title in up_titles:
-            if any(s['en_name'] == title for s in existing_schedules):
+            if title in existing_names:
                 continue
             schedules.append({
                 'en_name': title,
