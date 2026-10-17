@@ -1,7 +1,40 @@
 import unittest
 from datetime import datetime
 from unittest.mock import patch, mock_open, MagicMock
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update, fetch_fandom_schedules_and_patches, serialize_js_file, contains_cjk
+from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update, fetch_fandom_schedules_and_patches, serialize_js_file, contains_cjk, _format_summary_text
+
+class TestFormatSummaryText(unittest.TestCase):
+    def test_empty_logs(self):
+        result = _format_summary_text([], [], [], [], [])
+        self.assertEqual(result, "")
+
+    def test_some_logs(self):
+        result = _format_summary_text(
+            ["2.0上", "2.0下"],
+            [],
+            ["新角色A", "新角色B"],
+            [],
+            []
+        )
+        expected = "🆕 新增版本 (2 個): 2.0上, 2.0下\n✨ 發現新角色 (2 位):\n  • 新角色A\n  • 新角色B"
+        self.assertEqual(result, expected)
+
+    def test_all_logs(self):
+        result = _format_summary_text(
+            ["1.0上"],
+            ["1.0上日期校正"],
+            ["角色A"],
+            ["角色B登場"],
+            ["角色C繁體化"]
+        )
+        expected = (
+            "🆕 新增版本 (1 個): 1.0上\n"
+            "📅 版本日期校正 (1 項):\n  • 1.0上日期校正\n"
+            "✨ 發現新角色 (1 位):\n  • 角色A\n"
+            "📅 新增排程登場 (1 項):\n  • 角色B登場\n"
+            "🔄 名稱繁體中文化 (1 位):\n  • 角色C繁體化"
+        )
+        self.assertEqual(result, expected)
 
 class TestParseLocalJsArray(unittest.TestCase):
     @patch('os.path.exists', return_value=False)
