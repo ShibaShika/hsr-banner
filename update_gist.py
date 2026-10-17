@@ -726,6 +726,10 @@ def _merge_characters(original_chars, all_incoming_schedules, session):
 
     sanitized_en_dict = {sanitize_name(info.get("name", "")): cid for cid, info in en_data.items()}
 
+    # Precompute maps for faster lookup
+    sanitized_char_map = {sanitize_name(c.get('name', '')): c for c in merged_chars if c.get('name')}
+    normalized_cjk_char_map = {normalize_cjk_name(c.get('name', '')): c for c in merged_chars if c.get('name') and contains_cjk(c.get('name', ''))}
+
     for sched in all_incoming_schedules:
         en_name = sched['en_name']
         run = sched['run']
@@ -744,15 +748,10 @@ def _merge_characters(original_chars, all_incoming_schedules, session):
             target_is_cjk = contains_cjk(target_name)
             normalized_target_name = normalize_cjk_name(target_name) if target_is_cjk else None
 
-            for char in merged_chars:
-                c_name = char.get('name', '')
-                if sanitize_name(c_name) == sanitized_en_name:
-                    matched_char = char
-                    break
-                if target_is_cjk and contains_cjk(c_name):
-                    if normalized_target_name == normalize_cjk_name(c_name):
-                        matched_char = char
-                        break
+            if sanitized_en_name in sanitized_char_map:
+                matched_char = sanitized_char_map[sanitized_en_name]
+            elif target_is_cjk and normalized_target_name in normalized_cjk_char_map:
+                matched_char = normalized_cjk_char_map[normalized_target_name]
 
         if not matched_char and target_cid and target_cid in existing_char_map_by_cid:
             matched_char = existing_char_map_by_cid[target_cid]
