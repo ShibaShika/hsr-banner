@@ -17,6 +17,7 @@ if hasattr(sys.stderr, "reconfigure"):
 # ──────────────────────────────────────────────────
 GIST_ID = "53c5bb324cd140fb8751c9812bd5df68"
 GITHUB_TOKEN = os.environ.get("GIST_TOKEN")
+os.environ.pop("GIST_TOKEN", None)
 REQUEST_TIMEOUT = 25
 PATCH_NAME_RE = re.compile(r'^\d+\.\d+[上下中]$')
 WIKI_API_URL = "https://honkai-star-rail.fandom.com/api.php"
@@ -956,13 +957,22 @@ def update_gist_backup(data, session):
         else:
             print(f"⚠️ Gist 備份狀態碼: {res.status_code}")
     except Exception as e:
-        print(f"⚠️ Gist 備份未完成: {e}")
+        print(f"⚠️ Gist 備份未完成: {str(e).replace(GITHUB_TOKEN, '***') if GITHUB_TOKEN else e}")
 
 
 # ──────────────────────────────────────────────────
 # 程式進入點
 # ──────────────────────────────────────────────────
 if __name__ == "__main__":
-    success = execute_auto_update()
-    if not success:
-        raise SystemExit(2)
+    try:
+        success = execute_auto_update()
+        if not success:
+            raise SystemExit(2)
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        if GITHUB_TOKEN:
+            tb = tb.replace(GITHUB_TOKEN, '***')
+        print("\n⚠️ 全自動更新流程發生未預期錯誤:", file=sys.stderr)
+        print(tb, file=sys.stderr)
+        raise SystemExit(1)
