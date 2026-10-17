@@ -472,27 +472,35 @@ function buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchNa
             return;
         }
 
-        if (cell.status === 'UP' || cell.status === 'COLLAB') {
-            cls = 'img-cell';
-            content = `${buffBadgeHtml}<img src="${avatarUrl}" class="grid-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';"${buffTitleAttr}>`;
-        } else if (cell.status === 'COLLAB_EMPTY') {
-            cls = `collab-empty bg-${escapeHtml(char.elem)}`;
-            content = buffBadgeHtml;
-        } else if (cell.status === 'TERM_START') {
-            cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
-            content = `${buffBadgeHtml}${cell.type === 'pool' ? '星緣' : '聚靈'}`;
-        } else if (cell.status === 'TERM_EMPTY') {
-            cls = cell.type === 'pool' ? 'term-pool-empty' : 'term-shop-empty';
-            content = buffBadgeHtml;
-        } else if (cell.status === 'NONE') {
-            cls = 'none';
-            content = `${buffBadgeHtml}-`;
-        } else {
-            content = `${buffBadgeHtml}${cell.gap}`;
-            if (cell.gap <= 3) cls = 'w-low';
-            else if (cell.gap <= 7) cls = 'w-med';
-            else if (cell.gap <= 12) cls = 'w-high';
-            else cls = 'w-crit';
+        switch (cell.status) {
+            case 'UP':
+            case 'COLLAB':
+                cls = 'img-cell';
+                content = `${buffBadgeHtml}<img src="${avatarUrl}" class="grid-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';"${buffTitleAttr}>`;
+                break;
+            case 'COLLAB_EMPTY':
+                cls = `collab-empty bg-${escapeHtml(char.elem)}`;
+                content = buffBadgeHtml;
+                break;
+            case 'TERM_START':
+                cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
+                content = `${buffBadgeHtml}${cell.type === 'pool' ? '星緣' : '聚靈'}`;
+                break;
+            case 'TERM_EMPTY':
+                cls = cell.type === 'pool' ? 'term-pool-empty' : 'term-shop-empty';
+                content = buffBadgeHtml;
+                break;
+            case 'NONE':
+                cls = 'none';
+                content = `${buffBadgeHtml}-`;
+                break;
+            default:
+                content = `${buffBadgeHtml}${cell.gap}`;
+                if (cell.gap <= 3) cls = 'w-low';
+                else if (cell.gap <= 7) cls = 'w-med';
+                else if (cell.gap <= 12) cls = 'w-high';
+                else cls = 'w-crit';
+                break;
         }
         html += `<td class="${cls}${currentColClass}"${buffTitleAttr}>${content}</td>`;
     });
