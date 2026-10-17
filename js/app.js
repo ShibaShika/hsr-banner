@@ -1114,27 +1114,31 @@ function updateFilterUI(state) {
     }
 }
 
+function isRowMatchingFilters(row, state) {
+    const rowMajorVer = row.getAttribute('data-major-version');
+    const rowPath = row.getAttribute('data-path');
+    const rowElem = row.getAttribute('data-elem');
+    const rowType = row.getAttribute('data-type');
+    const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
+    const rowName = row.getAttribute('data-name').toLowerCase();
+
+    const matchVersion = state.selectedVersions.length === 0 || state.selectedVersions.includes(rowMajorVer);
+    const matchPath = state.selectedPaths.length === 0 || state.selectedPaths.includes(rowPath);
+    const matchElem = state.selectedElems.length === 0 || state.selectedElems.includes(rowElem);
+    const matchType = state.selectedTypes.length === 0 || state.selectedTypes.includes(rowType);
+    const matchName = state.keyword === '' || rowName.includes(state.keyword);
+    const matchBuff = !state.onlyBuffs || hasBuffAttr;
+
+    return matchVersion && matchPath && matchElem && matchType && matchName && matchBuff;
+}
+
 function filterTableRows(table, state) {
     const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
     let visibleCount = 0;
     const totalChars = rows.length;
 
     rows.forEach(row => {
-        const rowMajorVer = row.getAttribute('data-major-version');
-        const rowPath = row.getAttribute('data-path');
-        const rowElem = row.getAttribute('data-elem');
-        const rowType = row.getAttribute('data-type');
-        const hasBuffAttr = row.getAttribute('data-has-buff') === 'true';
-        const rowName = row.getAttribute('data-name').toLowerCase();
-
-        const matchVersion = state.selectedVersions.length === 0 || state.selectedVersions.includes(rowMajorVer);
-        const matchPath = state.selectedPaths.length === 0 || state.selectedPaths.includes(rowPath);
-        const matchElem = state.selectedElems.length === 0 || state.selectedElems.includes(rowElem);
-        const matchType = state.selectedTypes.length === 0 || state.selectedTypes.includes(rowType);
-        const matchName = state.keyword === '' || rowName.includes(state.keyword);
-        const matchBuff = !state.onlyBuffs || hasBuffAttr;
-
-        if (matchVersion && matchPath && matchElem && matchType && matchName && matchBuff) {
+        if (isRowMatchingFilters(row, state)) {
             row.style.display = '';
             visibleCount++;
         } else {
