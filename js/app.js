@@ -249,10 +249,13 @@ async function initTracker() {
 // 🔄 核心渲染表格邏輯
 function updateTableColumnIndices(table) {
     const rows = table.rows;
-    for (let r = 0; r < rows.length; r++) {
+    const rowLen = rows.length;
+    for (let r = 0; r < rowLen; r++) {
         let colIdx = 0;
-        for (let c = 0; c < rows[r].cells.length; c++) {
-            const cell = rows[r].cells[c];
+        const cells = rows[r].cells;
+        const cellLen = cells.length;
+        for (let c = 0; c < cellLen; c++) {
+            const cell = cells[c];
             const span = cell.colSpan || 1;
             cell.dataset.startCol = colIdx;
             cell.dataset.endCol = colIdx + span - 1;
