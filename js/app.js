@@ -557,10 +557,7 @@ function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexM
 
     let history = buildCharacterHistory(char, patchesList, patchIndexMap);
 
-    let finalHistory = history.reverse();
-    if (isPatchAscending) {
-        finalHistory.reverse();
-    }
+    const finalHistory = isPatchAscending ? history : history.reverse();
 
     html += buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchName, avatarUrl, fallbackUrl);
     html += `</tr>`;
@@ -581,17 +578,11 @@ function renderTable() {
     patchesList.forEach((patch, index) => patchIndexMap.set(patch, index));
 
     // 1. 決定角色陣列順序
-    let CHARACTERS = [...activeCharacters].reverse();
-    if (isCharAscending) {
-        CHARACTERS.reverse();
-    }
+    const CHARACTERS = isCharAscending ? [...activeCharacters] : [...activeCharacters].reverse();
     const totalChars = CHARACTERS.length;
 
     // 2. 決定小版本陣列順序
-    let displayPatches = [...activePatches].reverse();
-    if (isPatchAscending) {
-        displayPatches.reverse();
-    }
+    const displayPatches = isPatchAscending ? [...activePatches] : [...activePatches].reverse();
 
     const activePatchName = getCurrentPatchName();
 
@@ -1253,5 +1244,14 @@ if (typeof module !== 'undefined' && module.exports) {
     Object.assign(module.exports, {
         initTracker,
         updateTableColumnIndices
+    });
+}
+
+// Export additional helpers for testing
+if (typeof module !== 'undefined' && module.exports) {
+    Object.assign(module.exports, {
+        renderTable,
+        buildCharacterRowHtml,
+        buildHistoryCellsHtml
     });
 }
