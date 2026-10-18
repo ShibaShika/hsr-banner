@@ -843,7 +843,7 @@ function setupExportButton() {
                 }));
 
                 const canvas = await html2canvas(table, {
-                    backgroundColor: '#1e1e1e',
+                    backgroundColor: '#101522',
                     scale: 2,
                     useCORS: true,
                     logging: false,
@@ -946,7 +946,7 @@ function setupExportButton() {
                             <style>
                                 body {
                                     margin: 0;
-                                    background: #121212;
+                                    background: #0b0e17;
                                     display: flex;
                                     justify-content: center;
                                     align-items: flex-start;
