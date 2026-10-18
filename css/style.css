@@ -1514,4 +1514,107 @@ thead tr:nth-child(2) th.current-patch-col {
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+
+    .buff-mode-group {
+        display: contents;
+    }
+
+    .char-path-icon.path-icon-fallback {
+        width: 15px;
+        height: 15px;
+        font-size: 9px;
+    }
 }
+
+/* ===== 🌌 深空琉璃通用降級風格 (Deep-Space Glass Fallback Style) ===== */
+/* 預設左側光條與深空琉璃底色：當未來新角色屬性或命途尚未定義專屬色彩時，保底提供星軌金琉璃光條 */
+#tracker :where(tbody tr:not(.empty-row)) td:first-child {
+    background-color: #141a29;
+    background-image: linear-gradient(90deg, rgba(245, 196, 81, 0.24) 0%, rgba(20, 28, 48, 0.96) 55%, rgba(14, 19, 34, 0.98) 92%);
+    border-left: 4px solid var(--accent-gold);
+}
+
+/* 未預設新命途專屬星輝琉璃內光暈（與屬性左光條共存，呈現雙層深空琉璃質感） */
+#tracker td:first-child.path-fallback-cell {
+    box-shadow: 4px 0 10px rgba(0, 0, 0, 0.45), inset 0 0 12px rgba(245, 196, 81, 0.14), inset 0 1px 0 rgba(253, 230, 138, 0.22);
+}
+
+/* 純文字深空琉璃金色標章（當新命途/新屬性尚無 CDN 圖示或載入失敗 onerror 時自動降級） */
+.icon-fallback-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(34, 46, 76, 0.95) 0%, rgba(15, 22, 38, 0.98) 100%);
+    border: 1px solid rgba(245, 196, 81, 0.68);
+    color: #fde68a;
+    border-radius: 50%;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0;
+    text-shadow: 0 0 5px rgba(245, 196, 81, 0.55);
+    box-shadow: 0 0 7px rgba(245, 196, 81, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    user-select: none;
+    box-sizing: border-box;
+    vertical-align: middle;
+}
+
+.char-path-icon.path-icon-fallback {
+    width: 19px;
+    height: 19px;
+    font-size: 10.5px;
+    margin-right: 5px;
+    flex-shrink: 0;
+}
+
+.filter-icon-fallback {
+    width: 16px;
+    height: 16px;
+    font-size: 9.5px;
+    flex-shrink: 0;
+}
+
+/* 動態強化模式篩選按鈕群組與未定義強化模式的深空琉璃金色徽章風格 */
+.buff-mode-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.buff-mode-btn.buff-mode-fallback {
+    background: linear-gradient(135deg, rgba(28, 38, 64, 0.9) 0%, rgba(16, 23, 40, 0.95) 100%);
+    border-color: rgba(245, 196, 81, 0.45);
+    color: #fef3c7;
+}
+
+.buff-mode-btn.buff-mode-fallback .toggle-icon {
+    color: var(--accent-gold);
+    text-shadow: 0 0 6px rgba(245, 196, 81, 0.65);
+}
+
+.buff-mode-btn.buff-mode-fallback:hover {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 12px rgba(245, 196, 81, 0.28);
+}
+
+.buff-mode-btn.buff-mode-fallback.active {
+    background: linear-gradient(135deg, rgba(245, 196, 81, 0.24) 0%, rgba(36, 49, 82, 0.95) 100%);
+    border-color: var(--accent-gold);
+    color: #fde047;
+    box-shadow: 0 0 14px rgba(245, 196, 81, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* 表格內新強化模式角標：深空琉璃金輝徽章 */
+.buff-badge.buff-badge-fallback {
+    color: #fde047;
+    text-shadow: 0 0 5px rgba(245, 196, 81, 0.92), 0 0 10px rgba(245, 196, 81, 0.45);
+}
+
+/* 角色彈窗內未預設命途／新強化標籤：深空琉璃金邊徽章 */
+.popover-tag.popover-tag-fallback {
+    background: linear-gradient(135deg, rgba(245, 196, 81, 0.18) 0%, rgba(30, 41, 68, 0.88) 100%);
+    border: 1px solid rgba(245, 196, 81, 0.62);
+    color: #fde68a;
+    box-shadow: 0 0 8px rgba(245, 196, 81, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+

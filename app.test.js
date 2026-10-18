@@ -40,7 +40,13 @@ const {
     getFilterState,
     filterTableRows,
     renderFilters,
-    setupTableInteractions
+    setupTableInteractions,
+    collectPathValues,
+    collectBuffTypes,
+    handleIconError,
+    buildPathIconHtml,
+    renderBuffModeButtons,
+    applyBuffSelection
 } = require('./js/app');
 
 describe('app.js pure functions', () => {
@@ -1331,5 +1337,118 @@ describe('app.js pure functions', () => {
             expect(popover.classList.contains('show')).toBe(false);
         });
     });
+
+    describe('Dynamic Path & Buff Mode Architecture', () => {
+        afterEach(() => {
+            document.body.innerHTML = '';
+            window.history.replaceState(null, '', '/');
+            delete global.PATCH_DATA;
+            delete global.RAW_CHARACTERS;
+            delete global.PATH_ICONS;
+            delete global.PATH_ORDER;
+        });
+
+        it('dynamically aggregates unconfigured new paths into filter DOM and keeps 未知 last', () => {
+            global.PATH_ORDER = ['毀滅', '巡獵', '記憶', '歡愉'];
+            global.PATH_ICONS = {
+                '巡獵': 'https://example.com/hunt.png',
+                '歡愉': 'https://example.com/elation.png'
+            };
+            document.body.innerHTML = `
+                <div id="version-items-container"></div>
+                <div id="path-items-container"></div>
+                <div id="elem-items-container"></div>
+                <div id="type-items-container"></div>
+                <div id="buff-mode-container"></div>
+            `;
+
+            const chars = [
+                { name: '未知旅者', path: '未知', elem: '量子', runs: ['5.0上'] },
+                { name: '阿基維利', path: '開拓', elem: '虛數', runs: ['5.0上'] },
+                { name: '希兒', path: '巡獵', elem: '量子', runs: ['1.0上'] },
+                { name: '火花', path: '歡愉', elem: '火', runs: ['4.0上'] }
+            ];
+
+            expect(collectPathValues(chars)).toEqual(['巡獵', '歡愉', '開拓', '未知']);
+
+            renderFilters(chars, ['1.0上', '4.0上', '5.0上'], new Map([['1.0上', 0], ['4.0上', 1], ['5.0上', 2]]));
+
+            const pathValues = Array.from(document.querySelectorAll('#path-items-container .path-item')).map(i => i.value);
+            expect(pathValues).toEqual(['巡獵', '歡愉', '開拓', '未知']);
+
+            const fallbackBadge = document.querySelector('#path-items-container .filter-icon-fallback');
+            expect(fallbackBadge).not.toBeNull();
+            expect(fallbackBadge.textContent).toBe('開');
+        });
+
+        it('gracefully degrades missing CDN icons into glass text badges via buildPathIconHtml and handleIconError', () => {
+            global.PATH_ICONS = { '巡獵': 'https://example.com/hunt.png' };
+
+            const unmappedHtml = buildPathIconHtml('開拓');
+            expect(unmappedHtml).toContain('icon-fallback-badge');
+            expect(unmappedHtml).toContain('>開<');
+
+            document.body.innerHTML = `<div id="icon-wrap">${buildPathIconHtml('Elation')}</div>`;
+            const img = document.querySelector('#icon-wrap img');
+            expect(img).not.toBeNull();
+
+            const badge = handleIconError(img);
+            expect(badge).not.toBeNull();
+            expect(document.querySelector('#icon-wrap img')).toBeNull();
+            expect(document.querySelector('#icon-wrap .icon-fallback-badge').textContent).toBe('E');
+        });
+
+        it('dynamically renders new buff mode buttons, filters by specific buff tag, and syncs ?path= & ?buff= URL params', () => {
+            document.body.innerHTML = `
+                <div id="version-items-container"></div>
+                <div id="path-items-container"></div>
+                <div id="elem-items-container"></div>
+                <div id="type-items-container"></div>
+                <div id="buff-mode-container">
+                    <button type="button" id="buff-toggle-btn" class="toggle-btn buff-mode-btn" data-buff-type="礪爍新輝"></button>
+                </div>
+                <input id="char-search-input" value="">
+                <table id="tracker"></table>
+            `;
+
+            global.PATCH_DATA = [
+                { patch: '1.0上', date: '23/04/26' },
+                { patch: '3.4上', date: '25/07/02' },
+                { patch: '5.0上', date: '26/09/01' }
+            ];
+            global.RAW_CHARACTERS = [
+                { name: '銀狼', path: '虛無', elem: '量子', runs: ['1.0上'], buffs: ['3.4上'] },
+                { name: '阿基維利', path: '開拓', elem: '虛數', runs: ['5.0上'], buffs: ['5.0上'], buffTypes: { '5.0上': '星魂共鳴' } }
+            ];
+            global.PATH_ICONS = {};
+
+            expect(collectBuffTypes(global.RAW_CHARACTERS)).toEqual(['礪爍新輝', '星魂共鳴']);
+
+            restoreStateFromUrl('?path=開拓&buff=星魂共鳴');
+
+            const buffBtns = Array.from(document.querySelectorAll('#buff-mode-container .buff-mode-btn'));
+            expect(buffBtns.map(b => b.dataset.buffType)).toEqual(['礪爍新輝', '星魂共鳴']);
+            expect(buffBtns[0].classList.contains('active')).toBe(false);
+            expect(buffBtns[1].classList.contains('active')).toBe(true);
+            expect(buffBtns[1].classList.contains('buff-mode-fallback')).toBe(true);
+
+            const state = getFilterState();
+            expect(state.selectedPaths).toEqual(['開拓']);
+            expect(state.onlyBuffs).toBe(true);
+            expect(state.selectedBuffs).toEqual(['星魂共鳴']);
+
+            const visibleRows = Array.from(document.querySelectorAll('#tracker tbody tr:not(.empty-row)'))
+                .filter(r => r.style.display !== 'none');
+            expect(visibleRows.length).toBe(1);
+            expect(visibleRows[0].getAttribute('data-name')).toBe('阿基維利');
+            expect(visibleRows[0].querySelector('.buff-badge-fallback')).not.toBeNull();
+
+            const qs = buildUrlSearchParams(state, { charSortMode: 'debut-desc', isPatchAscending: false });
+            const params = new URLSearchParams(qs);
+            expect(params.get('path')).toBe('開拓');
+            expect(params.get('buff')).toBe('星魂共鳴');
+        });
+    });
 });
+
 

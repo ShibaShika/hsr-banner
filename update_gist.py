@@ -34,8 +34,22 @@ PATH_MAP = {
     "Preservation": "存護", "Knight": "存護",
     "Abundance": "豐饒", "Priest": "豐饒",
     "Remembrance": "記憶", "Memory": "記憶",
-    "Elation": "歡愉"
+    "Elation": "歡愉",
+    # 星神命途（未來可能開放為可操作命途），僅做中文化映射，不影響既有判定
+    "Propagation": "繁育",
+    "Order": "秩序",
+    "Trailblaze": "開拓",
+    "Beauty": "純美",
+    "Enigmata": "神秘",
+    "Voracity": "貪饕",
+    "Equilibrium": "平衡"
 }
+PATH_MAP_LOWER = {k.lower(): v for k, v in PATH_MAP.items()}
+KNOWN_PATH_NAMES = set(PATH_MAP.values())
+
+# 前端 js/paths.js 已註冊專屬圖示與排序的「核心命途」；其餘命途一律以動態方式保留並由前端通用降級樣式呈現
+CORE_PATHS = ("毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉")
+UNKNOWN_LABEL = "未知"
 
 ELEM_MAP = {
     "Physical": "物理",
@@ -46,6 +60,22 @@ ELEM_MAP = {
     "Quantum": "量子",
     "Imaginary": "虛數"
 }
+
+# ──────────────────────────────────────────────────
+# 卡池強化模式（Buff Mode）動態標記
+#   資料結構：buffs 維持「版本名稱字串陣列」以完全相容既有資料與 editor.html；
+#   非預設強化模式則額外寫入 buffTypes: { "<版本>": "<強化模式名稱>" }。
+# ──────────────────────────────────────────────────
+DEFAULT_BUFF_TYPE = "礪爍新輝"
+BUFF_TYPE_MAP = {
+    "enhanced": DEFAULT_BUFF_TYPE,
+    "enhancement": DEFAULT_BUFF_TYPE,
+    "礪爍新輝": DEFAULT_BUFF_TYPE,
+    "砺烁新辉": DEFAULT_BUFF_TYPE,
+}
+RE_BUFF_PARAM = re.compile(r'\|\s*(?:enhanced|enhancement|buff_type|buff_mode)\s*=\s*([^|\n}]*)', re.IGNORECASE)
+RE_BUFF_TEMPLATE = re.compile(r'\{\{\s*(?:Enhanced|Enhancement|Buff Mode)\s*(?:\|\s*([^}|]*))?\}\}', re.IGNORECASE)
+RE_BUFF_INLINE = re.compile(r'\(\s*(?:Enhanced|Enhancement)\s*(?:[:：]\s*([^)]*))?\)', re.IGNORECASE)
 
 
 # ──────────────────────────────────────────────────
@@ -105,6 +135,126 @@ def normalize_patch_date(value):
         except ValueError:
             continue
     return None
+
+
+# ──────────────────────────────────────────────────
+# 🧭 命途 / 💠 強化模式 動態正規化（遇到未預設的新值一律「保留」而非報錯）
+# ──────────────────────────────────────────────────
+RE_PATH_PREFIX = re.compile(r'^(?:path(?:\s+of\s+|\s*[/:：]\s*|\s+))?(?:the\s+)?', re.IGNORECASE)
+
+
+def normalize_path_name(raw):
+    """
+    將任意來源（StarRailRes ID、Wiki 文字、Wiki 連結、dict）的命途正規化為繁中名稱。
+    - 已知命途：映射為繁中（如 Hunt / The Hunt / [[Path/Hunt|The Hunt]] ➡️ 巡獵）
+    - 未知新命途：保留清理後的原始名稱（如 Finality ➡️ Finality、繁育 ➡️ 繁育），絕不拋錯
+    - 空值：回傳「未知」
+    """
+    if isinstance(raw, dict):
+        raw = raw.get('name') or raw.get('id') or ''
+    if raw is None:
+        return UNKNOWN_LABEL
+    val = clean_wikitext_value(str(raw))
+    val = re.sub(r'[\[\]{}]', '', val).strip()
+    if not val or val == UNKNOWN_LABEL:
+        return UNKNOWN_LABEL
+    if val in KNOWN_PATH_NAMES:
+        return val
+    stripped = RE_PATH_PREFIX.sub('', val).strip() or val
+    mapped = PATH_MAP_LOWER.get(stripped.lower()) or PATH_MAP_LOWER.get(val.lower())
+    return mapped or stripped
+
+
+def normalize_buff_type(raw):
+    """將強化模式標記正規化；yes/true/空值 ➡️ 預設模式，no/false ➡️ None，未知新模式 ➡️ 保留原名"""
+    if raw is None:
+        return None
+    val = clean_wikitext_value(str(raw)).strip()
+    low = val.lower()
+    if low in ('no', 'false', '0', 'none', 'n'):
+        return None
+    if not val or low in ('yes', 'true', '1', 'y'):
+        return DEFAULT_BUFF_TYPE
+    return BUFF_TYPE_MAP.get(low) or BUFF_TYPE_MAP.get(val) or val
+
+
+def extract_buff_marker(text):
+    """
+    從 Wikitext / 表格文字中保守地擷取強化模式標記，找不到時回傳 None。
+    支援：|enhanced=yes、|buff_type=新模式、{{Enhancement|新模式}}、(Enhanced)、(Enhancement: 新模式)、礪爍新輝
+    """
+    if not text:
+        return None
+    text = str(text)
+    for regex in (RE_BUFF_PARAM, RE_BUFF_TEMPLATE, RE_BUFF_INLINE):
+        m = regex.search(text)
+        if m:
+            return normalize_buff_type(m.group(1) if m.group(1) is not None else 'yes')
+    if '礪爍新輝' in text or '砺烁新辉' in text:
+        return DEFAULT_BUFF_TYPE
+    return None
+
+
+def apply_buff_marker(char, patch, buff_type):
+    """
+    將強化標記整合至角色資料（保留既有 buffs / buffTypes 不覆蓋其他版本）。
+    回傳 True 表示資料有實際變更。
+    """
+    if not char or not patch or not buff_type:
+        return False
+    changed = False
+    buffs = char.get('buffs')
+    if not isinstance(buffs, list):
+        buffs = []
+    if patch not in buffs:
+        buffs.append(patch)
+        changed = True
+    char['buffs'] = buffs
+
+    if buff_type != DEFAULT_BUFF_TYPE:
+        buff_types = char.get('buffTypes')
+        if not isinstance(buff_types, dict):
+            buff_types = {}
+        if buff_types.get(patch) != buff_type:
+            buff_types[patch] = buff_type
+            changed = True
+        char['buffTypes'] = buff_types
+    return changed
+
+
+def get_char_buff_types(char):
+    """取得角色所有出現過的強化模式（buffs 預設為礪爍新輝，buffTypes 可覆寫為新模式）"""
+    types = []
+    buff_types = char.get('buffTypes') if isinstance(char.get('buffTypes'), dict) else {}
+    for b in (char.get('buffs') or []):
+        if isinstance(b, dict):
+            patch, t = b.get('patch'), b.get('type')
+        else:
+            patch, t = b, None
+        raw = t or buff_types.get(patch) or DEFAULT_BUFF_TYPE
+        for item in (raw if isinstance(raw, list) else [raw]):
+            if item and item not in types:
+                types.append(item)
+    return types
+
+
+def collect_paths(chars):
+    """依出現順序收集所有角色的命途（排除空值）"""
+    seen = []
+    for c in chars or []:
+        p = c.get('path')
+        if isinstance(p, str) and p.strip() and p not in seen:
+            seen.append(p)
+    return seen
+
+
+def collect_buff_types(chars):
+    seen = []
+    for c in chars or []:
+        for t in get_char_buff_types(c):
+            if t not in seen:
+                seen.append(t)
+    return seen
 
 
 # ──────────────────────────────────────────────────
@@ -213,15 +363,20 @@ def parse_warp_list_tables(tables, parse_header_date):
             if len(tds) >= 2 and current_ver and current_start_dt:
                 type_text = tds[0].get_text(strip=True)
                 if 'Character' in type_text:
+                    # 動態擷取強化模式標記（如「(Enhanced)」或「(Enhancement: 新模式)」）；無標記時不新增欄位
+                    row_buff_type = extract_buff_marker(tds[1].get_text(' ', strip=True)) or extract_buff_marker(type_text)
                     for a in tds[1].find_all('a'):
                         title = a.get('title')
                         if title and '/' in title and not title.startswith('File:'):
-                            warp_records.append({
+                            record = {
                                 'warp_page': title,
                                 'version': current_ver,
                                 'start_dt': current_start_dt,
                                 'is_collab': is_collab
-                            })
+                            }
+                            if row_buff_type:
+                                record['buff_type'] = row_buff_type
+                            warp_records.append(record)
 
     return warp_records, version_dates
 
@@ -285,6 +440,7 @@ def fetch_fandom_schedules_and_patches(session):
     # 批次查詢卡池對應的 5 星角色
     unique_pages = list(set(r['warp_page'] for r in warp_records))
     page_to_chars = {}
+    page_to_buff = {}
 
     for i in range(0, len(unique_pages), 50):
         batch = unique_pages[i:i + 50]
@@ -312,8 +468,13 @@ def fetch_fandom_schedules_and_patches(session):
                 char_list = [c.strip() for c in raw_chars.split(';') if c.strip()]
                 page_to_chars[title] = char_list
 
+            # 💠 卡池頁面 Wikitext 若帶有強化模式標記，動態保留
+            page_buff = extract_buff_marker(content)
+            if page_buff:
+                page_to_buff[title] = page_buff
+
     schedules = []
-    seen_schedule_keys = set()
+    schedule_index = {}
 
     for r in warp_records:
         wp = r['warp_page']
@@ -323,16 +484,23 @@ def fetch_fandom_schedules_and_patches(session):
         if not run_name:
             continue
 
+        buff_type = r.get('buff_type') or page_to_buff.get(wp)
+
         for char_name in char_list:
             key = (char_name, run_name)
-            if key not in seen_schedule_keys:
-                seen_schedule_keys.add(key)
-                schedules.append({
+            if key not in schedule_index:
+                sched = {
                     'en_name': char_name,
                     'run': run_name,
                     'is_collab': r['is_collab'],
                     'patch_date': r['start_dt'].strftime('%y/%m/%d')
-                })
+                }
+                if buff_type:
+                    sched['buff_type'] = buff_type
+                schedule_index[key] = sched
+                schedules.append(sched)
+            elif buff_type and not schedule_index[key].get('buff_type'):
+                schedule_index[key]['buff_type'] = buff_type
 
     print(f"✅ 成功從 Fandom Wiki 建立 {len(schedules)} 筆角色卡池登場關聯")
     return schedules, new_patches
@@ -515,8 +683,7 @@ def resolve_local_character_info(en_name, en_data, cht_data, sanitized_en_dict=N
         if isinstance(cht_info, dict):
             target_name = cht_info.get("name", en_name)
             db_path = cht_info.get("path")
-            raw_path = db_path.get("name") if isinstance(db_path, dict) else db_path
-            path = PATH_MAP.get(raw_path, raw_path or "未知")
+            path = normalize_path_name(db_path)
 
             db_elem = cht_info.get("element")
             raw_elem = db_elem.get("name") if isinstance(db_elem, dict) else db_elem
@@ -540,7 +707,7 @@ def enrich_character_info(en_name, en_data, cht_data, wiki_char_cache, session, 
             print(f"  ✨ Fandom Wiki 成功動態解析繁中名稱: {en_name} ➡️ {target_name}")
 
         if path == "未知" and w_info.get("path"):
-            path = PATH_MAP.get(w_info["path"], w_info["path"])
+            path = normalize_path_name(w_info["path"])
 
         if elem == "未知" and w_info.get("elem"):
             elem = ELEM_MAP.get(w_info["elem"], w_info["elem"])
@@ -627,11 +794,11 @@ def query_wiki_character_pages_batch(char_names, session):
                 if chosen:
                     info["cht_name"] = chosen
 
-                m_path = re.search(r'\|path\s*=\s*([^\n\|\}]+)', content)
+                m_path = re.search(r'\|path\s*=\s*((?:\[\[[^\]]*\]\]|[^\n\|\}])+)', content)
                 if m_path:
                     info["path"] = clean_wikitext_value(m_path.group(1))
 
-                m_elem = re.search(r'\|(?:combatType|element)\s*=\s*([^\n\|\}]+)', content)
+                m_elem = re.search(r'\|(?:combatType|element)\s*=\s*((?:\[\[[^\]]*\]\]|[^\n\|\}])+)', content)
                 if m_elem:
                     info["elem"] = clean_wikitext_value(m_elem.group(1))
 
@@ -659,6 +826,8 @@ def validate_data_integrity(original_chars, original_patches, new_chars, new_pat
     五道強制安全防護檢驗門檻。
     若有任何一項檢驗不通過，拋出 AssertionError 並立即中斷，絕不寫入專案！
     （註：不可減少／不可逆原則僅限定於非 isPreview 之正式資料，允許預覽資料動態調整）
+    五道門檻通過後會再執行「審計 6」：動態命途／強化模式檢查，僅記錄警示、絕不因新命途或新強化模式熔斷，
+    並回傳 audit_dynamic_tags() 的報告 dict。
     """
     print("\n🛡️ 正在執行五道安全防護檢驗門檻 (Pre-commit Validation)...")
 
@@ -696,7 +865,7 @@ def validate_data_integrity(original_chars, original_patches, new_chars, new_pat
 
     # 門檻 4：版本閉包防護（孤兒版本防護）
     for c in new_chars:
-        for r in c.get('runs', []):
+        for r in (c.get('runs') or []):
             if r not in patch_names_set:
                 raise AssertionError(
                     f"❌ 門檻 4 失敗：角色 [{c.get('name')}] 的排程版本 [{r}] 不存在於版本清單中！"
@@ -710,7 +879,7 @@ def validate_data_integrity(original_chars, original_patches, new_chars, new_pat
         p.get('patch') for p in new_patches if p.get('isPreview')
     }
     original_char_map = {
-        c.get('name'): set(r for r in c.get('runs', []) if r not in preview_patch_names)
+        c.get('name'): set(r for r in (c.get('runs') or []) if r not in preview_patch_names)
         for c in original_chars
         if c.get('name') and not c.get('isPreview')
     }
@@ -718,7 +887,7 @@ def validate_data_integrity(original_chars, original_patches, new_chars, new_pat
         name = c.get('name')
         if name in original_char_map:
             orig_runs = original_char_map[name]
-            new_runs = set(c.get('runs', []))
+            new_runs = set(c.get('runs') or [])
             if not orig_runs.issubset(new_runs):
                 missing = orig_runs - new_runs
                 raise AssertionError(
@@ -727,11 +896,69 @@ def validate_data_integrity(original_chars, original_patches, new_chars, new_pat
     print("  ✅ 門檻 5 通過：所有既有角色的歷史排程完全被繼承，未發生歷史資料縮水")
     print("🎉 五道安全檢驗全數通過！資料結構完整且安全無虞。\n")
 
+    # 審計 6（僅警示、絕不熔斷）：動態命途與強化模式自適應檢查
+    return audit_dynamic_tags(original_chars, new_chars, patch_names_set)
+
+
+def audit_dynamic_tags(original_chars, new_chars, patch_names_set=None):
+    """
+    🧭💠 動態命途 / 強化模式審計：遇到未預設的新命途、新強化模式只會「記錄並保留」，不會拋出例外。
+    回傳報告 dict：
+      dynamic_paths          目前資料中非核心（js/paths.js 未註冊）的命途
+      introduced_paths       本次新出現的命途
+      buff_types             目前資料中所有強化模式
+      introduced_buff_types  本次新出現的強化模式
+      warnings               非致命資料提示（如強化版本不在版本清單中）
+    """
+    warnings = []
+    orig_paths = set(collect_paths(original_chars))
+    new_paths = collect_paths(new_chars)
+    dynamic_paths = [p for p in new_paths if p not in CORE_PATHS and p != UNKNOWN_LABEL]
+    introduced_paths = [p for p in new_paths if p not in orig_paths and p != UNKNOWN_LABEL]
+
+    orig_buff_types = set(collect_buff_types(original_chars))
+    buff_types = collect_buff_types(new_chars)
+    introduced_buff_types = [t for t in buff_types if t not in orig_buff_types]
+
+    for c in new_chars or []:
+        name = c.get('name')
+        raw_path = c.get('path')
+        if raw_path is not None and not isinstance(raw_path, str):
+            warnings.append(f"角色 [{name}] 的命途欄位型別非字串：{raw_path!r}")
+        buffs = c.get('buffs') or []
+        buff_patches = [b.get('patch') if isinstance(b, dict) else b for b in buffs]
+        if patch_names_set is not None:
+            for bp in buff_patches:
+                if bp and bp not in patch_names_set:
+                    warnings.append(f"角色 [{name}] 的強化版本 [{bp}] 不存在於版本清單中")
+        bt = c.get('buffTypes')
+        if isinstance(bt, dict):
+            for bp in bt:
+                if bp not in buff_patches:
+                    warnings.append(f"角色 [{name}] 的強化模式標記 [{bp}] 沒有對應的 buffs 版本")
+
+    if dynamic_paths:
+        print(f"  🧭 審計 6：偵測到非核心命途 {dynamic_paths}，已自動保留並交由前端通用樣式呈現")
+    if introduced_buff_types:
+        print(f"  💠 審計 6：偵測到新強化模式 {introduced_buff_types}，已自動保留並整合")
+    for w in warnings:
+        print(f"  ⚠️ 審計 6（非致命）：{w}")
+    if not dynamic_paths and not introduced_buff_types and not warnings:
+        print("  ✅ 審計 6 通過：命途與強化模式皆屬已註冊範圍")
+
+    return {
+        'dynamic_paths': dynamic_paths,
+        'introduced_paths': introduced_paths,
+        'buff_types': buff_types,
+        'introduced_buff_types': introduced_buff_types,
+        'warnings': warnings,
+    }
+
 
 # ──────────────────────────────────────────────────
 # 輔助函式
 # ──────────────────────────────────────────────────
-def _format_summary_text(new_patches_added, patch_dates_updated_log, new_chars_added, runs_added_log, name_upgraded_log):
+def _format_summary_text(new_patches_added, patch_dates_updated_log, new_chars_added, runs_added_log, name_upgraded_log, dynamic_tags_log=None):
     """產生摘要文字"""
     summary_lines = []
     if new_patches_added:
@@ -744,13 +971,28 @@ def _format_summary_text(new_patches_added, patch_dates_updated_log, new_chars_a
         summary_lines.append(f"📅 新增排程登場 ({len(runs_added_log)} 項):\n  • " + "\n  • ".join(runs_added_log))
     if name_upgraded_log:
         summary_lines.append(f"🔄 名稱繁體中文化 ({len(name_upgraded_log)} 位):\n  • " + "\n  • ".join(name_upgraded_log))
+    if dynamic_tags_log:
+        summary_lines.append(f"🧭 動態命途／強化模式 ({len(dynamic_tags_log)} 項):\n  • " + "\n  • ".join(dynamic_tags_log))
     return "\n".join(summary_lines)
+
+
+def _build_dynamic_tags_log(report):
+    """將 audit_dynamic_tags 報告轉為摘要條目（容忍非 dict 輸入，例如測試中的 Mock）"""
+    if not isinstance(report, dict):
+        return []
+    lines = []
+    for p in report.get('introduced_paths') or []:
+        lines.append(f"新命途：{p}")
+    for t in report.get('introduced_buff_types') or []:
+        lines.append(f"新強化模式：{t}")
+    return lines
 
 
 def _generate_summary_and_save(
     original_chars, original_patches, merged_chars, merged_patches,
     new_patches_added, patch_dates_updated_log, new_chars_added,
-    runs_added_log, name_upgraded_log, patches_file, chars_file
+    runs_added_log, name_upgraded_log, patches_file, chars_file,
+    dynamic_tags_log=None
 ):
     """比對變更、寫入檔案並產生摘要"""
     has_patches_changed = json.dumps(original_patches) != json.dumps(merged_patches)
@@ -767,7 +1009,7 @@ def _generate_summary_and_save(
     # 產生日誌摘要檔案（供 CI Commit Message 使用）
     summary_text = _format_summary_text(
         new_patches_added, patch_dates_updated_log, new_chars_added,
-        runs_added_log, name_upgraded_log
+        runs_added_log, name_upgraded_log, dynamic_tags_log
     )
     with open(".update_summary.md", "w", encoding="utf-8") as f:
         f.write(summary_text)
@@ -823,6 +1065,7 @@ def _merge_characters(original_chars, all_incoming_schedules, session):
         run = sched['run']
         is_collab = sched.get('is_collab', False)
         is_preview = sched.get('is_preview', False)
+        buff_type = normalize_buff_type(sched.get('buff_type')) if sched.get('buff_type') else None
 
         target_cid, target_name, path, elem = enrich_character_info(
             en_name, en_data, cht_data, wiki_char_cache, session, sanitized_en_dict
@@ -881,6 +1124,10 @@ def _merge_characters(original_chars, all_incoming_schedules, session):
                 elif run not in matched_char['runs']:
                     matched_char['runs'].append(run)
                     runs_added_log.append(f"{matched_char['name']} ➡️ {run}")
+
+            # 💠 整合強化模式標記（保留既有 buffs / buffTypes）
+            if buff_type and apply_buff_marker(matched_char, run, buff_type):
+                runs_added_log.append(f"{matched_char['name']} 💠 {run}【{buff_type}】")
         else:
             new_char = {
                 "cid": target_cid or "",
@@ -894,12 +1141,14 @@ def _merge_characters(original_chars, all_incoming_schedules, session):
                 new_char["isCollab"] = run
             if is_preview:
                 new_char["isPreview"] = True
+            if buff_type:
+                apply_buff_marker(new_char, run, buff_type)
 
             merged_chars.append(new_char)
             if target_cid:
                 existing_char_map_by_cid[target_cid] = new_char
             existing_char_map_by_name[target_name] = new_char
-            new_chars_added.append(f"{target_name} ({path}/{elem}) ➡️ {run}")
+            new_chars_added.append(f"{target_name} ({path}/{elem}) ➡️ {run}" + (f"【{buff_type}】" if buff_type else ""))
 
     return merged_chars, new_chars_added, runs_added_log, name_upgraded_log
 
@@ -1009,14 +1258,15 @@ def execute_auto_update():
         original_chars, all_incoming_schedules, session
     )
 
-    # 5. 執行五道安全防護檢驗門檻
-    validate_data_integrity(original_chars, original_patches, merged_chars, merged_patches)
+    # 5. 執行五道安全防護檢驗門檻（+ 審計 6：動態命途／強化模式，僅警示不熔斷）
+    audit_report = validate_data_integrity(original_chars, original_patches, merged_chars, merged_patches)
 
     # 6. 比對是否有實質變更、寫入本地專案檔案並產生摘要檔案
     return _generate_summary_and_save(
         original_chars, original_patches, merged_chars, merged_patches,
         new_patches_added, patch_dates_updated_log, new_chars_added,
-        runs_added_log, name_upgraded_log, patches_file, chars_file
+        runs_added_log, name_upgraded_log, patches_file, chars_file,
+        dynamic_tags_log=_build_dynamic_tags_log(audit_report)
     )
 
 

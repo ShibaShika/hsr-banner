@@ -30,6 +30,268 @@ function getFallbackAvatar(name) {
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
+/* ==========================================================================
+   🧭 命途 / 💠 強化模式：動態聚合與「深空琉璃」通用降級（Fallback）
+   - 篩選器選項一律由角色資料動態收集；PATH_ORDER / BUFF_ORDER 只決定已知值的排序。
+   - 未註冊圖示或樣式的新值，自動降級為純文字琉璃標章與通用金色徽章。
+   ========================================================================== */
+const DEFAULT_PATH_ORDER = ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
+const DEFAULT_ELEM_ORDER = ["物理", "火", "冰", "雷", "風", "量子", "虛數", "未知"];
+const STAR_RAIL_PATH_ICON_BASE = 'https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/';
+const FALLBACK_BUFF_ICON = '◆';
+const UNKNOWN_VALUE_LABEL = '未知';
+
+function getPathOrder() {
+    return (typeof PATH_ORDER !== 'undefined' && Array.isArray(PATH_ORDER)) ? PATH_ORDER : DEFAULT_PATH_ORDER;
+}
+
+function getPathIconMap() {
+    return (typeof PATH_ICONS !== 'undefined' && PATH_ICONS) ? PATH_ICONS : null;
+}
+
+function getDefaultBuffType() {
+    return (typeof DEFAULT_BUFF_TYPE !== 'undefined' && DEFAULT_BUFF_TYPE) ? DEFAULT_BUFF_TYPE : '礪爍新輝';
+}
+
+// 依註冊表排序：已知值（依註冊順序）→ 新值（依資料出現順序）→ 指定置底值（如「未知」）
+function orderByRegistry(values, order, tailValues = []) {
+    const registry = Array.isArray(order) ? order : [];
+    const known = registry.filter(v => values.includes(v));
+    const extra = values.filter(v => !registry.includes(v) && !tailValues.includes(v));
+    const tail = tailValues.filter(v => values.includes(v) && !registry.includes(v));
+    return [...known, ...extra, ...tail];
+}
+
+function collectFieldValues(chars, key, order, tailValues = []) {
+    const seen = [];
+    (chars || []).forEach(c => {
+        const val = c ? c[key] : null;
+        if (typeof val === 'string' && val.trim() && !seen.includes(val)) seen.push(val);
+    });
+    return orderByRegistry(seen, order, tailValues);
+}
+
+// 動態提取所有出現過的命途（含未預設的新命途）
+function collectPathValues(chars) {
+    return collectFieldValues(chars, 'path', getPathOrder(), [UNKNOWN_VALUE_LABEL]);
+}
+
+function collectElemValues(chars) {
+    const order = (typeof ELEM_ORDER !== 'undefined' && Array.isArray(ELEM_ORDER)) ? ELEM_ORDER : DEFAULT_ELEM_ORDER;
+    return collectFieldValues(chars, 'elem', order, [UNKNOWN_VALUE_LABEL]);
+}
+
+function isRegisteredPath(path) {
+    if (!path) return false;
+    const icons = getPathIconMap();
+    return Boolean((icons && icons[path]) || getPathOrder().includes(path));
+}
+
+// 命途圖示：已註冊 → 專屬圖示；英文原名新命途 → 嘗試 CDN 慣例路徑（失敗時 onerror 降級）；其餘 → 無圖示
+function getPathIconUrl(path) {
+    if (!path) return '';
+    const icons = getPathIconMap();
+    if (icons && icons[path]) return icons[path];
+    if (/^[A-Za-z][A-Za-z ]*$/.test(path)) {
+        return `${STAR_RAIL_PATH_ICON_BASE}${path.replace(/\s+/g, '')}.png`;
+    }
+    return '';
+}
+
+// 解析角色強化紀錄：buffs 字串 = 預設模式；buffTypes[版本] 可覆寫為新模式；亦相容 { patch, type } 物件格式
+function getCharBuffEntries(char) {
+    if (!char || !Array.isArray(char.buffs)) return [];
+    const typeMap = (char.buffTypes && typeof char.buffTypes === 'object') ? char.buffTypes : {};
+    const defaultType = getDefaultBuffType();
+    const entries = [];
+    char.buffs.forEach(b => {
+        let patch = b;
+        let rawType = null;
+        if (b && typeof b === 'object') {
+            patch = b.patch;
+            rawType = b.type;
+        }
+        if (!patch) return;
+        if (!rawType && Object.prototype.hasOwnProperty.call(typeMap, patch)) {
+            rawType = typeMap[patch];
+        }
+        const types = (Array.isArray(rawType) ? rawType : [rawType]).filter(Boolean);
+        (types.length > 0 ? types : [defaultType]).forEach(type => {
+            entries.push({ patch: String(patch), type: String(type) });
+        });
+    });
+    return entries;
+}
+
+function getCharBuffTypes(char) {
+    const types = [];
+    getCharBuffEntries(char).forEach(e => {
+        if (!types.includes(e.type)) types.push(e.type);
+    });
+    return types;
+}
+
+// 動態提取所有出現過的強化模式標籤
+function collectBuffTypes(chars) {
+    const seen = [];
+    (chars || []).forEach(c => {
+        getCharBuffTypes(c).forEach(t => {
+            if (!seen.includes(t)) seen.push(t);
+        });
+    });
+    const order = (typeof BUFF_ORDER !== 'undefined' && Array.isArray(BUFF_ORDER)) ? BUFF_ORDER : [getDefaultBuffType()];
+    return orderByRegistry(seen, order);
+}
+
+function getBuffMeta(type) {
+    const registry = (typeof BUFF_META !== 'undefined' && BUFF_META) ? BUFF_META : {};
+    if (Object.prototype.hasOwnProperty.call(registry, type)) {
+        const meta = registry[type] || {};
+        return { icon: meta.icon || '▲', desc: meta.desc || '角色能力加強', isFallback: false };
+    }
+    if (type === getDefaultBuffType()) {
+        return { icon: '▲', desc: '角色能力加強', isFallback: false };
+    }
+    return { icon: FALLBACK_BUFF_ICON, desc: '卡池強化', isFallback: true };
+}
+
+function buildBuffTitle(types) {
+    return types.map(t => `【${t}】${getBuffMeta(t).desc}`).join('、');
+}
+
+function buildBuffBadgeHtml(types) {
+    if (!types || types.length === 0) return '';
+    const primary = types[0];
+    const meta = getBuffMeta(primary);
+    const title = escapeHtml(buildBuffTitle(types));
+    if (!meta.isFallback && types.length === 1) {
+        return `<span class="buff-badge" title="${title}">${escapeHtml(meta.icon)}</span>`;
+    }
+    const fallbackCls = meta.isFallback ? ' buff-badge-fallback' : '';
+    const multiCls = types.length > 1 ? ' buff-badge-multi' : '';
+    return `<span class="buff-badge${fallbackCls}${multiCls}" data-buff-type="${escapeHtml(primary)}" title="${title}">${escapeHtml(meta.icon)}</span>`;
+}
+
+// 純文字琉璃標章：取名稱首字（支援 CJK 與代理對）
+function getBadgeGlyph(label) {
+    const chars = Array.from(String(label == null ? '' : label).trim());
+    return chars.length > 0 ? chars[0].toUpperCase() : '?';
+}
+
+function buildFallbackBadgeHtml(label, extraClass = '') {
+    const safe = escapeHtml(label);
+    return `<span class="icon-fallback-badge${extraClass ? ' ' + extraClass : ''}" title="${safe}" aria-label="${safe}" data-fallback-label="${safe}">${escapeHtml(getBadgeGlyph(label))}</span>`;
+}
+
+function createFallbackBadgeElement(label, extraClass = '') {
+    const span = document.createElement('span');
+    span.className = `icon-fallback-badge${extraClass ? ' ' + extraClass : ''}`;
+    span.textContent = getBadgeGlyph(label);
+    span.title = label || '';
+    span.setAttribute('aria-label', label || '');
+    span.dataset.fallbackLabel = label || '';
+    return span;
+}
+
+// 🖼️ 圖示載入失敗（CDN 尚無圖示）時，原地替換為純文字琉璃標章
+function handleIconError(img) {
+    if (!img || img._hsrFallbackApplied) return null;
+    img._hsrFallbackApplied = true;
+    img.onerror = null;
+    const label = img.getAttribute('data-fallback-label') || img.getAttribute('alt') || img.getAttribute('title') || '';
+    const extraClass = img.getAttribute('data-fallback-class') || '';
+    const badge = createFallbackBadgeElement(label, extraClass);
+    if (img.parentNode) {
+        img.parentNode.replaceChild(badge, img);
+    }
+    return badge;
+}
+
+if (typeof window !== 'undefined') {
+    window.handleIconError = handleIconError;
+}
+
+function buildPathIconHtml(path) {
+    if (!path) return '<div class="char-path-icon"></div>';
+    const iconUrl = getPathIconUrl(path);
+    if (!iconUrl) return buildFallbackBadgeHtml(path, 'char-path-icon path-icon-fallback');
+    const safe = escapeHtml(path);
+    return `<img src="${iconUrl}" class="char-path-icon" title="${safe}" alt="${safe}" data-fallback-class="char-path-icon path-icon-fallback" onerror="handleIconError(this)">`;
+}
+
+// 💠 強化模式按鈕：依資料動態渲染
+function getBuffModeButtons() {
+    if (typeof document === 'undefined') return [];
+    const buttons = Array.from(document.querySelectorAll('.buff-mode-btn'));
+    const legacy = document.getElementById('buff-toggle-btn');
+    if (legacy && !buttons.includes(legacy)) buttons.push(legacy);
+    return buttons;
+}
+
+function getButtonBuffType(btn) {
+    return (btn && btn.dataset && btn.dataset.buffType) ? btn.dataset.buffType : getDefaultBuffType();
+}
+
+function getActiveBuffTypes() {
+    return getBuffModeButtons().filter(b => b.classList.contains('active')).map(getButtonBuffType);
+}
+
+function setButtonActive(btn, isActive) {
+    btn.classList.toggle('active', Boolean(isActive));
+    btn.setAttribute('aria-pressed', String(Boolean(isActive)));
+}
+
+function buildBuffModeButton(type, isActive) {
+    const meta = getBuffMeta(type);
+    const isDefault = type === getDefaultBuffType();
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `toggle-btn buff-mode-btn${meta.isFallback ? ' buff-mode-fallback' : ''}`;
+    if (isDefault) btn.id = 'buff-toggle-btn';
+    btn.dataset.buffType = type;
+    btn.setAttribute('data-tooltip', isDefault ? '僅顯示加強過的角色' : `僅顯示【${type}】強化過的角色`);
+    setButtonActive(btn, isActive);
+
+    const icon = document.createElement('span');
+    icon.className = 'toggle-icon';
+    icon.textContent = meta.icon;
+    const label = document.createElement('span');
+    label.className = 'buff-mode-label';
+    label.textContent = type;
+
+    btn.appendChild(icon);
+    btn.appendChild(document.createTextNode(' '));
+    btn.appendChild(label);
+    return btn;
+}
+
+function renderBuffModeButtons(chars) {
+    const container = document.getElementById('buff-mode-container');
+    if (!container) return;
+    const detected = collectBuffTypes(chars);
+    const types = detected.length > 0 ? detected : [getDefaultBuffType()];
+    const activeTypes = new Set(getActiveBuffTypes());
+    const fragment = document.createDocumentFragment();
+    types.forEach(type => fragment.appendChild(buildBuffModeButton(type, activeTypes.has(type))));
+    container.replaceChildren(fragment);
+}
+
+// 依 URL / 程式狀態設定強化按鈕：types 為 null 時代表「預設模式」（舊版 buff=1）
+function applyBuffSelection(onlyBuffs, types) {
+    const buttons = getBuffModeButtons();
+    if (buttons.length === 0) return;
+    if (Array.isArray(types) && types.length > 0) {
+        const typeSet = new Set(types);
+        buttons.forEach(btn => setButtonActive(btn, typeSet.has(getButtonBuffType(btn))));
+        return;
+    }
+    const defaultType = getDefaultBuffType();
+    const target = onlyBuffs
+        ? (buttons.find(btn => getButtonBuffType(btn) === defaultType) || buttons[0])
+        : null;
+    buttons.forEach(btn => setButtonActive(btn, btn === target));
+}
+
 // 格式化表頭日期
 function formatHeaderDate(dateStr) {
     const parts = dateStr.split('/');
@@ -457,17 +719,32 @@ function parseUrlState(searchStr) {
     const rawPreview = params.get('preview');
     const showPreview = rawPreview !== null ? (rawPreview !== '0' && rawPreview !== 'false') : null;
 
-    return {
+    // 💠 buff=1 / true：舊版語意（預設強化模式）；buff=模式A,模式B：指定強化模式（支援未來新模式）
+    const rawBuff = params.get('buff');
+    let onlyBuffs = false;
+    let buffTypes = null;
+    if (rawBuff === '1' || rawBuff === 'true') {
+        onlyBuffs = true;
+    } else if (rawBuff && rawBuff !== '0' && rawBuff !== 'false') {
+        buffTypes = parseList('buff');
+        onlyBuffs = buffTypes.length > 0;
+    }
+
+    const state = {
         versions: parseList('ver'),
         paths: parseList('path'),
         elems: parseList('elem'),
         types: parseList('type'),
         keyword: params.get('q') ? params.get('q').trim() : '',
-        onlyBuffs: params.get('buff') === '1' || params.get('buff') === 'true',
+        onlyBuffs,
         showPreview,
         charSort,
         patchSortAsc
     };
+    if (buffTypes && buffTypes.length > 0) {
+        state.buffTypes = buffTypes;
+    }
+    return state;
 }
 
 // 🔗 根據當前篩選與排序狀態建構 Query String
@@ -491,7 +768,9 @@ function buildUrlSearchParams(filterState, extraState = {}) {
         params.set('q', filterState.keyword);
     }
     if (filterState.onlyBuffs) {
-        params.set('buff', '1');
+        const buffTypes = Array.isArray(filterState.selectedBuffs) ? filterState.selectedBuffs : [];
+        const isDefaultOnly = buffTypes.length === 0 || (buffTypes.length === 1 && buffTypes[0] === getDefaultBuffType());
+        params.set('buff', isDefaultOnly ? '1' : buffTypes.join(','));
     }
 
     const mode = extraState.charSortMode !== undefined ? extraState.charSortMode : charSortMode;
@@ -569,10 +848,7 @@ function restoreStateFromUrl(searchStr) {
             searchInput.value = parsed.keyword;
         }
 
-        const buffToggleBtn = document.getElementById('buff-toggle-btn');
-        if (buffToggleBtn) {
-            buffToggleBtn.classList.toggle('active', parsed.onlyBuffs);
-        }
+        applyBuffSelection(parsed.onlyBuffs, parsed.buffTypes || null);
 
         updateSortControlsUI();
     } finally {
@@ -697,10 +973,8 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
     });
     const uniqueVersions = Array.from(versionSet).sort((a, b) => parseFloat(a) - parseFloat(b));
 
-    const pathOrder = (typeof PATH_ORDER !== 'undefined') ? PATH_ORDER : ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
-    const uniquePaths = pathOrder.filter(p => activeCharacters.some(c => c.path === p));
-    const elemOrder = (typeof ELEM_ORDER !== 'undefined') ? ELEM_ORDER : ["物理", "火", "冰", "雷", "風", "量子", "虛數", "未知"];
-    const uniqueElems = elemOrder.filter(e => activeCharacters.some(c => c.elem === e));
+    const uniquePaths = collectPathValues(activeCharacters);
+    const uniqueElems = collectElemValues(activeCharacters);
 
     const currentCheckedVersions = new Set(Array.from(document.querySelectorAll('.version-item:checked')).map(i => i.value));
     const currentCheckedPaths = new Set(Array.from(document.querySelectorAll('.path-item:checked')).map(i => i.value));
@@ -746,11 +1020,18 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
                 const img = document.createElement('img');
                 img.src = iconUrl;
                 img.alt = val;
+                img.title = val;
+                img.dataset.fallbackLabel = val;
+                img.dataset.fallbackClass = 'filter-icon-fallback';
                 img.style.width = '16px';
                 img.style.height = '16px';
                 img.style.flexShrink = '0';
                 img.style.filter = 'drop-shadow(0 0 1.5px rgba(0,0,0,0.9))';
+                img.setAttribute('onerror', 'handleIconError(this)');
+                img.onerror = function () { handleIconError(this); };
                 label.appendChild(img);
+            } else if (iconMap) {
+                label.appendChild(createFallbackBadgeElement(val, 'filter-icon-fallback'));
             }
             label.appendChild(document.createTextNode(val));
             fragment.appendChild(label);
@@ -772,6 +1053,8 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
         currentCheckedElems,
         typeof ELEM_ICONS !== 'undefined' ? ELEM_ICONS : null
     );
+
+    renderBuffModeButtons(activeCharacters);
 
     const typeContainer = document.getElementById('type-items-container');
     if (typeContainer && typeContainer.children.length === 0) {
@@ -911,6 +1194,7 @@ function buildCharacterHistory(char, patchesList, patchIndexMap) {
 
 function buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchName, avatarUrl, fallbackUrl) {
     let html = '';
+    const buffEntries = getCharBuffEntries(char);
 
     finalHistory.forEach((cell, cellIdx) => {
         if (cell.status === 'HIDDEN') return;
@@ -922,9 +1206,12 @@ function buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchNa
         if (isCurrentCol) currentColClass = ' current-patch-col';
         else if (isPreviewCol) currentColClass = ' preview-patch-col';
 
-        const cellHasBuff = char.buffs && patchObj && char.buffs.includes(patchObj.patch);
-        const buffBadgeHtml = cellHasBuff ? '<span class="buff-badge" title="【礪爍新輝】角色能力加強">▲</span>' : '';
-        const buffTitleAttr = cellHasBuff ? ' title="【礪爍新輝】角色能力加強"' : '';
+        const cellBuffTypes = (patchObj && patchObj.patch)
+            ? buffEntries.filter(e => e.patch === patchObj.patch).map(e => e.type)
+            : [];
+        const cellHasBuff = cellBuffTypes.length > 0;
+        const buffBadgeHtml = cellHasBuff ? buildBuffBadgeHtml(cellBuffTypes) : '';
+        const buffTitleAttr = cellHasBuff ? ` title="${escapeHtml(buildBuffTitle(cellBuffTypes))}"` : '';
 
         let cls = '';
         let content = '';
@@ -1005,11 +1292,12 @@ function buildCharPopoverHtml(data) {
     const isCollab = data.isCollab === 'true' || data.isCollab === true;
     const isTerm = data.isTerm === 'true' || data.isTerm === true;
     const isOverdue = data.isOverdue === 'true' || data.isOverdue === true;
+    const isFallbackPath = data.charPath ? !isRegisteredPath(data.charPath) : false;
 
     const tagsHtml = `
         <span class="popover-tags">
             ${elem ? `<span class="popover-tag">${elem}</span>` : ''}
-            ${path ? `<span class="popover-tag">${path}</span>` : ''}
+            ${path ? `<span class="popover-tag${isFallbackPath ? ' popover-tag-fallback' : ''}">${path}</span>` : ''}
         </span>
     `;
 
@@ -1126,21 +1414,25 @@ function getCharacterType(char) {
 function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexMap, displayPatches, activePatchName) {
     const fallbackUrl = getFallbackAvatar(char.name);
     const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
-    const pathIconUrl = PATH_ICONS[char.path] || "";
+    const pathIconHtml = buildPathIconHtml(char.path);
     const parsedSort = parseSortMode(charSortMode, isCharAscending);
     const isCustomRankSort = parsedSort.field === 'wait' || parsedSort.field === 'runs';
     const seqNum = isCustomRankSort ? (index + 1) : (isCharAscending ? (index + 1) : (totalChars - index));
 
     const charType = getCharacterType(char);
-    const hasBuff = char.buffs && char.buffs.length > 0;
+    const buffTypes = getCharBuffTypes(char);
+    const hasBuff = buffTypes.length > 0;
+    const buffTypesAttr = buffTypes.length > 0 ? ` data-buff-types="${escapeHtml(buffTypes.join(','))}"` : '';
+    const isUnregisteredPath = char.path && !isRegisteredPath(char.path);
+    const unregisteredPathAttr = isUnregisteredPath ? ' data-unregistered-path="true"' : '';
     const majorVer = getCharDebutMajorVersion(char, patchesList, patchIndexMap);
     const debutVer = getCharDebutVersion(char, patchesList, patchIndexMap);
 
     const isCharPreview = Boolean(char.isPreview);
     const stats = calculateCharStats(char, patchesList, activePatchName, patchIndexMap);
 
-    let html = `<tr data-path="${escapeHtml(char.path)}" data-elem="${escapeHtml(char.elem)}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${escapeHtml(majorVer)}" data-name="${escapeHtml(char.name)}" data-is-preview="${isCharPreview}">
-        <td class="bg-${escapeHtml(char.elem)}">
+    let html = `<tr data-path="${escapeHtml(char.path)}" data-elem="${escapeHtml(char.elem)}" data-type="${charType}" data-has-buff="${hasBuff}"${buffTypesAttr} data-major-version="${escapeHtml(majorVer)}" data-name="${escapeHtml(char.name)}" data-is-preview="${isCharPreview}"${unregisteredPathAttr}>
+        <td class="bg-${escapeHtml(char.elem)}${isUnregisteredPath ? ' path-fallback-cell' : ''}">
             <div class="char-info-cell"
                  data-char-name="${escapeHtml(char.name)}"
                  data-char-elem="${escapeHtml(char.elem)}"
@@ -1154,7 +1446,7 @@ function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexM
                  data-is-term="${Boolean(stats.isTermActive)}"
                  data-is-preview="${isCharPreview}">
                 <span class="char-seq">${seqNum}</span>
-                ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${escapeHtml(char.path)}">` : '<div class="char-path-icon"></div>'}
+                ${pathIconHtml}
                 <img src="${avatarUrl}" class="char-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
                 <span class="char-name">${escapeHtml(char.name)}</span>
                 ${isCharPreview ? '<span class="preview-badge" title="【預覽角色】">🔮</span>' : ''}
@@ -1340,8 +1632,18 @@ function setupFilterPanels() {
     });
 }
 
+function bindBuffModeButtons() {
+    getBuffModeButtons().forEach(btn => {
+        if (btn._hsrBuffBound) return;
+        btn._hsrBuffBound = true;
+        btn.addEventListener('click', () => {
+            setButtonActive(btn, !btn.classList.contains('active'));
+            applyFilters();
+        });
+    });
+}
+
 function setupUtilityToggles() {
-    const buffToggleBtn = document.getElementById('buff-toggle-btn');
     const previewToggleBtn = document.getElementById('preview-toggle-btn');
 
     if (previewToggleBtn) {
@@ -1355,18 +1657,14 @@ function setupUtilityToggles() {
         });
     }
 
-    buffToggleBtn?.addEventListener('click', () => {
-        buffToggleBtn.classList.toggle('active');
-        applyFilters();
-    });
+    bindBuffModeButtons();
 }
 
 function clearAllFilters() {
     document.querySelectorAll('.version-item, .path-item, .elem-item, .type-item').forEach(i => { i.checked = false; });
     const searchInput = document.getElementById('char-search-input');
-    const buffToggleBtn = document.getElementById('buff-toggle-btn');
     if (searchInput) searchInput.value = '';
-    buffToggleBtn?.classList.remove('active');
+    getBuffModeButtons().forEach(btn => setButtonActive(btn, false));
     applyFilters();
 }
 
@@ -1742,21 +2040,36 @@ function rebindControlListeners() {
     elemItems.forEach(item => item.addEventListener('change', applyFilters));
     typeItems.forEach(item => item.addEventListener('change', applyFilters));
 
+    bindBuffModeButtons();
     applyFilters();
 }
 
 function getFilterState() {
     const searchInput = document.getElementById('char-search-input');
-    const buffToggleBtn = document.getElementById('buff-toggle-btn');
-    
-    return {
+    const activeBuffs = getActiveBuffTypes();
+    const onlyBuffs = activeBuffs.length > 0;
+    const state = {
         selectedVersions: Array.from(document.querySelectorAll('.version-item')).filter(i => i.checked).map(i => i.value),
         selectedPaths: Array.from(document.querySelectorAll('.path-item')).filter(i => i.checked).map(i => i.value),
         selectedElems: Array.from(document.querySelectorAll('.elem-item')).filter(i => i.checked).map(i => i.value),
         selectedTypes: Array.from(document.querySelectorAll('.type-item')).filter(i => i.checked).map(i => i.value),
         keyword: searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '',
-        onlyBuffs: buffToggleBtn ? buffToggleBtn.classList.contains('active') : false
+        onlyBuffs
     };
+
+    const defaultType = getDefaultBuffType();
+    const hasCustomBuffSelection = activeBuffs.some(t => t !== defaultType) || activeBuffs.length > 1;
+    if (hasCustomBuffSelection) {
+        state.selectedBuffs = activeBuffs;
+    } else {
+        Object.defineProperty(state, 'selectedBuffs', {
+            value: activeBuffs,
+            enumerable: false,
+            configurable: true,
+            writable: true
+        });
+    }
+    return state;
 }
 
 function updateFilterUI(state) {
@@ -1802,7 +2115,16 @@ function isRowMatchingFilters(rowData, state) {
     const matchElem = state.selectedElems.length === 0 || state.selectedElems.includes(rowData.elem);
     const matchType = state.selectedTypes.length === 0 || state.selectedTypes.includes(rowData.type);
     const matchName = state.keyword === '' || rowData.name.includes(state.keyword);
-    const matchBuff = !state.onlyBuffs || rowData.hasBuff;
+    const selectedBuffs = Array.isArray(state.selectedBuffs) ? state.selectedBuffs : [];
+    let matchBuff = true;
+    if (selectedBuffs.length > 0) {
+        const rowBuffs = Array.isArray(rowData.buffTypes) && rowData.buffTypes.length > 0
+            ? rowData.buffTypes
+            : (rowData.hasBuff ? [getDefaultBuffType()] : []);
+        matchBuff = selectedBuffs.some(type => rowBuffs.includes(type));
+    } else if (state.onlyBuffs) {
+        matchBuff = Boolean(rowData.hasBuff);
+    }
 
     return matchVersion && matchPath && matchElem && matchType && matchName && matchBuff;
 }
@@ -1811,15 +2133,23 @@ function filterTableRows(table, state) {
     let rowData = cachedRowData.get(table);
     if (!rowData) {
         const rows = table.querySelectorAll('tbody tr:not(.empty-row)');
-        rowData = Array.from(rows, row => ({
-            row,
-            majorVer: row.getAttribute('data-major-version'),
-            path: row.getAttribute('data-path'),
-            elem: row.getAttribute('data-elem'),
-            type: row.getAttribute('data-type'),
-            hasBuff: row.getAttribute('data-has-buff') === 'true',
-            name: (row.getAttribute('data-name') || '').toLowerCase()
-        }));
+        rowData = Array.from(rows, row => {
+            const hasBuff = row.getAttribute('data-has-buff') === 'true';
+            const rawBuffTypes = row.getAttribute('data-buff-types') || '';
+            const buffTypes = rawBuffTypes
+                ? rawBuffTypes.split(',').map(s => s.trim()).filter(Boolean)
+                : (hasBuff ? [getDefaultBuffType()] : []);
+            return {
+                row,
+                majorVer: row.getAttribute('data-major-version'),
+                path: row.getAttribute('data-path'),
+                elem: row.getAttribute('data-elem'),
+                type: row.getAttribute('data-type'),
+                hasBuff,
+                buffTypes,
+                name: (row.getAttribute('data-name') || '').toLowerCase()
+            };
+        });
         cachedRowData.set(table, rowData);
     }
 
@@ -1953,6 +2283,19 @@ if (typeof module !== 'undefined' && module.exports) {
         getFilterState,
         filterTableRows,
         renderFilters,
-        setupTableInteractions
+        setupTableInteractions,
+        collectPathValues,
+        collectElemValues,
+        collectBuffTypes,
+        getCharBuffEntries,
+        getCharBuffTypes,
+        getBuffMeta,
+        buildBuffBadgeHtml,
+        handleIconError,
+        buildPathIconHtml,
+        renderBuffModeButtons,
+        applyBuffSelection,
+        isRegisteredPath,
+        getDefaultBuffType
     };
 }

@@ -1021,5 +1021,115 @@ class TestRealProjectDataIntegrity(unittest.TestCase):
         self.assertRegex(content, r'const\s+LAST_UPDATED\s*=\s*"\d{4}/\d{2}/\d{2}";')
 
 
+class TestDynamicPathAndBuffAdaptation(unittest.TestCase):
+    def test_validate_data_integrity_allows_new_paths_and_buff_modes(self):
+        old_patches = [{'patch': f'1.{i}上', 'date': f'23/0{i+1}/01'} for i in range(6)]
+        old_chars = [
+            {'name': f'舊角色{i}', 'path': '毀滅', 'elem': '火', 'runs': ['1.0上']}
+            for i in range(10)
+        ]
+        new_chars = old_chars + [
+            {
+                'name': '阿基維利',
+                'path': '開拓',
+                'elem': '虛數',
+                'runs': ['1.5上'],
+                'buffs': ['1.5上'],
+                'buffTypes': {'1.5上': '星軌共鳴'}
+            },
+            {
+                'name': '未來旅者',
+                'path': 'Singularity',
+                'elem': '量子',
+                'runs': ['1.5上']
+            }
+        ]
+        audit = validate_data_integrity(old_chars, old_patches, new_chars, old_patches)
+        self.assertIn('開拓', audit['dynamic_paths'])
+        self.assertIn('Singularity', audit['dynamic_paths'])
+        self.assertIn('星軌共鳴', audit['introduced_buff_types'])
+
+    def test_mediawiki_parser_handles_piped_and_unconfigured_paths(self):
+        from update_gist import query_wiki_character_pages_batch, normalize_path_name
+
+        session = MagicMock()
+        session.get.return_value.json.return_value = {
+            'query': {
+                'pages': {
+                    '10': {
+                        'title': 'Akivili',
+                        'revisions': [{
+                            'slots': {
+                                'main': {
+                                    '*': '|zht = 阿基維利\n|path = [[Path/Trailblaze|The Trailblaze]]\n|combatType = [[Combat Types#Imaginary|Imaginary]]'
+                                }
+                            }
+                        }]
+                    },
+                    '11': {
+                        'title': 'Zero',
+                        'revisions': [{
+                            'slots': {
+                                'main': {
+                                    '*': '|zht = 零號\n|path = [[Singularity]]\n|element = Quantum'
+                                }
+                            }
+                        }]
+                    }
+                }
+            }
+        }
+
+        result = query_wiki_character_pages_batch(['Akivili', 'Zero'], session)
+        self.assertEqual(result['Akivili']['cht_name'], '阿基維利')
+        self.assertEqual(result['Akivili']['path'], 'The Trailblaze')
+        self.assertEqual(normalize_path_name(result['Akivili']['path']), '開拓')
+        self.assertEqual(result['Akivili']['elem'], 'Imaginary')
+        self.assertEqual(result['Zero']['cht_name'], '零號')
+        self.assertEqual(normalize_path_name(result['Zero']['path']), 'Singularity')
+        self.assertEqual(result['Zero']['elem'], 'Quantum')
+
+    @patch('update_gist.fetch_starrailres_data')
+    def test_merge_characters_integrates_new_paths_and_buff_modes(self, mock_fetch_res):
+        from update_gist import _merge_characters, extract_buff_marker
+
+        self.assertEqual(extract_buff_marker('|buff_mode = 星魂共鳴'), '星魂共鳴')
+        self.assertEqual(extract_buff_marker('{{Enhancement|星魂共鳴}}'), '星魂共鳴')
+        self.assertEqual(extract_buff_marker('(Enhanced: 破界覺醒)'), '破界覺醒')
+        self.assertEqual(extract_buff_marker('{{Nova Buff|礪爍新輝}}'), '礪爍新輝')
+
+        mock_fetch_res.return_value = (
+            {
+                '1001': {'name': 'Seele'},
+                '1999': {'name': 'Akivili'}
+            },
+            {
+                '1001': {'name': '希兒', 'path': 'Hunt', 'element': 'Quantum'},
+                '1999': {'name': '阿基維利', 'path': 'Trailblaze', 'element': 'Imaginary'}
+            }
+        )
+        session = MagicMock()
+
+        original_chars = [
+            {'cid': '1001', 'name': '希兒', 'path': '巡獵', 'elem': '量子', 'runs': ['1.0上']}
+        ]
+        incoming_schedules = [
+            {'en_name': 'Seele', 'run': '5.0上', 'buff_type': '星魂共鳴'},
+            {'en_name': 'Akivili', 'run': '5.0上', 'buff_type': '礪爍新輝'}
+        ]
+
+        merged_chars, new_chars_log, _, _ = _merge_characters(original_chars, incoming_schedules, session)
+        seele = next(c for c in merged_chars if c['name'] == '希兒')
+        akivili = next(c for c in merged_chars if c['name'] == '阿基維利')
+
+        self.assertIn('5.0上', seele['buffs'])
+        self.assertEqual(seele.get('buffTypes', {}).get('5.0上'), '星魂共鳴')
+        self.assertEqual(akivili['path'], '開拓')
+        self.assertIn('5.0上', akivili['buffs'])
+        self.assertNotIn('buffTypes', akivili)
+        self.assertTrue(any('阿基維利 (開拓/虛數)' in log for log in new_chars_log))
+
+
 if __name__ == '__main__':
     unittest.main()
+
