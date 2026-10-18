@@ -41,8 +41,6 @@ jobs:
 
       - name: 🚀 執行全自動抓取與安全檢驗
         id: run_update
-        env:
-          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: python update_gist.py
 
       - name: 🔍 檢查是否有實質資料異動
@@ -68,7 +66,7 @@ jobs:
             SUMMARY=$(cat .update_summary.md)
           fi
           
-          TODAY=$(date -u +'%Y/%m/%d')
+          TODAY=$(TZ='Asia/Taipei' date +'%Y/%m/%d')
           COMMIT_MSG="🤖 Auto update banner data ($TODAY)
 
           $SUMMARY"
@@ -92,7 +90,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const today = new Date().toISOString().slice(0, 10);
+            const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
             const title = `[自動警報] HSR Banner 全自動更新或安全檢驗失敗 (${today})`;
 
             // 避免重複建立相同日期的 Issue

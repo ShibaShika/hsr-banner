@@ -11,6 +11,12 @@ const {
     getTermStatus,
     mergeContinuousEvents,
     calculateGaps,
+    getHistoryElement,
+    getCharacterType,
+    buildCharacterHistory,
+    getCharacterTooltip,
+    buildTableHeaderHtml,
+    initTracker,
     updateTableColumnIndices,
     buildHistoryCellsHtml,
     buildCharacterRowHtml,
@@ -224,75 +230,6 @@ describe('app.js pure functions', () => {
         });
     });
 
-
-    describe('calculateCharStats helpers', () => {
-        describe('getPatchIndex', () => {
-            it('returns index using map', () => {
-                const map = new Map();
-                map.set('1.0', 0);
-                expect(getPatchIndex('1.0', ['1.0', '1.1'], map)).toBe(0);
-            });
-            it('returns -1 for missing patch using map', () => {
-                const map = new Map();
-                expect(getPatchIndex('1.0', [], map)).toBe(-1);
-            });
-            it('returns index using array if no map provided', () => {
-                expect(getPatchIndex('1.1', ['1.0', '1.1'], null)).toBe(1);
-            });
-        });
-
-        describe('getTermStatus', () => {
-            it('returns active status for valid term', () => {
-                const char = { term: { patch: '1.2', type: 'pool' } };
-                const status = getTermStatus(char, 5, ['1.0', '1.1', '1.2'], null);
-                expect(status.isTermActive).toBe(true);
-                expect(status.validEndIdx).toBe(2);
-                expect(status.termLabel).toBe('星緣');
-            });
-            it('returns active status for diff term type', () => {
-                const char = { term: { patch: '1.2', type: 'other' } };
-                const status = getTermStatus(char, 5, ['1.0', '1.1', '1.2'], null);
-                expect(status.termLabel).toBe('聚靈');
-            });
-            it('returns false for no term', () => {
-                const char = {};
-                const status = getTermStatus(char, 5, [], null);
-                expect(status.isTermActive).toBe(false);
-                expect(status.validEndIdx).toBe(5);
-            });
-        });
-
-        describe('mergeContinuousEvents', () => {
-            it('merges consecutive indices', () => {
-                expect(mergeContinuousEvents([1, 2, 4, 5, 6, 8])).toEqual([
-                    { start: 1, end: 2 },
-                    { start: 4, end: 6 },
-                    { start: 8, end: 8 }
-                ]);
-            });
-            it('handles single event', () => {
-                expect(mergeContinuousEvents([1])).toEqual([{ start: 1, end: 1 }]);
-            });
-            it('handles empty events', () => {
-                expect(mergeContinuousEvents([])).toEqual([]);
-            });
-        });
-
-        describe('calculateGaps', () => {
-            it('calculates gaps between events correctly', () => {
-                const events = [
-                    { start: 1, end: 2 },
-                    { start: 5, end: 6 }, // gap: 5 - 2 - 1 = 2
-                    { start: 10, end: 10 } // gap: 10 - 6 - 1 = 3
-                ];
-                expect(calculateGaps(events)).toEqual([2, 3]);
-            });
-            it('returns empty for single event', () => {
-                expect(calculateGaps([{ start: 1, end: 2 }])).toEqual([]);
-            });
-        });
-    });
-
     describe('calculateCharStats', () => {
         const patchesList = ['1.0上', '1.0下', '1.1上', '1.1下', '1.2上', '1.2下', '1.3上', '1.3下'];
         const patchIndexMap = new Map();
@@ -347,8 +284,6 @@ describe('app.js pure functions', () => {
         });
     });
 
-    const { escapeHtml } = require("./js/app.js");
-
     describe("escapeHtml", () => {
         it("should return empty string for null and undefined", () => {
             expect(escapeHtml(null)).toBe("");
@@ -387,8 +322,6 @@ describe('app.js pure functions', () => {
         });
     });
 
-    const { formatHeaderDate } = require("./js/app.js");
-
     describe("formatHeaderDate", () => {
         it("should correctly format a date string with exactly 3 parts separated by slashes", () => {
             expect(formatHeaderDate("23/10/15")).toBe("2023<br>10/15");
@@ -405,8 +338,6 @@ describe('app.js pure functions', () => {
         });
     });
 
-    const { getCharDebutVersion } = require("./js/app.js");
-
     describe("getCharDebutVersion", () => {
         const patchesList = ["1.0上", "1.0下", "1.1上", "1.1下"];
 
@@ -421,10 +352,6 @@ describe('app.js pure functions', () => {
         });
     });
 
-    const { getFallbackAvatar } = require("./js/app.js");
-    const { getHistoryElement, getCharacterType, buildCharacterHistory, getCharacterTooltip, buildTableHeaderHtml } = require("./js/app.js");
-
-
     describe('getHistoryElement', () => {
         let patchIndexMap;
         beforeEach(() => {
@@ -434,7 +361,7 @@ describe('app.js pure functions', () => {
         });
 
         it('should handle collab characters before start', () => {
-            const state = { collabSpanAdded: false, patchesListLength: 5 };
+            const state = { patchesListLength: 5 };
             const char = { isCollab: '1.2' }; // index 2
 
             const result1 = getHistoryElement(char, '1.0', 0, state, patchIndexMap);
@@ -445,7 +372,7 @@ describe('app.js pure functions', () => {
         });
 
         it('should handle collab characters exactly on start patch or end patch', () => {
-            const state = { collabSpanAdded: true, patchesListLength: 5 };
+            const state = { patchesListLength: 5 };
             const char = { isCollab: '1.2' }; // index 2
 
             // pIdx 2 (=== sIdx)
@@ -458,7 +385,7 @@ describe('app.js pure functions', () => {
         });
 
         it('should handle collab characters between start and end patch', () => {
-            const state = { collabSpanAdded: true, patchesListLength: 5 };
+            const state = { patchesListLength: 5 };
             const char = { isCollab: '1.2' }; // index 2
 
             // pIdx 3
@@ -740,8 +667,6 @@ describe('app.js pure functions', () => {
             expect(html).toContain('<th>2.0</th>');
         });
     });
-
-    const { initTracker } = require("./js/app.js");
 
     describe("updateTableColumnIndices", () => {
         let table;

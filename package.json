@@ -5,8 +5,5 @@
   "devDependencies": {
     "jest": "^30.5.2",
     "jest-environment-jsdom": "^30.5.2"
-  },
-  "dependencies": {
-    "jsdom": "^29.1.1"
   }
 }

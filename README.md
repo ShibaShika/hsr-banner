@@ -30,7 +30,7 @@
 
 GitHub Actions 工作流程 [`auto_update.yml`](.github/workflows/auto_update.yml) 每日 **UTC 01:00（台灣時間 09:00）** 執行，也可由有權限的維護者在 GitHub Actions 頁面手動啟動。手動執行可選擇 `dry_run`，只抓取及檢查資料，不提交更新。
 
-自動更新程式 [`update_gist.py`](update_gist.py) 會讀取既有角色與版本資料，從 Fandom Wiki 擷取卡池歷史與前瞻排程，並補充角色資料後合併結果。若通過資料完整性檢查且內容確實有變更，工作流程會更新 `js/characters.js` 與 `js/patches.js`，並提交至 `main`。設定 `GIST_TOKEN` GitHub Actions Secret 時，程式也會同步更新 GitHub Gist 備份；未設定時不會執行該備份。
+自動更新程式 [`update_gist.py`](update_gist.py) 會讀取既有角色與版本資料，從 Fandom Wiki 擷取卡池歷史與前瞻排程，並補充角色資料後合併結果。若通過資料完整性檢查且內容確實有變更，工作流程會更新 `js/characters.js` 與 `js/patches.js`，並提交至 `main`。
 
 更新程式會在寫入前檢查資料，包括角色與版本數量、版本名稱及日期格式、角色排程對應的版本，以及既有角色歷史紀錄是否保留。若無法取得有效排程或檢查未通過，更新會停止，不應將不完整結果寫入資料檔；自動更新工作流程會在程式失敗時建立 GitHub Issue 警報。
 
@@ -68,7 +68,7 @@ python -m unittest
 python update_gist.py
 ```
 
-此程式會連線至外部資料來源，並在資料有更新且檢查通過時寫入 `js/characters.js` 和 `js/patches.js`；如設定 `GIST_TOKEN`，也會更新設定中的 Gist 備份。執行前請先確認工作目錄及憑證設定，並在提交前檢查產生的差異。
+此程式會連線至外部資料來源，並在資料有更新且檢查通過時寫入 `js/characters.js` 和 `js/patches.js`。執行前請先確認工作目錄，並在提交前檢查產生的差異。
 
 ## 專案結構
 

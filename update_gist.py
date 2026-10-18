@@ -15,9 +15,7 @@ if hasattr(sys.stderr, "reconfigure"):
 # ──────────────────────────────────────────────────
 # 基本設定與常數
 # ──────────────────────────────────────────────────
-GIST_ID = "53c5bb324cd140fb8751c9812bd5df68"
-GITHUB_TOKEN = os.environ.get("GIST_TOKEN")
-os.environ.pop("GIST_TOKEN", None)
+TZ_TW = timezone(timedelta(hours=8))
 REQUEST_TIMEOUT = 25
 PATCH_NAME_RE = re.compile(r'^\d+\.\d+[上下中]$')
 WIKI_API_URL = "https://honkai-star-rail.fandom.com/api.php"
@@ -169,7 +167,7 @@ def serialize_js_file(var_name, data, filepath):
     # 僅替換行首縮排的合法 JS key，不誤傷內容
     js_str = re.sub(r'^(\s*)"([a-zA-Z_$][a-zA-Z0-9_$]*)":', r'\1\2:', json_str, flags=re.MULTILINE)
 
-    today_str = datetime.now().strftime("%Y/%m/%d")
+    today_str = datetime.now(TZ_TW).strftime("%Y/%m/%d")
     header = f"// 更新日期: {today_str}\n\n"
     content = f"{header}const {var_name} = {js_str};\n"
 
@@ -643,65 +641,12 @@ def query_wiki_character_pages_batch(char_names, session):
     return results
 
 def query_wiki_character_page(char_name, session):
-
-    info = {"cht_name": None, "path": None, "elem": None}
-    try:
-        res = session.get(WIKI_API_URL, params={
-            'action': 'query',
-            'titles': char_name,
-            'prop': 'revisions',
-            'rvslots': 'main',
-            'rvprop': 'content',
-            'redirects': '1',
-            'format': 'json'
-        }, timeout=REQUEST_TIMEOUT).json()
-
-        pages = res.get('query', {}).get('pages', {})
-        for pid, p in pages.items():
-            if pid == "-1":
-                continue
-            content = p.get('revisions', [{}])[0].get('slots', {}).get('main', {}).get('*', '')
-
-            # 1. 動態抽取所有繁中欄位（支援 1_zht, 2_zht, zht, zh-tw, zh-hk 等）
-            matches = re.findall(r'\|((\d+_)?(zht|zh[-_]?(?:tw|hk)))\s*=\s*([^\n\|\}]+)', content, re.IGNORECASE)
-            if not matches:
-                matches = re.findall(r'\|((\d+_)?(zhs|zh))\s*=\s*([^\n\|\}]+)', content, re.IGNORECASE)
-
-            name_dict = {}
-            for full_k, prefix, lang, val in matches:
-                cleaned_val = clean_wikitext_value(val)
-                if cleaned_val:
-                    name_dict[full_k.lower()] = cleaned_val
-
-            n1 = name_dict.get('1_zht') or name_dict.get('1_zhs')
-            n2 = name_dict.get('2_zht') or name_dict.get('2_zhs')
-            nz = name_dict.get('zht') or name_dict.get('zhs')
-
-            chosen = None
-            if n1 and n2:
-                chosen = n2 if n1 in n2 else n1
-            elif nz:
-                chosen = nz
-            elif n1:
-                chosen = n1
-            elif name_dict:
-                chosen = list(name_dict.values())[0]
-
-            if chosen:
-                info["cht_name"] = chosen
-
-            m_path = re.search(r'\|path\s*=\s*([^\n\|\}]+)', content)
-            if m_path:
-                info["path"] = clean_wikitext_value(m_path.group(1))
-
-            m_elem = re.search(r'\|(?:combatType|element)\s*=\s*([^\n\|\}]+)', content)
-            if m_elem:
-                info["elem"] = clean_wikitext_value(m_elem.group(1))
-
-    except Exception as e:
-        print(f"  ⚠️ 查詢 Wiki 角色頁面 [{char_name}] 失敗: {e}")
-
-    return info
+    """單筆查詢 Wiki 角色頁面，內部直接複用批次查詢邏輯"""
+    if not char_name:
+        return {"cht_name": None, "path": None, "elem": None}
+    return query_wiki_character_pages_batch([char_name], session).get(
+        char_name, {"cht_name": None, "path": None, "elem": None}
+    )
 
 
 # ──────────────────────────────────────────────────
@@ -789,9 +734,9 @@ def _format_summary_text(new_patches_added, patch_dates_updated_log, new_chars_a
 def _generate_summary_and_save(
     original_chars, original_patches, merged_chars, merged_patches,
     new_patches_added, patch_dates_updated_log, new_chars_added,
-    runs_added_log, name_upgraded_log, session, patches_file, chars_file
+    runs_added_log, name_upgraded_log, patches_file, chars_file
 ):
-    """比對變更、寫入檔案、產生摘要並更新 Gist"""
+    """比對變更、寫入檔案並產生摘要"""
     has_patches_changed = json.dumps(original_patches) != json.dumps(merged_patches)
     has_chars_changed = json.dumps(original_chars) != json.dumps(merged_chars)
 
@@ -813,13 +758,6 @@ def _generate_summary_and_save(
 
     print("\n📝 變更摘要清單：")
     print(summary_text)
-
-    # 備份同步至 GitHub Gist（相容舊版後台）
-    if GITHUB_TOKEN:
-        update_gist_backup({
-            "new_patches": [p for p in merged_patches if p['patch'] in new_patches_added],
-            "new_characters": merged_chars[-len(new_chars_added):] if new_chars_added else []
-        }, session)
 
     return True
 
@@ -941,8 +879,7 @@ def _merge_characters(original_chars, all_incoming_schedules, session):
 
 def _merge_patches(original_patches, all_incoming_patches):
     """合併版本清單並自動校正日期"""
-    tz_tw = timezone(timedelta(hours=8))
-    today_tw_str = datetime.now(tz_tw).strftime('%y/%m/%d')
+    today_tw_str = datetime.now(TZ_TW).strftime('%y/%m/%d')
 
     current_patch_idx = 0
     for idx, p in enumerate(original_patches):
@@ -990,7 +927,7 @@ def _merge_patches(original_patches, all_incoming_patches):
 # ──────────────────────────────────────────────────
 def execute_auto_update():
     print("\n" + "=" * 60)
-    print("🚀 啟動 HSR Banner 全自動資料更新流程 (雙軌直寫 + 安全防護)")
+    print("🚀 啟動 HSR Banner 全自動資料更新流程 (直寫 + 安全防護)")
     print("=" * 60)
 
     session = requests.Session()
@@ -1045,36 +982,12 @@ def execute_auto_update():
     # 5. 執行五道安全防護檢驗門檻
     validate_data_integrity(original_chars, original_patches, merged_chars, merged_patches)
 
-    # 6. 比對是否有實質變更、寫入本地專案檔案、產生摘要檔案並同步備份至 GitHub Gist
+    # 6. 比對是否有實質變更、寫入本地專案檔案並產生摘要檔案
     return _generate_summary_and_save(
         original_chars, original_patches, merged_chars, merged_patches,
         new_patches_added, patch_dates_updated_log, new_chars_added,
-        runs_added_log, name_upgraded_log, session, patches_file, chars_file
+        runs_added_log, name_upgraded_log, patches_file, chars_file
     )
-
-
-def update_gist_backup(data, session):
-    print("\n同步備份最新資料至 GitHub Gist...")
-    url = f"https://api.github.com/gists/{GIST_ID}"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-    }
-    payload = {
-        "files": {
-            "hsr_latest_banner.json": {
-                "content": json.dumps(data, ensure_ascii=False, indent=4)
-            }
-        }
-    }
-    try:
-        res = session.patch(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
-        if res.status_code == 200:
-            print("✅ GitHub Gist 備份同步成功！")
-        else:
-            print(f"⚠️ Gist 備份狀態碼: {res.status_code}")
-    except Exception as e:
-        print(f"⚠️ Gist 備份未完成: {str(e).replace(GITHUB_TOKEN, '***') if GITHUB_TOKEN else e}")
 
 
 # ──────────────────────────────────────────────────
@@ -1085,11 +998,9 @@ if __name__ == "__main__":
         success = execute_auto_update()
         if not success:
             raise SystemExit(2)
-    except Exception as e:
+    except Exception:
         import traceback
         tb = traceback.format_exc()
-        if GITHUB_TOKEN:
-            tb = tb.replace(GITHUB_TOKEN, '***')
         print("\n⚠️ 全自動更新流程發生未預期錯誤:", file=sys.stderr)
         print(tb, file=sys.stderr)
         raise SystemExit(1)

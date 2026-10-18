@@ -41,11 +41,11 @@ function formatHeaderDate(dateStr) {
     return dateStr;
 }
 
-// 自動對照 PATCH_DATA 與今日日期，找出當前進行中的卡池小版本名稱
+// 自動對照 PATCH_DATA 與今日日期（台灣時區 UTC+8），找出當前進行中的卡池小版本名稱
 function getCurrentPatchName() {
     if (typeof PATCH_DATA === 'undefined' || !PATCH_DATA || PATCH_DATA.length === 0) return "";
-    const today = new Date();
-    const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const twNow = new Date(new Date().getTime() + 8 * 3600 * 1000);
+    const todayZero = new Date(twNow.getUTCFullYear(), twNow.getUTCMonth(), twNow.getUTCDate());
     let currentPatch = PATCH_DATA[0].patch;
     
     for (let i = 0; i < PATCH_DATA.length; i++) {
@@ -320,69 +320,53 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
         versionContainer.replaceChildren(fragment);
     }
 
-    const pathContainer = document.getElementById('path-items-container');
-    if (pathContainer) {
+    function renderIconFilterItems(containerId, items, itemClass, checkedSet, iconMap) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
         const fragment = document.createDocumentFragment();
-        uniquePaths.forEach(p => {
+        items.forEach(val => {
             const label = document.createElement('label');
             const input = document.createElement('input');
             input.type = 'checkbox';
-            input.className = 'path-item';
-            input.value = p;
-            if (currentCheckedPaths.has(p)) {
+            input.className = itemClass;
+            input.value = val;
+            if (checkedSet.has(val)) {
                 input.checked = true;
             }
             label.appendChild(input);
             label.appendChild(document.createTextNode(' '));
 
-            const iconUrl = (typeof PATH_ICONS !== 'undefined' && PATH_ICONS[p]) ? PATH_ICONS[p] : "";
+            const iconUrl = (iconMap && iconMap[val]) ? iconMap[val] : "";
             if (iconUrl) {
                 const img = document.createElement('img');
                 img.src = iconUrl;
-                img.alt = p;
+                img.alt = val;
                 img.style.width = '16px';
                 img.style.height = '16px';
                 img.style.flexShrink = '0';
                 img.style.filter = 'drop-shadow(0 0 1.5px rgba(0,0,0,0.9))';
                 label.appendChild(img);
             }
-            label.appendChild(document.createTextNode(p));
+            label.appendChild(document.createTextNode(val));
             fragment.appendChild(label);
         });
-        pathContainer.replaceChildren(fragment);
+        container.replaceChildren(fragment);
     }
-    
-    const elemContainer = document.getElementById('elem-items-container');
-    if (elemContainer) {
-        const fragment = document.createDocumentFragment();
-        uniqueElems.forEach(e => {
-            const label = document.createElement('label');
-            const input = document.createElement('input');
-            input.type = 'checkbox';
-            input.className = 'elem-item';
-            input.value = e;
-            if (currentCheckedElems.has(e)) {
-                input.checked = true;
-            }
-            label.appendChild(input);
-            label.appendChild(document.createTextNode(' '));
 
-            const iconUrl = (typeof ELEM_ICONS !== 'undefined' && ELEM_ICONS[e]) ? ELEM_ICONS[e] : "";
-            if (iconUrl) {
-                const img = document.createElement('img');
-                img.src = iconUrl;
-                img.alt = e;
-                img.style.width = '16px';
-                img.style.height = '16px';
-                img.style.flexShrink = '0';
-                img.style.filter = 'drop-shadow(0 0 1.5px rgba(0,0,0,0.9))';
-                label.appendChild(img);
-            }
-            label.appendChild(document.createTextNode(e));
-            fragment.appendChild(label);
-        });
-        elemContainer.replaceChildren(fragment);
-    }
+    renderIconFilterItems(
+        'path-items-container',
+        uniquePaths,
+        'path-item',
+        currentCheckedPaths,
+        typeof PATH_ICONS !== 'undefined' ? PATH_ICONS : null
+    );
+    renderIconFilterItems(
+        'elem-items-container',
+        uniqueElems,
+        'elem-item',
+        currentCheckedElems,
+        typeof ELEM_ICONS !== 'undefined' ? ELEM_ICONS : null
+    );
 
     const typeContainer = document.getElementById('type-items-container');
     if (typeContainer && typeContainer.children.length === 0) {
@@ -441,7 +425,6 @@ function getHistoryElement(char, patch, pIdx, state, patchIndexMap) {
     if (char.isCollab) {
         const collabStart = char.isCollab;
         const sIdx = patchIndexMap.has(collabStart) ? patchIndexMap.get(collabStart) : -1;
-        const spanCount = Math.min(5, sIdx);
 
         if (pIdx < sIdx) {
             return { status: 'COLLAB_BEFORE' };
@@ -483,7 +466,6 @@ function buildCharacterHistory(char, patchesList, patchIndexMap) {
     let state = {
         currentGap: 0,
         hasReleased: false,
-        collabSpanAdded: false,
         patchesListLength: patchesList.length
     };
 
@@ -722,59 +704,27 @@ function setupJumpButtons() {
 }
 
 function setupFilterPanels() {
-    const versionBox = document.getElementById('version-select-box');
-    const pathBox = document.getElementById('path-select-box');
-    const elemBox = document.getElementById('elem-select-box');
-    const typeBox = document.getElementById('type-select-box');
-    
-    const versionPanel = document.getElementById('version-panel');
-    const pathPanel = document.getElementById('path-panel');
-    const elemPanel = document.getElementById('elem-panel');
-    const typePanel = document.getElementById('type-panel');
+    const dropdowns = [
+        { box: document.getElementById('version-select-box'), panel: document.getElementById('version-panel') },
+        { box: document.getElementById('path-select-box'), panel: document.getElementById('path-panel') },
+        { box: document.getElementById('elem-select-box'), panel: document.getElementById('elem-panel') },
+        { box: document.getElementById('type-select-box'), panel: document.getElementById('type-panel') }
+    ];
 
-    versionBox?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        pathPanel.classList.remove('show');
-        elemPanel.classList.remove('show');
-        typePanel.classList.remove('show');
-        versionPanel.classList.toggle('show');
-    });
-
-    pathBox?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        versionPanel.classList.remove('show');
-        elemPanel.classList.remove('show');
-        typePanel.classList.remove('show');
-        pathPanel.classList.toggle('show');
-    });
-
-    elemBox?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        versionPanel.classList.remove('show');
-        pathPanel.classList.remove('show');
-        typePanel.classList.remove('show');
-        elemPanel.classList.toggle('show');
-    });
-
-    typeBox?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        versionPanel.classList.remove('show');
-        pathPanel.classList.remove('show');
-        elemPanel.classList.remove('show');
-        typePanel.classList.toggle('show');
+    dropdowns.forEach(({ box, panel }) => {
+        box?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdowns.forEach(d => {
+                if (d.panel !== panel) d.panel?.classList.remove('show');
+            });
+            panel?.classList.toggle('show');
+        });
+        panel?.addEventListener('click', (e) => e.stopPropagation());
     });
 
     document.addEventListener('click', () => {
-        versionPanel?.classList.remove('show');
-        pathPanel?.classList.remove('show');
-        elemPanel?.classList.remove('show');
-        typePanel?.classList.remove('show');
+        dropdowns.forEach(d => d.panel?.classList.remove('show'));
     });
-
-    versionPanel?.addEventListener('click', (e) => e.stopPropagation());
-    pathPanel?.addEventListener('click', (e) => e.stopPropagation());
-    elemPanel?.addEventListener('click', (e) => e.stopPropagation());
-    typePanel?.addEventListener('click', (e) => e.stopPropagation());
 }
 
 function setupUtilityToggles() {
@@ -798,18 +748,19 @@ function setupUtilityToggles() {
     });
 }
 
+function clearAllFilters() {
+    document.querySelectorAll('.version-item, .path-item, .elem-item, .type-item').forEach(i => { i.checked = false; });
+    const searchInput = document.getElementById('char-search-input');
+    const buffToggleBtn = document.getElementById('buff-toggle-btn');
+    if (searchInput) searchInput.value = '';
+    buffToggleBtn?.classList.remove('active');
+    applyFilters();
+}
+
 function setupSearchAndReset() {
     const searchInput = document.getElementById('char-search-input');
     const searchClearBtn = document.getElementById('search-clear-btn');
     const resetFiltersBtn = document.getElementById('reset-filters-btn');
-    const buffToggleBtn = document.getElementById('buff-toggle-btn');
-
-    function clearAllFilters() {
-        document.querySelectorAll('.version-item, .path-item, .elem-item, .type-item').forEach(i => i.checked = false);
-        if (searchInput) searchInput.value = '';
-        buffToggleBtn?.classList.remove('active');
-        applyFilters();
-    }
 
     if (resetFiltersBtn) {
         resetFiltersBtn.addEventListener('click', clearAllFilters);
@@ -991,7 +942,7 @@ function setupExportButton() {
                         <html lang="zh-TW">
                         <head>
                             <meta charset="UTF-8">
-                            <title>星穹鐵道_限定躍遷一覽表_${new Date().toISOString().slice(0, 10)}</title>
+                            <title>星穹鐵道_限定躍遷一覽表_${new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)}</title>
                             <style>
                                 body {
                                     margin: 0;
@@ -1035,12 +986,7 @@ function setupTableInteractions() {
     const trackerTable = document.getElementById('tracker');
     trackerTable?.addEventListener('click', (e) => {
         if (e.target?.id !== 'empty-reset-btn') return;
-        document.querySelectorAll('.version-item, .path-item, .elem-item, .type-item').forEach(i => { i.checked = false; });
-        const searchInputEl = document.getElementById('char-search-input');
-        const buffToggleBtnEl = document.getElementById('buff-toggle-btn');
-        if (searchInputEl) searchInputEl.value = '';
-        buffToggleBtnEl?.classList.remove('active');
-        applyFilters();
+        clearAllFilters();
     });
 
     trackerTable?.addEventListener('mouseover', (e) => {
@@ -1164,30 +1110,18 @@ function updateFilterUI(state) {
         resetFiltersBtn.style.display = hasActiveFilter ? 'inline-flex' : 'none';
     }
 
-    if (versionBox) {
-        if (state.selectedVersions.length === 0) versionBox.textContent = '實裝版本';
-        else if (state.selectedVersions.length <= 2) versionBox.textContent = state.selectedVersions.join(', ');
-        else versionBox.textContent = `${state.selectedVersions[0]} 等 ${state.selectedVersions.length} 個`;
-    }
-
-    if (pathBox) {
-        if (state.selectedPaths.length === 0) pathBox.textContent = '命途';
-        else if (state.selectedPaths.length <= 2) pathBox.textContent = state.selectedPaths.join(', ');
-        else pathBox.textContent = `${state.selectedPaths[0]} 等 ${state.selectedPaths.length} 個`;
-    }
-
-    if (elemBox) {
-        if (state.selectedElems.length === 0) elemBox.textContent = '屬性';
-        else if (state.selectedElems.length <= 2) elemBox.textContent = state.selectedElems.join(', ');
-        else elemBox.textContent = `${state.selectedElems[0]} 等 ${state.selectedElems.length} 個`;
-    }
-
     const typeLabelMap = { 'normal': '限定躍遷', 'pool': '星緣', 'shop': '聚靈', 'collab': '聯動' };
-    if (typeBox) {
-        if (state.selectedTypes.length === 0) typeBox.textContent = '取得方法';
-        else if (state.selectedTypes.length <= 2) typeBox.textContent = state.selectedTypes.map(t => typeLabelMap[t]).join(', ');
-        else typeBox.textContent = `${typeLabelMap[state.selectedTypes[0]]} 等 ${state.selectedTypes.length} 個`;
-    }
+    const formatSelectBox = (box, selected, defaultLabel, mapFn = x => x) => {
+        if (!box) return;
+        if (selected.length === 0) box.textContent = defaultLabel;
+        else if (selected.length <= 2) box.textContent = selected.map(mapFn).join(', ');
+        else box.textContent = `${mapFn(selected[0])} 等 ${selected.length} 個`;
+    };
+
+    formatSelectBox(versionBox, state.selectedVersions, '實裝版本');
+    formatSelectBox(pathBox, state.selectedPaths, '命途');
+    formatSelectBox(elemBox, state.selectedElems, '屬性');
+    formatSelectBox(typeBox, state.selectedTypes, '取得方法', t => typeLabelMap[t]);
 }
 
 function isRowMatchingFilters(rowData, state) {
@@ -1316,32 +1250,14 @@ if (typeof module !== 'undefined' && module.exports) {
         getPatchIndex,
         getTermStatus,
         mergeContinuousEvents,
-        calculateGaps
-    };
-}
-
-// Additional exports for refactored renderTable
-if (typeof module !== 'undefined' && module.exports) {
-    Object.assign(module.exports, {
+        calculateGaps,
         getHistoryElement,
         getCharacterType,
         buildCharacterHistory,
         getCharacterTooltip,
-        buildTableHeaderHtml
-    });
-}
-
-// Export initTracker for testing
-if (typeof module !== 'undefined' && module.exports) {
-    Object.assign(module.exports, {
+        buildTableHeaderHtml,
         initTracker,
-        updateTableColumnIndices
-    });
-}
-
-// Export additional helpers for testing
-if (typeof module !== 'undefined' && module.exports) {
-    Object.assign(module.exports, {
+        updateTableColumnIndices,
         renderTable,
         buildCharacterRowHtml,
         buildHistoryCellsHtml,
@@ -1350,5 +1266,5 @@ if (typeof module !== 'undefined' && module.exports) {
         filterTableRows,
         renderFilters,
         setupTableInteractions
-    });
+    };
 }

@@ -404,11 +404,10 @@ class TestExecuteAutoUpdate(unittest.TestCase):
     @patch('update_gist.fetch_fandom_upcoming_characters_and_patches')
     @patch('update_gist.fetch_starrailres_data')
     @patch('update_gist.serialize_js_file')
-    @patch('update_gist.update_gist_backup')
     @patch('update_gist.validate_data_integrity')
     @patch('builtins.open', new_callable=mock_open)
     def test_execute_auto_update_no_changes(
-            self, mock_file_open, mock_validate, mock_update_gist, mock_serialize,
+            self, mock_file_open, mock_validate, mock_serialize,
             mock_fetch_res, mock_fetch_upcoming, mock_fetch_fandom, mock_parse_local, mock_session):
 
         # Setup mocks
@@ -439,11 +438,10 @@ class TestExecuteAutoUpdate(unittest.TestCase):
     @patch('update_gist.fetch_fandom_upcoming_characters_and_patches')
     @patch('update_gist.fetch_starrailres_data')
     @patch('update_gist.serialize_js_file')
-    @patch('update_gist.update_gist_backup')
     @patch('update_gist.validate_data_integrity')
     @patch('builtins.open', new_callable=mock_open)
     def test_execute_auto_update_with_changes(
-            self, mock_file_open, mock_validate, mock_update_gist, mock_serialize,
+            self, mock_file_open, mock_validate, mock_serialize,
             mock_fetch_res, mock_fetch_upcoming, mock_fetch_fandom, mock_parse_local, mock_session):
 
         mock_session_instance = MagicMock()
@@ -856,9 +854,6 @@ class TestParseWarpListTables(unittest.TestCase):
         )
 
         self.assertEqual([record['warp_page'] for record in records], ['Valid/Title', 'Warp/1', 'Warp/2'])
-
-if __name__ == '__main__':
-    unittest.main()
 
 
 class TestWikiQueryPerformanceOptimization(unittest.TestCase):
