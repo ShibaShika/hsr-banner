@@ -15,6 +15,21 @@ const {
     getCharacterType,
     buildCharacterHistory,
     getCharacterTooltip,
+    buildCharPopoverHtml,
+    showCharPopover,
+    hideCharPopover,
+    buildCharSortMenuHtml,
+    showCharSortMenu,
+    hideCharSortMenu,
+    toggleCharSortMenu,
+    getSortCharBtnLabel,
+    getSortDescription,
+    setupSortingListeners,
+    sortCharacters,
+    parseUrlState,
+    buildUrlSearchParams,
+    restoreStateFromUrl,
+    syncStateToUrl,
     buildTableHeaderHtml,
     initTracker,
     updateTableColumnIndices,
@@ -803,6 +818,28 @@ describe('app.js pure functions', () => {
             consoleWarnSpy.mockRestore();
             delete global.PATCH_DATA;
             delete global.RAW_CHARACTERS;
+            delete global.LAST_UPDATED;
+        });
+
+        it("uses LAST_UPDATED constant directly without fetching js/characters.js and updates DOM avatars asynchronously", async () => {
+            global.LAST_UPDATED = "2026/10/16";
+            global.PATCH_DATA = [{ patch: "1.0上", date: "2023-04-26" }];
+            global.RAW_CHARACTERS = [{ cid: "希兒", name: "希兒", path: "巡獵", attr: "量子", runs: ["1.0上"] }];
+
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    "1102": { name: "希兒", icon: "icon/character/1102.png" }
+                })
+            });
+
+            await initTracker();
+
+            expect(global.fetch).not.toHaveBeenCalledWith('js/characters.js');
+            expect(document.getElementById('update-date-text').textContent).toBe("2026/10/16");
+            const img = document.querySelector('#tracker img.char-avatar');
+            expect(img).not.toBeNull();
+            expect(img.src).toContain("icon/character/1102.png");
         });
 
         it("logs warning if fetch for characters.js rejects", async () => {
@@ -997,4 +1034,302 @@ describe('app.js pure functions', () => {
             expect(elemContainer.querySelector('input').value).toBe(elem);
         });
     });
+
+    describe('sortCharacters', () => {
+        const patchesList = ['1.0上', '1.0下', '1.1上', '1.1下', '1.2上'];
+        const patchIndexMap = new Map(patchesList.map((p, idx) => [p, idx]));
+        const activePatchName = '1.2上';
+        const sampleChars = [
+            { name: 'CharOldLongWait', runs: ['1.0上'] },                 // 1 run, currentGap = 4
+            { name: 'CharManyRuns', runs: ['1.0下', '1.1下', '1.2上'] },   // 2 events (1.0下, 1.1下+1.2上 merged), currentGap = 0
+            { name: 'CharThreeRuns', runs: ['1.0上', '1.1上', '1.2上'] },  // 3 events, currentGap = 0
+            { name: 'CharPreview', runs: [], isPreview: true }             // preview, 0 runs
+        ];
+
+        it('sorts by debut-desc (latest first) and debut-asc (oldest first)', () => {
+            const desc = sortCharacters(sampleChars, 'debut-desc', patchesList, activePatchName, patchIndexMap);
+            expect(desc.map(c => c.name)).toEqual(['CharPreview', 'CharThreeRuns', 'CharManyRuns', 'CharOldLongWait']);
+
+            const asc = sortCharacters(sampleChars, 'debut-asc', patchesList, activePatchName, patchIndexMap);
+            expect(asc.map(c => c.name)).toEqual(['CharOldLongWait', 'CharManyRuns', 'CharThreeRuns', 'CharPreview']);
+        });
+
+        it('sorts by wait-desc (longest waiting first) and wait-asc (most recently rerun first, preview at bottom)', () => {
+            const waitDesc = sortCharacters(sampleChars, 'wait-desc', patchesList, activePatchName, patchIndexMap);
+            expect(waitDesc[0].name).toBe('CharOldLongWait');
+            expect(waitDesc[waitDesc.length - 1].name).toBe('CharPreview');
+
+            const waitAsc = sortCharacters(sampleChars, 'wait-asc', patchesList, activePatchName, patchIndexMap);
+            expect(waitAsc[0].name).toBe('CharThreeRuns');
+            expect(waitAsc[waitAsc.length - 1].name).toBe('CharPreview');
+        });
+
+        it('sorts by runs-desc (most UP runs first) and runs-asc (least UP runs first for released chars)', () => {
+            const runsDesc = sortCharacters(sampleChars, 'runs-desc', patchesList, activePatchName, patchIndexMap);
+            expect(runsDesc.map(c => c.name)).toEqual(['CharThreeRuns', 'CharManyRuns', 'CharOldLongWait', 'CharPreview']);
+
+            const runsAsc = sortCharacters(sampleChars, 'runs-asc', patchesList, activePatchName, patchIndexMap);
+            expect(runsAsc.map(c => c.name)).toEqual(['CharOldLongWait', 'CharManyRuns', 'CharThreeRuns', 'CharPreview']);
+        });
+    });
+
+    describe('URLSearchParams state sync (parseUrlState, buildUrlSearchParams, restoreStateFromUrl)', () => {
+        afterEach(() => {
+            document.body.innerHTML = '';
+            window.history.replaceState(null, '', '/');
+            delete global.PATCH_DATA;
+            delete global.RAW_CHARACTERS;
+            delete global.PATH_ICONS;
+        });
+
+        it('parses URL query parameters accurately', () => {
+            const parsed = parseUrlState('?ver=1.x,2.x&path=毀滅&elem=火,冰&type=normal&q=流螢&buff=1&sort=wait-desc&psort=asc&preview=0');
+            expect(parsed).toEqual({
+                versions: ['1.x', '2.x'],
+                paths: ['毀滅'],
+                elems: ['火', '冰'],
+                types: ['normal'],
+                keyword: '流螢',
+                onlyBuffs: true,
+                showPreview: false,
+                charSort: 'wait-desc',
+                patchSortAsc: true
+            });
+        });
+
+        it('builds URL search params and omits default values', () => {
+            const qs = buildUrlSearchParams(
+                {
+                    selectedVersions: ['2.x'],
+                    selectedPaths: ['毀滅'],
+                    selectedElems: ['火'],
+                    selectedTypes: [],
+                    keyword: '流螢',
+                    onlyBuffs: true
+                },
+                { charSortMode: 'wait-desc', isPatchAscending: false }
+            );
+            const params = new URLSearchParams(qs);
+            expect(params.get('ver')).toBe('2.x');
+            expect(params.get('path')).toBe('毀滅');
+            expect(params.get('elem')).toBe('火');
+            expect(params.get('q')).toBe('流螢');
+            expect(params.get('buff')).toBe('1');
+            expect(params.get('sort')).toBe('wait-desc');
+            expect(params.has('psort')).toBe(false);
+        });
+
+        it('restores filter and sort state from URL and syncs changes back via history.replaceState', () => {
+            document.body.innerHTML = `
+                <div id="version-items-container"></div>
+                <div id="path-items-container"></div>
+                <div id="elem-items-container"></div>
+                <div id="type-items-container"></div>
+                <div class="sort-select-wrap" id="char-sort-wrap">
+                    <select id="char-sort-select">
+                        <option value="debut">登場順序</option>
+                        <option value="runs">UP次數</option>
+                        <option value="wait">上次復刻時間</option>
+                    </select>
+                    <button type="button" id="char-sort-dir-btn">▼</button>
+                </div>
+                <button id="buff-toggle-btn"></button>
+                <input id="char-search-input" value="">
+                <table id="tracker"></table>
+            `;
+            global.PATCH_DATA = [
+                { patch: '1.0上', date: '23/04/26' },
+                { patch: '2.0上', date: '24/02/06' }
+            ];
+            global.RAW_CHARACTERS = [
+                { name: '希兒', path: '巡獵', elem: '量子', runs: ['1.0上'] },
+                { name: '花火', path: '同諧', elem: '量子', runs: ['2.0上'], buffs: ['2.0上'] }
+            ];
+            global.PATH_ICONS = {};
+
+            const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
+
+            restoreStateFromUrl('?ver=2.x&path=同諧&q=花&buff=1&sort=wait-asc');
+
+            expect(document.getElementById('char-search-input').value).toBe('花');
+            expect(document.getElementById('buff-toggle-btn').classList.contains('active')).toBe(true);
+            expect(document.getElementById('char-sort-select').value).toBe('wait');
+            expect(document.getElementById('char-sort-dir-btn').textContent).toBe('▲');
+
+            const rows = Array.from(document.querySelectorAll('#tracker tbody tr:not(.empty-row)'));
+            const visibleRows = rows.filter(r => r.style.display !== 'none');
+            expect(visibleRows.length).toBe(1);
+            expect(visibleRows[0].getAttribute('data-name')).toBe('花火');
+
+            expect(replaceStateSpy).toHaveBeenCalled();
+            expect(window.location.search).toContain('sort=wait-asc');
+            replaceStateSpy.mockRestore();
+        });
+    });
+
+    describe('Character Stats Popover (buildCharPopoverHtml, showCharPopover, hideCharPopover)', () => {
+        afterEach(() => {
+            document.body.innerHTML = '';
+        });
+
+        it('builds glassmorphic popover HTML for regular, overdue, preview, term, and collab characters', () => {
+            const overdueHtml = buildCharPopoverHtml({
+                charName: '景元',
+                charElem: '雷',
+                charPath: '智識',
+                debut: '1.0下',
+                currentGap: '12',
+                maxGap: '8',
+                totalRuns: '2',
+                isOverdue: 'true',
+                isPreview: 'false',
+                isCollab: 'false',
+                isTerm: 'false'
+            });
+            expect(overdueHtml).toContain('景元');
+            expect(overdueHtml).toContain('1.0下');
+            expect(overdueHtml).toContain('12 個版本');
+            expect(overdueHtml).toContain('8 個版本');
+            expect(overdueHtml).toContain('2 次');
+            expect(overdueHtml).toContain('popover-overdue-alert');
+
+            const previewHtml = buildCharPopoverHtml({
+                charName: '新角色',
+                charElem: '冰',
+                charPath: '記憶',
+                debut: '4.3上',
+                isPreview: 'true'
+            });
+            expect(previewHtml).toContain('預定登場');
+            expect(previewHtml).toContain('🔮 預覽角色');
+        });
+
+        it('shows and hides popover on .char-info-cell click and outside click', () => {
+            document.body.innerHTML = `
+                <table id="tracker">
+                    <tbody>
+                        <tr>
+                            <td>
+                                <div class="char-info-cell"
+                                     data-char-name="希兒"
+                                     data-char-elem="量子"
+                                     data-char-path="巡獵"
+                                     data-debut="1.0上"
+                                     data-current-gap="5"
+                                     data-max-gap="4"
+                                     data-total-runs="2"
+                                     data-is-overdue="true">
+                                    <span class="char-name">希兒</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div id="char-stats-popover" class="char-stats-popover" aria-hidden="true"></div>
+            `;
+
+            setupTableInteractions();
+            const infoCell = document.querySelector('.char-info-cell');
+            const popover = document.getElementById('char-stats-popover');
+
+            // First click opens and pins popover
+            infoCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(popover.classList.contains('show')).toBe(true);
+            expect(popover.classList.contains('pinned')).toBe(true);
+            expect(popover.innerHTML).toContain('希兒');
+            expect(popover.innerHTML).toContain('popover-overdue-alert');
+
+            // Clicking outside closes popover
+            document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(popover.classList.contains('show')).toBe(false);
+        });
+    });
+
+    describe('Top-Left Character Sort Popover Menu (buildCharSortMenuHtml, showCharSortMenu, hideCharSortMenu, toggleCharSortMenu)', () => {
+        beforeEach(() => {
+            document.body.innerHTML = `
+                <table id="tracker">
+                    <thead>
+                        <tr>
+                            <th class="top-left-cell">
+                                <button type="button" id="sort-char-btn" class="table-sort-btn">登場 ▼</button>
+                                <button type="button" id="sort-patch-btn" class="table-sort-btn">版本 ◀</button>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div id="char-sort-popover" class="char-sort-popover" role="menu" aria-hidden="true"></div>
+            `;
+            global.PATCH_DATA = [
+                { patch: '1.0上', date: '23/04/26' },
+                { patch: '2.0上', date: '24/02/06' }
+            ];
+            global.RAW_CHARACTERS = [
+                { name: '希兒', path: '巡獵', elem: '量子', runs: ['1.0上'] },
+                { name: '花火', path: '同諧', elem: '量子', runs: ['2.0上'] }
+            ];
+            global.PATH_ICONS = {};
+        });
+
+        afterEach(() => {
+            document.body.innerHTML = '';
+            delete global.PATCH_DATA;
+            delete global.RAW_CHARACTERS;
+            delete global.PATH_ICONS;
+        });
+
+        it('returns proper labels and descriptions for all sort dimensions and directions', () => {
+            expect(getSortCharBtnLabel('debut-desc', false)).toBe('登場 ▼');
+            expect(getSortCharBtnLabel('debut-asc', true)).toBe('登場 ▲');
+            expect(getSortCharBtnLabel('wait-desc', false)).toBe('復刻 ▼');
+            expect(getSortCharBtnLabel('wait-asc', true)).toBe('復刻 ▲');
+            expect(getSortCharBtnLabel('runs-desc', false)).toBe('UP數 ▼');
+            expect(getSortCharBtnLabel('runs-asc', true)).toBe('UP數 ▲');
+
+            expect(getSortDescription('debut-desc')).toContain('最新優先');
+            expect(getSortDescription('wait-desc')).toContain('最久未復刻優先');
+            expect(getSortDescription('runs-desc')).toContain('次數最多優先');
+        });
+
+        it('builds menu HTML with all 6 options and marks current mode active', () => {
+            const html = buildCharSortMenuHtml('wait-desc', false);
+            expect(html).toContain('data-sort-mode="debut-desc"');
+            expect(html).toContain('data-sort-mode="debut-asc"');
+            expect(html).toContain('data-sort-mode="wait-desc"');
+            expect(html).toContain('data-sort-mode="wait-asc"');
+            expect(html).toContain('data-sort-mode="runs-desc"');
+            expect(html).toContain('data-sort-mode="runs-asc"');
+            expect(html).toContain('class="sort-option-btn active" data-sort-mode="wait-desc"');
+        });
+
+        it('toggles sort popover open/close on button click and closes on outside click or Escape', () => {
+            setupSortingListeners();
+            const sortBtn = document.getElementById('sort-char-btn');
+            const popover = document.getElementById('char-sort-popover');
+
+            // Open via sortBtn click
+            sortBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(popover.classList.contains('show')).toBe(true);
+            expect(popover.getAttribute('aria-hidden')).toBe('false');
+
+            // Click option to change sort mode
+            const waitOption = popover.querySelector('[data-sort-mode="wait-desc"]');
+            expect(waitOption).not.toBeNull();
+            waitOption.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            // Popover should close after selection
+            expect(popover.classList.contains('show')).toBe(false);
+
+            // Re-open and close with Escape key
+            const newSortBtn = document.getElementById('sort-char-btn');
+            expect(newSortBtn.textContent).toBe('復刻 ▼');
+            newSortBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(popover.classList.contains('show')).toBe(true);
+
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            expect(popover.classList.contains('show')).toBe(false);
+        });
+    });
 });
+

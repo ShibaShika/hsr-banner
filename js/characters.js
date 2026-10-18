@@ -1,4 +1,5 @@
 // 更新日期: 2026/10/16
+const LAST_UPDATED = "2026/10/16";
 
 const RAW_CHARACTERS = [
     {

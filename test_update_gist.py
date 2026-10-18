@@ -312,6 +312,27 @@ class TestValidateDataIntegrity(unittest.TestCase):
         except AssertionError as e:
             self.fail(f"validate_data_integrity raised AssertionError unexpectedly: {e}")
 
+    def test_preview_chars_and_patches_can_be_adjusted_or_removed(self):
+        orig_chars = self.original_chars + [
+            {'name': 'PreviewChar1', 'runs': ['1.1上'], 'isPreview': True},
+            {'name': 'PreviewChar2', 'runs': ['1.1下'], 'isPreview': True}
+        ]
+        orig_patches = self.original_patches + [
+            {'patch': '1.1上', 'date': '23/06/07', 'isPreview': True},
+            {'patch': '1.1下', 'date': '23/06/28', 'isPreview': True}
+        ]
+        # PreviewChar2 removed, PreviewChar1 schedule changed from 1.1上 to 1.1下, 1.1上 patch removed
+        new_chars = self.original_chars + [
+            {'name': 'PreviewChar1', 'runs': ['1.1下'], 'isPreview': True}
+        ]
+        new_patches = self.original_patches + [
+            {'patch': '1.1下', 'date': '23/06/28', 'isPreview': True}
+        ]
+        try:
+            validate_data_integrity(orig_chars, orig_patches, new_chars, new_patches)
+        except AssertionError as e:
+            self.fail(f"validate_data_integrity should allow preview adjustments, but raised: {e}")
+
 
 class TestCleanWikitextValue(unittest.TestCase):
     def test_none_or_empty(self):
@@ -729,9 +750,31 @@ class TestSerializeJsFile(unittest.TestCase):
         ]
         filepath = "test_output.js"
 
-        expected_json_str = '[\n    {\n        "name": "Seeley",\n        "element": "Quantum"\n    },\n    {\n        "name": "Kafka",\n        "element": "Lightning"\n    }\n]'
         expected_js_str = '[\n    {\n        name: "Seeley",\n        element: "Quantum"\n    },\n    {\n        name: "Kafka",\n        element: "Lightning"\n    }\n]'
         expected_content = f"// 更新日期: 2023/10/25\n\nconst {var_name} = {expected_js_str};\n"
+
+        m = mock_open()
+        with patch('builtins.open', m):
+            serialize_js_file(var_name, data, filepath)
+
+        m.assert_called_once_with(filepath, 'w', encoding='utf-8')
+        m().write.assert_called_once_with(expected_content)
+
+    @patch('update_gist.datetime')
+    def test_serialize_js_file_raw_characters_includes_last_updated(self, mock_datetime):
+        mock_date = datetime(2023, 10, 25)
+        mock_datetime.now.return_value = mock_date
+
+        var_name = "RAW_CHARACTERS"
+        data = [{"name": "希兒", "elem": "量子"}]
+        filepath = "js/characters.js"
+
+        expected_js_str = '[\n    {\n        name: "希兒",\n        elem: "量子"\n    }\n]'
+        expected_content = (
+            '// 更新日期: 2023/10/25\n'
+            'const LAST_UPDATED = "2023/10/25";\n\n'
+            f'const {var_name} = {expected_js_str};\n'
+        )
 
         m = mock_open()
         with patch('builtins.open', m):
@@ -905,6 +948,78 @@ class TestWikiQueryPerformanceOptimization(unittest.TestCase):
         self.assertIn('A', titles.split('|'))
         self.assertIn('B', titles.split('|'))
         self.assertIn('C', titles.split('|'))
+
+
+class TestPreviewOverwriteAndThreePhase(unittest.TestCase):
+    @patch('update_gist.fetch_starrailres_data')
+    def test_merge_characters_overwrites_preview_runs(self, mock_fetch_res):
+        from update_gist import _merge_characters
+
+        mock_fetch_res.return_value = (
+            {
+                '1001': {'name': 'Seele'},
+                '1514': {'name': 'Aha'}
+            },
+            {
+                '1001': {'name': '希兒', 'path': 'Hunt', 'element': 'Quantum'},
+                '1514': {'name': '星神★阿哈', 'path': 'Elation', 'element': 'Quantum'}
+            }
+        )
+        session = MagicMock()
+
+        original_chars = [
+            {'cid': '1001', 'name': '希兒', 'path': '巡獵', 'elem': '量子', 'runs': ['1.0上']},
+            {'cid': '1514', 'name': '星神★阿哈', 'path': '歡愉', 'elem': '量子', 'runs': ['4.7上'], 'isPreview': True}
+        ]
+        # Preview character schedule adjusted from 4.7上 to 4.7下, while official character gains a rerun
+        incoming_schedules = [
+            {'en_name': 'Seele', 'run': '1.4下', 'is_collab': False, 'is_preview': False},
+            {'en_name': 'Aha', 'run': '4.7下', 'is_collab': False, 'is_preview': True}
+        ]
+
+        merged_chars, _, runs_added_log, _ = _merge_characters(original_chars, incoming_schedules, session)
+        seele = next(c for c in merged_chars if c['name'] == '希兒')
+        aha = next(c for c in merged_chars if c['name'] == '星神★阿哈')
+
+        self.assertEqual(seele['runs'], ['1.0上', '1.4下'])
+        self.assertEqual(aha['runs'], ['4.7下'])
+        self.assertTrue(aha.get('isPreview'))
+        self.assertIn('星神★阿哈 ➡️ 4.7下', runs_added_log)
+
+    def test_three_phase_upcoming_patch_extrapolation(self):
+        from update_gist import fetch_fandom_upcoming_characters_and_patches
+
+        session = MagicMock()
+        # Mock empty collaboration and upcoming categories
+        session.get.return_value.json.return_value = {'query': {'categorymembers': []}}
+
+        _, gen_patches = fetch_fandom_upcoming_characters_and_patches(session, '3.8中', '26/01/07')
+        self.assertGreaterEqual(len(gen_patches), 1)
+        self.assertEqual(gen_patches[0]['patch'], '3.8下')
+        self.assertEqual(gen_patches[0]['date'], '26/01/28')
+        self.assertTrue(gen_patches[0]['isPreview'])
+
+
+class TestRealProjectDataIntegrity(unittest.TestCase):
+    def test_actual_project_js_files_pass_validation(self):
+        import os
+        patches_path = os.path.join('js', 'patches.js')
+        chars_path = os.path.join('js', 'characters.js')
+
+        patches = parse_local_js_array(patches_path, 'PATCH_DATA')
+        chars = parse_local_js_array(chars_path, 'RAW_CHARACTERS')
+
+        self.assertGreater(len(patches), 0, "PATCH_DATA 不可為空")
+        self.assertGreater(len(chars), 0, "RAW_CHARACTERS 不可為空")
+
+        # 驗證實際專案資料通過五道防護門檻
+        validate_data_integrity(chars, patches, chars, patches)
+
+        # 驗證 characters.js 具備 LAST_UPDATED 常數供前端首屏直接讀取
+        with open(chars_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        self.assertRegex(content, r'const\s+LAST_UPDATED\s*=\s*"\d{4}/\d{2}/\d{2}";')
+
 
 if __name__ == '__main__':
     unittest.main()

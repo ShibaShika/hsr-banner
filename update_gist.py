@@ -168,8 +168,10 @@ def serialize_js_file(var_name, data, filepath):
     js_str = re.sub(r'^(\s*)"([a-zA-Z_$][a-zA-Z0-9_$]*)":', r'\1\2:', json_str, flags=re.MULTILINE)
 
     today_str = datetime.now(TZ_TW).strftime("%Y/%m/%d")
-    header = f"// 更新日期: {today_str}\n\n"
-    content = f"{header}const {var_name} = {js_str};\n"
+    header = f"// 更新日期: {today_str}\n"
+    if var_name == "RAW_CHARACTERS":
+        header += f'const LAST_UPDATED = "{today_str}";\n'
+    content = f"{header}\nconst {var_name} = {js_str};\n"
 
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
@@ -448,11 +450,11 @@ def fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date)
     upcoming_schedules = []
 
     def get_next_patch_and_date(current_patch, current_date_str):
-        m = re.match(r'^(\d+)\.(\d+)([上下])$', current_patch)
+        m = re.match(r'^(\d+)\.(\d+)([上下中])$', current_patch)
         if not m:
             return None, None
         major, minor, phase = int(m.group(1)), int(m.group(2)), m.group(3)
-        if phase == '上':
+        if phase in ('上', '中'):
             next_p = f"{major}.{minor}下"
         else:
             next_p = f"{major}.{minor + 1}上"
@@ -465,7 +467,7 @@ def fetch_fandom_upcoming_characters_and_patches(session, base_patch, base_date)
             next_d_str = current_date_str
         return next_p, next_d_str
 
-    max_ver = float(base_patch.replace('上', '').replace('下', '')) if re.match(r'^\d+\.\d+', base_patch) else 4.6
+    max_ver = float(re.sub(r'[上下中]$', '', base_patch)) if re.match(r'^\d+\.\d+', base_patch) else 4.6
 
     collab_schedules, max_ver = _parse_collaboration_events(session, max_ver)
     upcoming_schedules.extend(collab_schedules)
@@ -656,22 +658,27 @@ def validate_data_integrity(original_chars, original_patches, new_chars, new_pat
     """
     五道強制安全防護檢驗門檻。
     若有任何一項檢驗不通過，拋出 AssertionError 並立即中斷，絕不寫入專案！
+    （註：不可減少／不可逆原則僅限定於非 isPreview 之正式資料，允許預覽資料動態調整）
     """
     print("\n🛡️ 正在執行五道安全防護檢驗門檻 (Pre-commit Validation)...")
 
-    # 門檻 1：角色數量不減少原則
-    if len(new_chars) < len(original_chars):
+    # 門檻 1：正式角色數量不減少原則（限定 !isPreview）
+    orig_official_chars = [c for c in original_chars if not c.get('isPreview')]
+    new_official_chars = [c for c in new_chars if not c.get('isPreview')]
+    if len(new_official_chars) < len(orig_official_chars):
         raise AssertionError(
-            f"❌ 門檻 1 失敗：角色總數異常減少！(原 {len(original_chars)} 位 ➡️ 現 {len(new_chars)} 位)"
+            f"❌ 門檻 1 失敗：角色總數異常減少！(原 {len(orig_official_chars)} 位 ➡️ 現 {len(new_official_chars)} 位)"
         )
-    print(f"  ✅ 門檻 1 通過：角色總數維持或增加 ({len(original_chars)} ➡️ {len(new_chars)})")
+    print(f"  ✅ 門檻 1 通過：正式角色總數維持或增加 ({len(orig_official_chars)} ➡️ {len(new_official_chars)})")
 
-    # 門檻 2：版本數量不減少原則
-    if len(new_patches) < len(original_patches):
+    # 門檻 2：正式版本數量不減少原則（限定 !isPreview）
+    orig_official_patches = [p for p in original_patches if not p.get('isPreview')]
+    new_official_patches = [p for p in new_patches if not p.get('isPreview')]
+    if len(new_official_patches) < len(orig_official_patches):
         raise AssertionError(
-            f"❌ 門檻 2 失敗：版本總數異常減少！(原 {len(original_patches)} 個 ➡️ 現 {len(new_patches)} 個)"
+            f"❌ 門檻 2 失敗：版本總數異常減少！(原 {len(orig_official_patches)} 個 ➡️ 現 {len(new_official_patches)} 個)"
         )
-    print(f"  ✅ 門檻 2 通過：版本數量維持或增加 ({len(original_patches)} ➡️ {len(new_patches)})")
+    print(f"  ✅ 門檻 2 通過：正式版本數量維持或增加 ({len(orig_official_patches)} ➡️ {len(new_official_patches)})")
 
     # 門檻 3：版本名稱規格檢驗
     patch_names_set = set()
@@ -696,8 +703,17 @@ def validate_data_integrity(original_chars, original_patches, new_chars, new_pat
                 )
     print("  ✅ 門檻 4 通過：所有角色的登場排程皆有對應之版本節點")
 
-    # 門檻 5：既有角色的歷史排程不可逆原則
-    original_char_map = {c.get('name'): set(c.get('runs', [])) for c in original_chars if c.get('name')}
+    # 門檻 5：既有正式角色的歷史排程不可逆原則（限定 !isPreview）
+    preview_patch_names = {
+        p.get('patch') for p in original_patches if p.get('isPreview')
+    } | {
+        p.get('patch') for p in new_patches if p.get('isPreview')
+    }
+    original_char_map = {
+        c.get('name'): set(r for r in c.get('runs', []) if r not in preview_patch_names)
+        for c in original_chars
+        if c.get('name') and not c.get('isPreview')
+    }
     for c in new_chars:
         name = c.get('name')
         if name in original_char_map:
@@ -769,6 +785,9 @@ def _merge_characters(original_chars, all_incoming_schedules, session):
 
     # 深拷貝以避免污染
     merged_chars = json.loads(json.dumps(original_chars))
+    originally_preview_char_ids = {id(c) for c in merged_chars if c.get('isPreview')}
+    reset_preview_char_ids = set()
+
     existing_char_map_by_cid = {c['cid']: c for c in merged_chars if c.get('cid')}
     existing_char_map_by_name = {c['name']: c for c in merged_chars if c.get('name')}
 
@@ -826,6 +845,8 @@ def _merge_characters(original_chars, all_incoming_schedules, session):
             matched_char = existing_char_map_by_cid[target_cid]
 
         if matched_char:
+            was_originally_preview = id(matched_char) in originally_preview_char_ids
+
             # 升級名稱
             if (matched_char.get('name') != target_name and target_name != en_name
                     and not contains_cjk(matched_char.get('name', '')) and contains_cjk(target_name)):
@@ -847,11 +868,17 @@ def _merge_characters(original_chars, all_incoming_schedules, session):
                 matched_char.pop('isPreview', None)
                 print(f"  🎉 角色 [{matched_char.get('name')}] 已正式實裝，移除 isPreview 預覽標記！")
 
-            # 補充排程
+            # 補充或動態覆蓋預覽排程
             if not is_collab and not matched_char.get('isCollab'):
                 if 'runs' not in matched_char or not isinstance(matched_char['runs'], list):
                     matched_char['runs'] = []
-                if run not in matched_char['runs']:
+                if was_originally_preview and id(matched_char) not in reset_preview_char_ids:
+                    old_runs = list(matched_char['runs'])
+                    matched_char['runs'] = [run]
+                    reset_preview_char_ids.add(id(matched_char))
+                    if old_runs != [run]:
+                        runs_added_log.append(f"{matched_char['name']} ➡️ {run}")
+                elif run not in matched_char['runs']:
                     matched_char['runs'].append(run)
                     runs_added_log.append(f"{matched_char['name']} ➡️ {run}")
         else:
@@ -887,7 +914,10 @@ def _merge_patches(original_patches, all_incoming_patches):
         if norm_date and norm_date <= today_tw_str:
             current_patch_idx = idx
 
-    updatable_patch_names = set(p['patch'] for p in original_patches[current_patch_idx:])
+    updatable_patch_names = (
+        set(p['patch'] for p in original_patches[current_patch_idx:])
+        | set(p['patch'] for p in original_patches if p.get('isPreview'))
+    )
     current_patch_name = original_patches[current_patch_idx]['patch'] if original_patches else "無"
     print(f"🕒 當前進行中版本：{current_patch_name}，納入日期自動追蹤校正之版本：{sorted(list(updatable_patch_names))}")
 

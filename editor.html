@@ -99,7 +99,7 @@
         .picker-option:hover { background: #333; border-color: #777; color: #fff; }
         .picker-option.selected { background: var(--primary); border-color: #5575b5; color: #fff; font-weight: bold; }
 
-        .patches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 15px; }
+        .patches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; margin-bottom: 15px; }
         .patch-card { 
             background: #1a1a1a; 
             border: 1px solid #333; 
@@ -120,13 +120,13 @@
             min-width: 0; 
         }
         .patch-card input[type="text"] {
-            width: 70px;
+            width: 62px;
             flex-shrink: 0;
             text-align: center;
         }
         .patch-card input[type="date"] {
             flex: 1;
-            min-width: 0;
+            min-width: 138px;
         }
 
         .btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
@@ -188,6 +188,14 @@
         </div>
 
         <div id="tab-chars" class="tab-content active">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="text" id="editor-char-search" placeholder="🔍 快速過濾角色名稱或 CID..." oninput="renderChars()" style="width: 240px; padding: 6px 10px;">
+                    <button type="button" class="btn" onclick="const el = document.getElementById('editor-char-search'); if (el) { el.value = ''; renderChars(); }" style="padding: 5px 10px; font-size: 12px;">清除</button>
+                    <span id="editor-char-count" style="font-size: 12px; color: #aaa;"></span>
+                </div>
+                <button class="btn btn-add" style="margin-top: 0;" onclick="addCharRow()">+ 新增角色</button>
+            </div>
             <table>
                 <thead>
                     <tr>
@@ -198,7 +206,8 @@
                         <th style="width: 60px;">屬性</th>
                         <th>取得機制與版本設定</th>
                         <th style="width: 145px;">礪爍新輝</th>
-                        <th style="width: 65px; text-align: center;">操作</th>
+                        <th style="width: 52px; text-align: center;">預覽</th>
+                        <th style="width: 92px; text-align: center;">操作</th>
                     </tr>
                 </thead>
                 <tbody id="chars-tbody"></tbody>
@@ -250,24 +259,76 @@
     </div>
 
     <script>
-        // 初始備份用來比對修改狀態
-        let initialCharsJson = JSON.stringify(typeof RAW_CHARACTERS !== 'undefined' ? RAW_CHARACTERS : []);
-        let initialPatchesJson = JSON.stringify(typeof PATCH_DATA !== 'undefined' ? PATCH_DATA : []);
-
-        let charsData = typeof RAW_CHARACTERS !== 'undefined' ? JSON.parse(initialCharsJson) : [];
-        let patchesData = typeof PATCH_DATA !== 'undefined' ? JSON.parse(initialPatchesJson) : [];
+        function attachUid(obj, uid) {
+            if (obj && typeof obj === 'object') {
+                Object.defineProperty(obj, '_uid', {
+                    value: uid,
+                    enumerable: false,
+                    writable: true,
+                    configurable: true
+                });
+            }
+            return obj;
+        }
 
         // 聯動角色以 isCollab 表示實裝版本；runs 不應保留一般卡池紀錄。
         function normalizeCollabRuns(characters) {
             return characters.map(char => {
                 if (Object.prototype.hasOwnProperty.call(char, 'isCollab')) {
-                    return { ...char, runs: [] };
+                    const normalized = { ...char, runs: [] };
+                    if (char._uid) attachUid(normalized, char._uid);
+                    return normalized;
                 }
                 return char;
             });
         }
 
-        charsData = normalizeCollabRuns(charsData);
+        // 初始備份用來比對修改狀態（使用唯一識別與 cid/patch 對照，避免移動或刪除後索引錯位）
+        let initialCharsJson = JSON.stringify(typeof RAW_CHARACTERS !== 'undefined' ? normalizeCollabRuns(RAW_CHARACTERS) : []);
+        let initialPatchesJson = JSON.stringify(typeof PATCH_DATA !== 'undefined' ? PATCH_DATA : []);
+
+        const initialCharByUid = new Map();
+        const initialPatchByUid = new Map();
+
+        let charsData = (typeof RAW_CHARACTERS !== 'undefined' ? JSON.parse(initialCharsJson) : []).map((char, idx) => {
+            const uid = `init_char_${idx}`;
+            initialCharByUid.set(uid, JSON.parse(JSON.stringify(char)));
+            return attachUid(char, uid);
+        });
+
+        let patchesData = (typeof PATCH_DATA !== 'undefined' ? JSON.parse(initialPatchesJson) : []).map((patch, idx) => {
+            const uid = `init_patch_${idx}`;
+            initialPatchByUid.set(uid, JSON.parse(JSON.stringify(patch)));
+            return attachUid(patch, uid);
+        });
+
+        function findOriginalChar(char, originalChars) {
+            if (!char) return null;
+            if (char._uid && initialCharByUid.has(char._uid)) {
+                return initialCharByUid.get(char._uid);
+            }
+            if (char.cid) {
+                const byCid = originalChars.find(o => o.cid === char.cid);
+                if (byCid) return byCid;
+            }
+            if (char.name) {
+                const byName = originalChars.find(o => o.name === char.name);
+                if (byName) return byName;
+            }
+            return null;
+        }
+
+        function findOriginalPatch(patchObj, originalPatches) {
+            if (!patchObj) return null;
+            if (patchObj._uid && initialPatchByUid.has(patchObj._uid)) {
+                return initialPatchByUid.get(patchObj._uid);
+            }
+            if (patchObj.patch) {
+                const byName = originalPatches.find(o => o.patch === patchObj.patch);
+                if (byName) return byName;
+            }
+            return null;
+        }
 
         function escapeHtml(str) {
             if (str == null) return '';
@@ -298,7 +359,7 @@
 
         function getNextPatchName(patchStr) {
             if (!patchStr) return "";
-            const match = patchStr.match(/^(\d+)\.(\d+)(上|下)?$/);
+            const match = patchStr.match(/^(\d+)\.(\d+)(上|中|下)?$/);
             if (!match) return "";
             const major = parseInt(match[1], 10);
             let minor = parseInt(match[2], 10);
@@ -534,19 +595,31 @@
             const availablePaths = getDynamicOptions('path');
             const availableElems = getDynamicOptions('elem');
 
-            // 原始資料對照用來判斷變更
+            const searchInput = document.getElementById('editor-char-search');
+            const keyword = searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '';
+
+            // 原始資料對照用來判斷變更（以唯一識別或 CID/名稱對照，解決移動或刪除後錯位問題）
             const originalChars = JSON.parse(initialCharsJson);
+            let visibleCount = 0;
 
             charsData.forEach((char, index) => {
                 try {
-                    const origChar = originalChars[index] || {};
-                    const isCidModified = (char.cid || "") !== (origChar.cid || "");
-                    const isNameModified = char.name !== origChar.name;
-                    const isPathModified = char.path !== origChar.path;
-                    const isElemModified = char.elem !== origChar.elem;
-                    const isRunsModified = JSON.stringify(char.runs || []) !== JSON.stringify(origChar.runs || []);
-                    const isBuffsModified = JSON.stringify(char.buffs || []) !== JSON.stringify(origChar.buffs || []);
-                    const isRowNew = !originalChars.some(o => (char.cid && o.cid === char.cid) || (o.name === char.name && char.name !== ""));
+                    const nameStr = (char.name || '').toLowerCase();
+                    const cidStr = String(char.cid || '').toLowerCase();
+                    if (keyword && !nameStr.includes(keyword) && !cidStr.includes(keyword)) {
+                        return;
+                    }
+                    visibleCount++;
+
+                    const origChar = findOriginalChar(char, originalChars);
+                    const isRowNew = !origChar;
+                    const isCidModified = origChar ? (char.cid || "") !== (origChar.cid || "") : false;
+                    const isNameModified = origChar ? (char.name || "") !== (origChar.name || "") : false;
+                    const isPathModified = origChar ? char.path !== origChar.path : false;
+                    const isElemModified = origChar ? char.elem !== origChar.elem : false;
+                    const isRunsModified = origChar ? JSON.stringify(char.runs || []) !== JSON.stringify(origChar.runs || []) : false;
+                    const isBuffsModified = origChar ? JSON.stringify(char.buffs || []) !== JSON.stringify(origChar.buffs || []) : false;
+                    const isPreviewModified = origChar ? Boolean(char.isPreview) !== Boolean(origChar.isPreview) : false;
 
                     const isCollab = char.isCollab !== undefined;
                     const termType = char.term ? char.term.type : 'none'; 
@@ -638,10 +711,17 @@
                                 <button type="button" class="btn" style="padding: 2px 6px; font-size: 11px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addBuff(${index})" title="新增加強版本">＋</button>
                             </div>
                         </td>
+                        <td style="text-align: center;">
+                            <label class="${isPreviewModified ? 'modified-highlight' : ''}" style="cursor: pointer; display: inline-flex; align-items: center; gap: 3px; font-size: 12px; user-select: none; padding: 2px 5px; border-radius: 3px;" title="標記為預覽角色 (isPreview)">
+                                <input type="checkbox" ${char.isPreview ? 'checked' : ''} onchange="updateCharPreview(${index}, this.checked)">
+                                <span>🔮</span>
+                            </label>
+                        </td>
                         <td style="text-align: center; white-space: nowrap;">
                             <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
-                                <button class="btn" style="padding: 3px 8px; font-size: 11px;" onclick="moveChar(${index}, 1)" ${index === charsData.length - 1 ? 'disabled style="opacity: 0.3; cursor: not-allowed; padding: 3px 8px; font-size: 11px;"' : ''} title="與下一行互換">⬇</button>
-                                <button class="btn btn-danger" style="padding: 3px 8px; font-size: 11px;" onclick="deleteChar(${index})" title="刪除">✕</button>
+                                <button class="btn" style="padding: 3px 7px; font-size: 11px;" onclick="moveChar(${index}, -1)" ${index === 0 ? 'disabled style="opacity: 0.3; cursor: not-allowed; padding: 3px 7px; font-size: 11px;"' : ''} title="與上一行互換">⬆</button>
+                                <button class="btn" style="padding: 3px 7px; font-size: 11px;" onclick="moveChar(${index}, 1)" ${index === charsData.length - 1 ? 'disabled style="opacity: 0.3; cursor: not-allowed; padding: 3px 7px; font-size: 11px;"' : ''} title="與下一行互換">⬇</button>
+                                <button class="btn btn-danger" style="padding: 3px 7px; font-size: 11px;" onclick="deleteChar(${index})" title="刪除">✕</button>
                             </div>
                         </td>
                     `;
@@ -650,10 +730,26 @@
                     console.error("渲染角色出錯: ", err);
                 }
             });
+
+            const countEl = document.getElementById('editor-char-count');
+            if (countEl) {
+                countEl.textContent = keyword
+                    ? `顯示 ${visibleCount} / 共 ${charsData.length} 位`
+                    : `共 ${charsData.length} 位`;
+            }
         }
 
         function updateChar(index, key, value) { 
             charsData[index][key] = value ? value.trim() : null; 
+            renderChars();
+        }
+
+        function updateCharPreview(index, isChecked) {
+            if (isChecked) {
+                charsData[index].isPreview = true;
+            } else {
+                delete charsData[index].isPreview;
+            }
             renderChars();
         }
 
@@ -696,7 +792,7 @@
             renderChars();
         }
 
-        // 下移互換順位函式
+        // 上移／下移互換順位函式
         function moveChar(index, direction) {
             const targetIndex = index + direction;
             if (targetIndex < 0 || targetIndex >= charsData.length) return;
@@ -797,7 +893,9 @@
                     baseGroups[baseName] = [];
                     groupOrder.push(baseName);
                 }
-                baseGroups[baseName].push({ ...p, originalIndex: index });
+                const groupedPatch = { ...p, originalIndex: index };
+                if (p._uid) attachUid(groupedPatch, p._uid);
+                baseGroups[baseName].push(groupedPatch);
             });
 
             const years = [];
@@ -892,10 +990,11 @@
 
                 yearData.patches.forEach(p => {
                     const index = p.originalIndex;
-                    const origP = originalPatches[index] || {};
-                    const isPatchModified = p.patch !== origP.patch;
-                    const isDateModified = p.date !== origP.date;
-                    const isPatchNew = !originalPatches.some(o => o.patch === p.patch);
+                    const origP = findOriginalPatch(p, originalPatches);
+                    const isPatchNew = !origP;
+                    const isPatchModified = origP ? p.patch !== origP.patch : false;
+                    const isDateModified = origP ? p.date !== origP.date : false;
+                    const isPreviewModified = origP ? Boolean(p.isPreview) !== Boolean(origP.isPreview) : false;
 
                     const inputDateVal = formatPatchDateForInput(p.date);
                     const card = document.createElement('div');
@@ -905,9 +1004,13 @@
                     }
 
                     card.innerHTML = `
-                        <div class="input-group">
+                        <div class="input-group" style="align-items: center;">
                             <input type="text" value="${escapeHtml(p.patch || '')}" onchange="updatePatch(${index}, 'patch', this.value)" class="${isPatchModified ? 'modified-highlight' : ''}" placeholder="新版本">
                             <input type="date" value="${escapeHtml(inputDateVal)}" onchange="updatePatchDate(${index}, this.value)" class="${isDateModified ? 'modified-highlight' : ''}" title="版本日期">
+                            <label class="${isPreviewModified ? 'modified-highlight' : ''}" title="標記為預覽版本 (isPreview)" style="display: inline-flex; align-items: center; gap: 2px; font-size: 12px; cursor: pointer; user-select: none; padding: 2px 4px; border-radius: 3px; flex-shrink: 0;">
+                                <input type="checkbox" ${p.isPreview ? 'checked' : ''} onchange="updatePatchPreview(${index}, this.checked)">
+                                <span>🔮</span>
+                            </label>
                         </div>
                         <button class="btn btn-danger" onclick="deletePatch(${index})" title="刪除">✕</button>
                     `;
@@ -918,7 +1021,7 @@
         }
 
         function updatePatch(index, key, value) { 
-            patchesData[index][key] = value; 
+            patchesData[index][key] = value ? value.trim() : ""; 
             renderPatches();
             renderChars();
         }
@@ -926,6 +1029,15 @@
         function updatePatchDate(index, value) {
             patchesData[index].date = parsePatchDateFromInput(value);
             renderPatches(); 
+        }
+
+        function updatePatchPreview(index, isChecked) {
+            if (isChecked) {
+                patchesData[index].isPreview = true;
+            } else {
+                delete patchesData[index].isPreview;
+            }
+            renderPatches();
         }
         
         function addPatchRow() {
@@ -968,6 +1080,55 @@
             }
         }
 
+        function validateEditorData() {
+            const errors = [];
+            const patchNameRe = /^\d+\.\d+[上下中]$/;
+            const patchDateRe = /^\d{2}\/\d{2}\/\d{2}$/;
+            const patchNamesSet = new Set();
+
+            patchesData.forEach((p, idx) => {
+                const name = (p.patch || "").trim();
+                const date = (p.date || "").trim();
+                if (!patchNameRe.test(name)) {
+                    errors.push(`• 版本 #${idx + 1} 名稱格式不合規：「${name || '空白'}」（須為 X.Y上/中/下）`);
+                }
+                if (!patchDateRe.test(date)) {
+                    errors.push(`• 版本 [${name || `#${idx + 1}`}] 日期格式不合規：「${date || '空白'}」（須為 YY/MM/DD）`);
+                }
+                if (name && patchNamesSet.has(name)) {
+                    errors.push(`• 版本名稱重複定義：「${name}」`);
+                }
+                if (name) {
+                    patchNamesSet.add(name);
+                }
+            });
+
+            charsData.forEach((c, idx) => {
+                const name = (c.name || "").trim();
+                if (!name) {
+                    errors.push(`• 角色 #${idx + 1} 名稱不可為空白`);
+                }
+                (c.runs || []).forEach(r => {
+                    if (!patchNamesSet.has(r)) {
+                        errors.push(`• 角色 [${name || `#${idx + 1}`}] 的登場版本「${r}」不存在於版本清單中`);
+                    }
+                });
+                if (c.isCollab && !patchNamesSet.has(c.isCollab)) {
+                    errors.push(`• 角色 [${name || `#${idx + 1}`}] 的聯動版本「${c.isCollab}」不存在於版本清單中`);
+                }
+                if (c.term && c.term.patch && !patchNamesSet.has(c.term.patch)) {
+                    errors.push(`• 角色 [${name || `#${idx + 1}`}] 的特殊取得版本「${c.term.patch}」不存在於版本清單中`);
+                }
+                (c.buffs || []).forEach(b => {
+                    if (!patchNamesSet.has(b)) {
+                        errors.push(`• 角色 [${name || `#${idx + 1}`}] 的加強版本「${b}」不存在於版本清單中`);
+                    }
+                });
+            });
+
+            return errors;
+        }
+
         function generateJSString(varName, data) {
             let json = JSON.stringify(data, null, 4);
             // 僅替換行首帶有縮排的合法 JS 屬性名稱 (例如 `    cid:`、`        patch:`)，避免誤傷字串值
@@ -979,10 +1140,21 @@
             const dd = String(twNow.getUTCDate()).padStart(2, '0');
             const dateStr = `${yyyy}/${mm}/${dd}`;
 
-            return `// 更新日期: ${dateStr}\n\nconst ${varName} = ${jsString};\n`;
+            let header = `// 更新日期: ${dateStr}\n`;
+            if (varName === 'RAW_CHARACTERS') {
+                header += `const LAST_UPDATED = "${dateStr}";\n`;
+            }
+
+            return `${header}\nconst ${varName} = ${jsString};\n`;
         }
 
         function exportData(type) {
+            const errors = validateEditorData();
+            if (errors.length > 0) {
+                alert('⚠️ 資料完整性防呆檢查未通過，請先修正以下問題再匯出：\n\n' + errors.slice(0, 10).join('\n') + (errors.length > 10 ? `\n...（另有 ${errors.length - 10} 項問題）` : ''));
+                return;
+            }
+
             let code = '';
             let textareaId = '';
             

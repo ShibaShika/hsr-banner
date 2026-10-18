@@ -192,33 +192,427 @@ function calculateCharStats(char, patchesList, activePatchName, patchIndexMap) {
 }
 
 // 狀態控制變數
-let isCharAscending = false;   // 角色順序 (false: 最新在前 ▼, true: 最舊在前 ▲)
+let isCharAscending = false;   // 角色順序 (false: 降冪 ▼, true: 升冪 ▲)
 let isPatchAscending = false;  // 版本順序 (false: 最新在左 ◀, true: 最舊在左 ▶)
+let charSortMode = 'debut-desc'; // 角色排序模式 ('debut-desc' | 'debut-asc' | 'runs-desc' | 'runs-asc' | 'wait-desc' | 'wait-asc')
 let isShowPreview = localStorage.getItem('hsr_show_preview') !== null ? (localStorage.getItem('hsr_show_preview') === 'true') : true;
+let isRestoringUrl = false;
+let activePopoverCell = null;
+let isPopoverPinned = false;
+
+const VALID_SORT_MODES = new Set(['debut-desc', 'debut-asc', 'runs-desc', 'runs-asc', 'wait-desc', 'wait-asc']);
+const VALID_SORT_FIELDS = new Set(['debut', 'runs', 'wait']);
+
+function parseSortMode(mode = charSortMode, fallbackAsc = isCharAscending) {
+    if (typeof mode === 'string' && VALID_SORT_MODES.has(mode)) {
+        const [field, dir] = mode.split('-');
+        return { field, dir, isAsc: dir === 'asc', mode };
+    }
+    if (typeof mode === 'string' && VALID_SORT_FIELDS.has(mode)) {
+        const dir = fallbackAsc ? 'asc' : 'desc';
+        return { field: mode, dir, isAsc: Boolean(fallbackAsc), mode: `${mode}-${dir}` };
+    }
+    const dir = fallbackAsc ? 'asc' : 'desc';
+    return { field: 'debut', dir, isAsc: Boolean(fallbackAsc), mode: `debut-${dir}` };
+}
+
+function getSortDescription(mode = charSortMode, isAsc = isCharAscending) {
+    const parsed = parseSortMode(mode, isAsc);
+    if (parsed.mode === 'debut-desc') return '登場順序 (最新優先)';
+    if (parsed.mode === 'debut-asc') return '登場順序 (開服最舊優先)';
+    if (parsed.mode === 'wait-desc') return '上次復刻 (最久未復刻優先)';
+    if (parsed.mode === 'wait-asc') return '上次復刻 (最近剛復刻優先)';
+    if (parsed.mode === 'runs-desc') return 'UP次數 (次數最多優先)';
+    if (parsed.mode === 'runs-asc') return 'UP次數 (次數最少優先)';
+    return '角色排序';
+}
+
+function getSortCharBtnLabel(mode = charSortMode, isAsc = isCharAscending) {
+    const parsed = parseSortMode(mode, isAsc);
+    const arrow = parsed.isAsc ? '▲' : '▼';
+    if (parsed.field === 'wait') return `復刻 ${arrow}`;
+    if (parsed.field === 'runs') return `UP數 ${arrow}`;
+    return `登場 ${arrow}`;
+}
+
+function buildCharSortMenuHtml(currentMode = charSortMode, isAsc = isCharAscending) {
+    const parsed = parseSortMode(currentMode, isAsc);
+    const activeMode = parsed.mode;
+
+    const renderOption = (mode, label, dir) => {
+        const isActive = activeMode === mode;
+        return `<button type="button" class="sort-option-btn${isActive ? ' active' : ''}" data-sort-mode="${mode}">
+            <span class="sort-opt-name">${escapeHtml(label)}</span>
+            <span class="sort-opt-dir">${dir}</span>
+        </button>`;
+    };
+
+    return `
+        <div class="sort-popover-group">
+            <div class="sort-group-title">登場順序</div>
+            <div class="sort-options-row">
+                ${renderOption('debut-desc', '最新', '▼')}
+                ${renderOption('debut-asc', '最舊', '▲')}
+            </div>
+        </div>
+        <div class="sort-popover-group">
+            <div class="sort-group-title">上次復刻</div>
+            <div class="sort-options-row">
+                ${renderOption('wait-desc', '最久未復刻', '▼')}
+                ${renderOption('wait-asc', '最近復刻', '▲')}
+            </div>
+        </div>
+        <div class="sort-popover-group">
+            <div class="sort-group-title">UP 次數</div>
+            <div class="sort-options-row">
+                ${renderOption('runs-desc', '最多', '▼')}
+                ${renderOption('runs-asc', '最少', '▲')}
+            </div>
+        </div>
+    `;
+}
+
+function ensureCharSortPopover() {
+    let popover = document.getElementById('char-sort-popover');
+    if (!popover && typeof document !== 'undefined' && document.body) {
+        popover = document.createElement('div');
+        popover.id = 'char-sort-popover';
+        popover.className = 'char-sort-popover';
+        popover.setAttribute('role', 'menu');
+        popover.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(popover);
+    }
+    return popover;
+}
+
+function showCharSortMenu(anchorBtn) {
+    const popover = ensureCharSortPopover();
+    if (!popover || !anchorBtn) return;
+
+    popover.innerHTML = buildCharSortMenuHtml(charSortMode, isCharAscending);
+    popover.classList.add('show');
+    popover.setAttribute('aria-hidden', 'false');
+
+    if (typeof anchorBtn.getBoundingClientRect === 'function') {
+        const rect = anchorBtn.getBoundingClientRect();
+        const popWidth = popover.offsetWidth || 180;
+        const popHeight = popover.offsetHeight || 135;
+        const vw = typeof window !== 'undefined' ? (window.innerWidth || 1024) : 1024;
+        const vh = typeof window !== 'undefined' ? (window.innerHeight || 768) : 768;
+
+        let left = rect.left;
+        if (left + popWidth > vw - 8) {
+            left = Math.max(8, vw - popWidth - 8);
+        }
+        let top = rect.bottom + 4;
+        if (top + popHeight > vh - 8) {
+            top = Math.max(8, rect.top - popHeight - 4);
+        }
+        popover.style.left = `${Math.round(left)}px`;
+        popover.style.top = `${Math.round(top)}px`;
+    }
+}
+
+function hideCharSortMenu() {
+    const popover = document.getElementById('char-sort-popover');
+    if (popover) {
+        popover.classList.remove('show');
+        popover.setAttribute('aria-hidden', 'true');
+    }
+}
+
+function toggleCharSortMenu(anchorBtn) {
+    const popover = ensureCharSortPopover();
+    if (!popover) return;
+    if (popover.classList.contains('show')) {
+        hideCharSortMenu();
+    } else {
+        showCharSortMenu(anchorBtn);
+    }
+}
+
+function updateSortControlsUI() {
+    const parsed = parseSortMode(charSortMode, isCharAscending);
+    const sortSelect = document.getElementById('char-sort-select');
+    const sortDirBtn = document.getElementById('char-sort-dir-btn');
+    const sortWrap = document.getElementById('char-sort-wrap') || sortSelect?.closest('.sort-select-wrap');
+    const sortCharBtn = document.getElementById('sort-char-btn');
+
+    if (sortSelect) {
+        sortSelect.value = parsed.field;
+        sortSelect.classList.toggle('active', parsed.mode !== 'debut-desc');
+    }
+    if (sortDirBtn) {
+        sortDirBtn.textContent = parsed.isAsc ? '▲' : '▼';
+    }
+    if (sortWrap) {
+        sortWrap.classList.toggle('active', parsed.mode !== 'debut-desc');
+    }
+    if (sortCharBtn) {
+        sortCharBtn.textContent = getSortCharBtnLabel(charSortMode, isCharAscending);
+        sortCharBtn.classList.toggle('active', parsed.mode !== 'debut-desc');
+        sortCharBtn.removeAttribute('title');
+    }
+
+    const popover = document.getElementById('char-sort-popover');
+    if (popover && popover.classList.contains('show')) {
+        popover.querySelectorAll('.sort-option-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.sortMode === parsed.mode);
+        });
+    }
+}
+
+// 🔀 角色多維度排序演算法（登場順序／UP次數／上次復刻時間）
+function sortCharacters(characters, sortMode, patchesList, activePatchName, patchIndexMap) {
+    if (!Array.isArray(characters) || characters.length === 0) return [];
+    const { mode } = parseSortMode(sortMode, isCharAscending);
+
+    if (mode === 'debut-asc') {
+        return [...characters];
+    }
+    if (mode === 'debut-desc') {
+        return [...characters].reverse();
+    }
+
+    const enriched = characters.map((char, origIdx) => {
+        const stats = calculateCharStats(char, patchesList || [], activePatchName || '', patchIndexMap);
+        const totalRunsNum = stats.isCollab ? 1 : (parseInt(stats.totalRuns, 10) || 0);
+        const isNumericWait = !char.isPreview && !stats.isCollab && !stats.isTermActive && stats.currentGap !== '-' && !isNaN(parseInt(stats.currentGap, 10));
+        const currentGapNum = isNumericWait ? parseInt(stats.currentGap, 10) : -1;
+        return { char, origIdx, stats, totalRunsNum, isNumericWait, currentGapNum };
+    });
+
+    if (mode === 'wait-desc') {
+        enriched.sort((a, b) => {
+            const getBucket = (item) => {
+                if (item.isNumericWait) return 0;
+                if (item.stats.isTermActive) return 1;
+                if (item.stats.isCollab) return 2;
+                return 3;
+            };
+            const bucketA = getBucket(a);
+            const bucketB = getBucket(b);
+            if (bucketA !== bucketB) return bucketA - bucketB;
+            if (bucketA === 0) {
+                if (b.currentGapNum !== a.currentGapNum) return b.currentGapNum - a.currentGapNum;
+                if (Boolean(b.stats.isOverdue) !== Boolean(a.stats.isOverdue)) return b.stats.isOverdue ? 1 : -1;
+            }
+            return a.origIdx - b.origIdx;
+        });
+    } else if (mode === 'wait-asc') {
+        enriched.sort((a, b) => {
+            const getBucket = (item) => {
+                if (item.isNumericWait) return 0;
+                if (item.stats.isTermActive) return 1;
+                if (item.stats.isCollab) return 2;
+                return 3;
+            };
+            const bucketA = getBucket(a);
+            const bucketB = getBucket(b);
+            if (bucketA !== bucketB) return bucketA - bucketB;
+            if (bucketA === 0) {
+                if (a.currentGapNum !== b.currentGapNum) return a.currentGapNum - b.currentGapNum;
+            }
+            return b.origIdx - a.origIdx;
+        });
+    } else if (mode === 'runs-desc') {
+        enriched.sort((a, b) => {
+            const previewA = Boolean(a.char.isPreview) ? 1 : 0;
+            const previewB = Boolean(b.char.isPreview) ? 1 : 0;
+            if (previewA !== previewB) return previewA - previewB;
+            if (b.totalRunsNum !== a.totalRunsNum) return b.totalRunsNum - a.totalRunsNum;
+            if (b.currentGapNum !== a.currentGapNum) return b.currentGapNum - a.currentGapNum;
+            return a.origIdx - b.origIdx;
+        });
+    } else if (mode === 'runs-asc') {
+        enriched.sort((a, b) => {
+            const bucketA = (a.char.isPreview || a.totalRunsNum === 0) ? 1 : 0;
+            const bucketB = (b.char.isPreview || b.totalRunsNum === 0) ? 1 : 0;
+            if (bucketA !== bucketB) return bucketA - bucketB;
+            if (a.totalRunsNum !== b.totalRunsNum) return a.totalRunsNum - b.totalRunsNum;
+            if (b.currentGapNum !== a.currentGapNum) return b.currentGapNum - a.currentGapNum;
+            return a.origIdx - b.origIdx;
+        });
+    }
+
+    return enriched.map(item => item.char);
+}
+
+// 🔗 解析網址列 Query Params 為狀態物件
+function parseUrlState(searchStr) {
+    const rawSearch = typeof searchStr === 'string'
+        ? searchStr
+        : (typeof window !== 'undefined' && window.location ? window.location.search : '');
+    const params = new URLSearchParams(rawSearch);
+
+    const parseList = (key) => {
+        const val = params.get(key);
+        return val ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
+    };
+
+    const rawSort = params.get('sort');
+    const charSort = rawSort && VALID_SORT_MODES.has(rawSort) ? rawSort : null;
+    const rawPsort = params.get('psort');
+    const patchSortAsc = rawPsort !== null ? (rawPsort === 'asc' || rawPsort === '1' || rawPsort === 'true') : null;
+    const rawPreview = params.get('preview');
+    const showPreview = rawPreview !== null ? (rawPreview !== '0' && rawPreview !== 'false') : null;
+
+    return {
+        versions: parseList('ver'),
+        paths: parseList('path'),
+        elems: parseList('elem'),
+        types: parseList('type'),
+        keyword: params.get('q') ? params.get('q').trim() : '',
+        onlyBuffs: params.get('buff') === '1' || params.get('buff') === 'true',
+        showPreview,
+        charSort,
+        patchSortAsc
+    };
+}
+
+// 🔗 根據當前篩選與排序狀態建構 Query String
+function buildUrlSearchParams(filterState, extraState = {}) {
+    const params = new URLSearchParams();
+    if (!filterState) return '';
+
+    if (filterState.selectedVersions && filterState.selectedVersions.length > 0) {
+        params.set('ver', filterState.selectedVersions.join(','));
+    }
+    if (filterState.selectedPaths && filterState.selectedPaths.length > 0) {
+        params.set('path', filterState.selectedPaths.join(','));
+    }
+    if (filterState.selectedElems && filterState.selectedElems.length > 0) {
+        params.set('elem', filterState.selectedElems.join(','));
+    }
+    if (filterState.selectedTypes && filterState.selectedTypes.length > 0) {
+        params.set('type', filterState.selectedTypes.join(','));
+    }
+    if (filterState.keyword) {
+        params.set('q', filterState.keyword);
+    }
+    if (filterState.onlyBuffs) {
+        params.set('buff', '1');
+    }
+
+    const mode = extraState.charSortMode !== undefined ? extraState.charSortMode : charSortMode;
+    if (mode && mode !== 'debut-desc') {
+        params.set('sort', mode);
+    }
+
+    const patchAsc = extraState.isPatchAscending !== undefined ? extraState.isPatchAscending : isPatchAscending;
+    if (patchAsc) {
+        params.set('psort', 'asc');
+    }
+
+    return params.toString();
+}
+
+function syncStateToUrl() {
+    if (isRestoringUrl) return;
+    if (typeof window === 'undefined' || !window.history || typeof window.history.replaceState !== 'function') return;
+
+    const state = getFilterState();
+    const queryStr = buildUrlSearchParams(state, { charSortMode, isPatchAscending });
+    const pathname = window.location ? window.location.pathname : '';
+    const hash = window.location ? (window.location.hash || '') : '';
+    const newUrl = `${pathname}${queryStr ? '?' + queryStr : ''}${hash}`;
+    window.history.replaceState(null, '', newUrl);
+}
+
+function restoreStateFromUrl(searchStr) {
+    const parsed = parseUrlState(searchStr);
+    isRestoringUrl = true;
+    try {
+        if (parsed.charSort) {
+            const sortInfo = parseSortMode(parsed.charSort);
+            charSortMode = sortInfo.mode;
+            isCharAscending = sortInfo.isAsc;
+        } else {
+            charSortMode = isCharAscending ? 'debut-asc' : 'debut-desc';
+        }
+        if (parsed.patchSortAsc !== null) {
+            isPatchAscending = parsed.patchSortAsc;
+        }
+        if (parsed.showPreview !== null) {
+            isShowPreview = parsed.showPreview;
+        }
+
+        renderTable();
+
+        if (parsed.versions.length > 0) {
+            const verSet = new Set(parsed.versions);
+            document.querySelectorAll('.version-item').forEach(el => {
+                el.checked = verSet.has(el.value);
+            });
+        }
+        if (parsed.paths.length > 0) {
+            const pathSet = new Set(parsed.paths);
+            document.querySelectorAll('.path-item').forEach(el => {
+                el.checked = pathSet.has(el.value);
+            });
+        }
+        if (parsed.elems.length > 0) {
+            const elemSet = new Set(parsed.elems);
+            document.querySelectorAll('.elem-item').forEach(el => {
+                el.checked = elemSet.has(el.value);
+            });
+        }
+        if (parsed.types.length > 0) {
+            const typeSet = new Set(parsed.types);
+            document.querySelectorAll('.type-item').forEach(el => {
+                el.checked = typeSet.has(el.value);
+            });
+        }
+
+        const searchInput = document.getElementById('char-search-input');
+        if (searchInput && parsed.keyword !== '') {
+            searchInput.value = parsed.keyword;
+        }
+
+        const buffToggleBtn = document.getElementById('buff-toggle-btn');
+        if (buffToggleBtn) {
+            buffToggleBtn.classList.toggle('active', parsed.onlyBuffs);
+        }
+
+        updateSortControlsUI();
+    } finally {
+        isRestoringUrl = false;
+    }
+    applyFilters();
+}
 
 // 主表格渲染與初始化
 async function initTracker() {
-    try {
-        const resDate = await fetch('js/characters.js');
-        if (resDate.ok) {
-            const text = await resDate.text();
-            const match = text.match(/\/\/\s*更新日期[:：]\s*([0-9\/]+)/);
-            if (match && match[1]) {
-                document.getElementById('update-date-text').textContent = match[1];
-            } else {
-                document.getElementById('update-date-text').textContent = "未知";
+    // 1. 解析網址參數並優先同步渲染表格與綁定事件，避免網路請求阻塞首屏畫面
+    restoreStateFromUrl();
+    setupEventListeners();
+
+    // 2. 優先讀取 characters.js 匯出的 LAST_UPDATED 常數，免除重複 fetch
+    const updateDateEl = document.getElementById('update-date-text');
+    if (typeof LAST_UPDATED !== 'undefined' && LAST_UPDATED) {
+        if (updateDateEl) updateDateEl.textContent = LAST_UPDATED;
+    } else {
+        try {
+            const resDate = await fetch('js/characters.js');
+            if (resDate && resDate.ok) {
+                const text = await resDate.text();
+                const match = text.match(/\/\/\s*更新日期[:：]\s*([0-9\/]+)/);
+                if (updateDateEl) {
+                    updateDateEl.textContent = (match && match[1]) ? match[1] : "未知";
+                }
+            } else if (updateDateEl) {
+                updateDateEl.textContent = "未知";
             }
-        } else {
-            document.getElementById('update-date-text').textContent = "未知";
+        } catch (error) {
+            console.warn("無法讀取本地更新日期:", error);
+            if (updateDateEl) updateDateEl.textContent = "未知";
         }
-    } catch (error) {
-        console.warn("無法讀取本地更新日期:", error);
-        document.getElementById('update-date-text').textContent = "未知";
     }
 
+    // 3. 背景非同步載入 StarRailRes 頭像庫並局部更新 DOM
     try {
         const res = await fetch('https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/cht/characters.json');
-        if (res.ok) {
+        if (res && res.ok) {
             const data = await res.json();
             const normalize = (n) => n.replace(/[•·]/g, '').replace(/刹/g, '剎');
             const avatarMap = {};
@@ -232,19 +626,30 @@ async function initTracker() {
                 }
             }
 
+            const updatedAvatarByName = new Map();
             RAW_CHARACTERS.forEach(char => {
                 const searchName = normalize(char.name);
                 if (avatarMap[searchName] && !char.avatar) {
                     char.avatar = avatarMap[searchName];
                 }
+                if (char.avatar) {
+                    updatedAvatarByName.set(char.name, char.avatar);
+                }
             });
+
+            const table = document.getElementById('tracker');
+            if (table && updatedAvatarByName.size > 0) {
+                table.querySelectorAll('img.char-avatar, img.grid-avatar').forEach(img => {
+                    const newSrc = updatedAvatarByName.get(img.alt);
+                    if (newSrc && img.getAttribute('src') !== newSrc) {
+                        img.src = newSrc;
+                    }
+                });
+            }
         }
     } catch (error) {
         console.warn("頭像庫連線失敗，將使用備用頭像：", error);
     }
-
-    renderTable();
-    setupEventListeners();
 }
 
 // 🔄 核心渲染表格邏輯
@@ -402,8 +807,8 @@ function buildTableHeaderHtml(displayPatches, totalChars, activePatchName) {
     html += `<th rowspan="2" class="top-left-cell">
         <div class="top-left-widget">
             <div class="btn-group">
-                <button type="button" id="sort-char-btn" class="table-sort-btn" title="切換角色登場順序">角色 ${isCharAscending ? '▲' : '▼'}</button>
-                <button type="button" id="sort-patch-btn" class="table-sort-btn" title="切換時間軸順序">版本 ${isPatchAscending ? '◀' : '▶'}</button>
+                <button type="button" id="sort-char-btn" class="table-sort-btn${charSortMode !== 'debut-desc' ? ' active' : ''}">${getSortCharBtnLabel()}</button>
+                <button type="button" id="sort-patch-btn" class="table-sort-btn">版本 ${isPatchAscending ? '◀' : '▶'}</button>
             </div>
             <div class="table-count-badge" id="table-count-badge" title="符合條件的角色數量 / 總角色數量">共 ${totalChars} 位</div>
         </div>
@@ -585,6 +990,130 @@ function getCharacterTooltip(char, stats, debutVer, isCharPreview) {
     }
 }
 
+// 🌌 產生角色統計琉璃浮動資訊卡 HTML
+function buildCharPopoverHtml(data) {
+    if (!data) return '';
+    const name = escapeHtml(data.charName || '');
+    const elem = escapeHtml(data.charElem || '');
+    const path = escapeHtml(data.charPath || '');
+    const debut = escapeHtml(data.debut || '未登場');
+    const currentGap = escapeHtml(data.currentGap ?? '-');
+    const maxGap = escapeHtml(data.maxGap ?? '-');
+    const totalRuns = escapeHtml(data.totalRuns ?? '0');
+
+    const isPreview = data.isPreview === 'true' || data.isPreview === true;
+    const isCollab = data.isCollab === 'true' || data.isCollab === true;
+    const isTerm = data.isTerm === 'true' || data.isTerm === true;
+    const isOverdue = data.isOverdue === 'true' || data.isOverdue === true;
+
+    const tagsHtml = `
+        <span class="popover-tags">
+            ${elem ? `<span class="popover-tag">${elem}</span>` : ''}
+            ${path ? `<span class="popover-tag">${path}</span>` : ''}
+        </span>
+    `;
+
+    let bodyRowsHtml = '';
+    if (isPreview) {
+        bodyRowsHtml = `
+            <div class="popover-row"><span class="popover-label">預定登場</span><span class="popover-val highlight-purple">${debut}</span></div>
+            <div class="popover-row"><span class="popover-label">角色狀態</span><span class="popover-val highlight-purple">🔮 預覽角色</span></div>
+        `;
+    } else if (isCollab) {
+        bodyRowsHtml = `
+            <div class="popover-row"><span class="popover-label">實裝版本</span><span class="popover-val">${debut}</span></div>
+            <div class="popover-row"><span class="popover-label">角色狀態</span><span class="popover-val highlight-gold">✦ 長期聯動角色</span></div>
+        `;
+    } else if (isTerm) {
+        const maxGapText = maxGap === '-' ? '-' : `${maxGap} 個版本`;
+        bodyRowsHtml = `
+            <div class="popover-row"><span class="popover-label">實裝版本</span><span class="popover-val">${debut}</span></div>
+            <div class="popover-row"><span class="popover-label">目前狀態</span><span class="popover-val highlight-gold">${currentGap}</span></div>
+            <div class="popover-row"><span class="popover-label">歷史最長等待</span><span class="popover-val">${maxGapText}</span></div>
+            <div class="popover-row"><span class="popover-label">總 UP 次數</span><span class="popover-val">${totalRuns} 次</span></div>
+        `;
+    } else {
+        const waitText = currentGap === '0' ? '當期 UP 中 (0)' : (currentGap === '-' ? '-' : `${currentGap} 個版本`);
+        const maxGapText = maxGap === '-' ? '-' : `${maxGap} 個版本`;
+        bodyRowsHtml = `
+            <div class="popover-row"><span class="popover-label">實裝版本</span><span class="popover-val">${debut}</span></div>
+            <div class="popover-row"><span class="popover-label">目前等待</span><span class="popover-val ${isOverdue ? 'highlight-gold' : ''}">${waitText}</span></div>
+            <div class="popover-row"><span class="popover-label">歷史最長等待</span><span class="popover-val">${maxGapText}</span></div>
+            <div class="popover-row"><span class="popover-label">總 UP 次數</span><span class="popover-val">${totalRuns} 次</span></div>
+            ${isOverdue ? '<div class="popover-overdue-alert">⚠️ 超期警報：目前已超越歷史最長等待紀錄！</div>' : ''}
+        `;
+    }
+
+    return `
+        <div class="popover-header">
+            <span class="popover-title">${name}</span>
+            ${tagsHtml}
+        </div>
+        <div class="popover-body">
+            ${bodyRowsHtml}
+        </div>
+    `;
+}
+
+function ensureCharPopover() {
+    let popover = document.getElementById('char-stats-popover');
+    if (!popover && typeof document !== 'undefined' && document.body) {
+        popover = document.createElement('div');
+        popover.id = 'char-stats-popover';
+        popover.className = 'char-stats-popover';
+        popover.setAttribute('role', 'tooltip');
+        popover.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(popover);
+    }
+    return popover;
+}
+
+function positionCharPopover(popover, cell) {
+    if (!popover || !cell || typeof cell.getBoundingClientRect !== 'function') return;
+    const rect = cell.getBoundingClientRect();
+    const popWidth = popover.offsetWidth || 225;
+    const popHeight = popover.offsetHeight || 135;
+    const vw = typeof window !== 'undefined' ? (window.innerWidth || 1024) : 1024;
+    const vh = typeof window !== 'undefined' ? (window.innerHeight || 768) : 768;
+
+    let left = rect.right + 10;
+    if (left + popWidth > vw - 8) {
+        left = Math.max(8, Math.min(rect.left + 8, vw - popWidth - 8));
+    }
+    let top = rect.top - 4;
+    if (top + popHeight > vh - 8) {
+        top = Math.max(8, vh - popHeight - 8);
+    }
+    if (top < 8) top = 8;
+
+    popover.style.left = `${Math.round(left)}px`;
+    popover.style.top = `${Math.round(top)}px`;
+}
+
+function showCharPopover(cell, pin = false) {
+    if (!cell) return;
+    const popover = ensureCharPopover();
+    if (!popover) return;
+
+    activePopoverCell = cell;
+    isPopoverPinned = Boolean(pin);
+    popover.innerHTML = buildCharPopoverHtml(cell.dataset);
+    popover.classList.add('show');
+    popover.classList.toggle('pinned', isPopoverPinned);
+    popover.setAttribute('aria-hidden', 'false');
+    positionCharPopover(popover, cell);
+}
+
+function hideCharPopover() {
+    const popover = document.getElementById('char-stats-popover');
+    if (popover) {
+        popover.classList.remove('show', 'pinned');
+        popover.setAttribute('aria-hidden', 'true');
+    }
+    activePopoverCell = null;
+    isPopoverPinned = false;
+}
+
 function getCharacterType(char) {
     if (char.isCollab) return 'collab';
     if (char.term) {
@@ -598,7 +1127,9 @@ function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexM
     const fallbackUrl = getFallbackAvatar(char.name);
     const avatarUrl = char.avatar ? char.avatar : fallbackUrl;
     const pathIconUrl = PATH_ICONS[char.path] || "";
-    const seqNum = isCharAscending ? (index + 1) : (totalChars - index);
+    const parsedSort = parseSortMode(charSortMode, isCharAscending);
+    const isCustomRankSort = parsedSort.field === 'wait' || parsedSort.field === 'runs';
+    const seqNum = isCustomRankSort ? (index + 1) : (isCharAscending ? (index + 1) : (totalChars - index));
 
     const charType = getCharacterType(char);
     const hasBuff = char.buffs && char.buffs.length > 0;
@@ -607,11 +1138,21 @@ function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexM
 
     const isCharPreview = Boolean(char.isPreview);
     const stats = calculateCharStats(char, patchesList, activePatchName, patchIndexMap);
-    const statsTooltip = getCharacterTooltip(char, stats, debutVer, isCharPreview);
 
     let html = `<tr data-path="${escapeHtml(char.path)}" data-elem="${escapeHtml(char.elem)}" data-type="${charType}" data-has-buff="${hasBuff}" data-major-version="${escapeHtml(majorVer)}" data-name="${escapeHtml(char.name)}" data-is-preview="${isCharPreview}">
         <td class="bg-${escapeHtml(char.elem)}">
-            <div class="char-info-cell" title="${escapeHtml(statsTooltip)}">
+            <div class="char-info-cell"
+                 data-char-name="${escapeHtml(char.name)}"
+                 data-char-elem="${escapeHtml(char.elem)}"
+                 data-char-path="${escapeHtml(char.path)}"
+                 data-debut="${escapeHtml(debutVer)}"
+                 data-current-gap="${escapeHtml(stats.currentGap ?? '-')}"
+                 data-max-gap="${escapeHtml(stats.maxGap ?? '-')}"
+                 data-total-runs="${escapeHtml(stats.totalRuns ?? '0')}"
+                 data-is-overdue="${Boolean(stats.isOverdue)}"
+                 data-is-collab="${Boolean(stats.isCollab)}"
+                 data-is-term="${Boolean(stats.isTermActive)}"
+                 data-is-preview="${isCharPreview}">
                 <span class="char-seq">${seqNum}</span>
                 ${pathIconUrl ? `<img src="${pathIconUrl}" class="char-path-icon" title="${escapeHtml(char.path)}">` : '<div class="char-path-icon"></div>'}
                 <img src="${avatarUrl}" class="char-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
@@ -632,6 +1173,8 @@ function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexM
 function renderTable() {
     cachedTableCells = null;
     cachedRowData = new WeakMap();
+    hideCharPopover();
+    hideCharSortMenu();
     const table = document.getElementById('tracker');
     if (!table) return;
 
@@ -643,14 +1186,19 @@ function renderTable() {
     const patchIndexMap = new Map();
     patchesList.forEach((patch, index) => patchIndexMap.set(patch, index));
 
+    const activePatchName = getCurrentPatchName();
+
     // 1. 決定角色陣列順序
-    const CHARACTERS = isCharAscending ? [...activeCharacters] : [...activeCharacters].reverse();
+    if (charSortMode === 'debut-desc' || charSortMode === 'debut-asc') {
+        charSortMode = isCharAscending ? 'debut-asc' : 'debut-desc';
+    }
+    const CHARACTERS = sortCharacters(activeCharacters, charSortMode, patchesList, activePatchName, patchIndexMap);
     const totalChars = CHARACTERS.length;
+
+    updateSortControlsUI();
 
     // 2. 決定小版本陣列順序
     const displayPatches = isPatchAscending ? [...activePatches] : [...activePatches].reverse();
-
-    const activePatchName = getCurrentPatchName();
 
     renderFilters(CHARACTERS, patchesList, patchIndexMap);
 
@@ -673,16 +1221,81 @@ function renderTable() {
     rebindControlListeners();
 }
 
+function toggleCharSortDirection() {
+    isCharAscending = !isCharAscending;
+    const { field } = parseSortMode(charSortMode, isCharAscending);
+    charSortMode = `${field}-${isCharAscending ? 'asc' : 'desc'}`;
+    renderTable();
+    syncStateToUrl();
+}
+
 function setupSortingListeners() {
-    document.addEventListener('click', (e) => {
-        if (e.target && e.target.id === 'sort-char-btn') {
-            isCharAscending = !isCharAscending;
+    const sortSelect = document.getElementById('char-sort-select');
+    if (sortSelect && !sortSelect._hsrBound) {
+        sortSelect._hsrBound = true;
+        sortSelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            const parsed = parseSortMode(val, isCharAscending);
+            charSortMode = parsed.mode;
+            isCharAscending = parsed.isAsc;
             renderTable();
-        } else if (e.target && e.target.id === 'sort-patch-btn') {
-            isPatchAscending = !isPatchAscending;
+            syncStateToUrl();
+        });
+    }
+
+    const sortDirBtn = document.getElementById('char-sort-dir-btn');
+    if (sortDirBtn && !sortDirBtn._hsrBound) {
+        sortDirBtn._hsrBound = true;
+        sortDirBtn.addEventListener('click', () => {
+            toggleCharSortDirection();
+        });
+    }
+
+    const sortPopover = ensureCharSortPopover();
+    if (sortPopover && !sortPopover._hsrBound) {
+        sortPopover._hsrBound = true;
+        sortPopover.addEventListener('click', (e) => {
+            const optionBtn = e.target.closest?.('.sort-option-btn');
+            if (!optionBtn || !optionBtn.dataset.sortMode) return;
+            e.stopPropagation();
+            const mode = optionBtn.dataset.sortMode;
+            const parsed = parseSortMode(mode);
+            charSortMode = parsed.mode;
+            isCharAscending = parsed.isAsc;
+            hideCharSortMenu();
             renderTable();
-        }
-    });
+            syncStateToUrl();
+        });
+    }
+
+    if (!document._hsrSortClickBound) {
+        document._hsrSortClickBound = true;
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.id === 'sort-char-btn') {
+                e.stopPropagation();
+                toggleCharSortMenu(e.target);
+            } else if (e.target && e.target.id === 'sort-patch-btn') {
+                isPatchAscending = !isPatchAscending;
+                renderTable();
+                syncStateToUrl();
+            } else {
+                const popover = document.getElementById('char-sort-popover');
+                if (popover && popover.classList.contains('show') && !popover.contains(e.target)) {
+                    hideCharSortMenu();
+                }
+            }
+        });
+    }
+
+    if (!document._hsrSortKeyBound) {
+        document._hsrSortKeyBound = true;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                hideCharSortMenu();
+                hideCharPopover();
+            }
+        });
+    }
 }
 
 function setupJumpButtons() {
@@ -783,8 +1396,12 @@ function setupExportButton() {
     const exportImgBtn = document.getElementById('export-img-btn');
 
     // 📷 匯出截圖邏輯 (修復 html2canvas sticky 錯位毀滅性 Bug)
-    if (exportImgBtn && typeof html2canvas !== 'undefined') {
+    if (exportImgBtn) {
         exportImgBtn.addEventListener('click', async () => {
+            if (typeof html2canvas === 'undefined') {
+                alert('截圖功能組件尚未載入完成，請稍後再試！');
+                return;
+            }
             try {
                 exportImgBtn.textContent = '📷 繪製中...';
                 exportImgBtn.disabled = true;
@@ -984,47 +1601,102 @@ function setupExportButton() {
 
 function setupTableInteractions() {
     const trackerTable = document.getElementById('tracker');
-    trackerTable?.addEventListener('click', (e) => {
-        if (e.target?.id !== 'empty-reset-btn') return;
-        clearAllFilters();
-    });
+    if (trackerTable && !trackerTable._hsrInteractionsBound) {
+        trackerTable._hsrInteractionsBound = true;
 
-    trackerTable?.addEventListener('mouseover', (e) => {
-        if (window.matchMedia && window.matchMedia('(hover: none)').matches) return;
-
-        const cell = e.target.closest('td, th');
-        if (!cell || cell.closest('tr')?.classList.contains('empty-row')) return;
-
-        if (cell.colSpan > 1) {
-            trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
-            return;
-        }
-
-        const startCol = cell._startCol !== undefined ? cell._startCol : parseInt(cell.dataset.startCol, 10);
-        const endCol = cell._endCol !== undefined ? cell._endCol : parseInt(cell.dataset.endCol, 10);
-
-        trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
-
-        if (endCol === 0 || isNaN(startCol)) return;
-
-        if (!cachedTableCells) {
-            cachedTableCells = trackerTable.querySelectorAll('th, td');
-        }
-
-        cachedTableCells.forEach(c => {
-            if (c.colSpan > 1) return;
-
-            const cStart = c._startCol !== undefined ? c._startCol : parseInt(c.dataset.startCol, 10);
-            const cEnd = c._endCol !== undefined ? c._endCol : parseInt(c.dataset.endCol, 10);
-            if (cEnd >= startCol && cStart <= endCol && cEnd > 0) {
-                c.classList.add('col-highlight');
+        trackerTable.addEventListener('click', (e) => {
+            if (e.target?.id === 'empty-reset-btn') {
+                clearAllFilters();
+                return;
+            }
+            const infoCell = e.target.closest?.('.char-info-cell');
+            if (infoCell) {
+                e.stopPropagation();
+                if (isPopoverPinned && activePopoverCell === infoCell) {
+                    hideCharPopover();
+                } else {
+                    showCharPopover(infoCell, true);
+                }
             }
         });
-    });
 
-    trackerTable?.addEventListener('mouseleave', () => {
-        trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
-    });
+        trackerTable.addEventListener('mouseover', (e) => {
+            const isHoverNone = Boolean(window.matchMedia && window.matchMedia('(hover: none)').matches);
+
+            const infoCell = e.target.closest?.('.char-info-cell');
+            if (infoCell && !isHoverNone && !isPopoverPinned) {
+                showCharPopover(infoCell, false);
+            }
+
+            if (isHoverNone) return;
+
+            const cell = e.target.closest('td, th');
+            if (!cell || cell.closest('tr')?.classList.contains('empty-row')) return;
+
+            if (cell.colSpan > 1) {
+                trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
+                return;
+            }
+
+            const startCol = cell._startCol !== undefined ? cell._startCol : parseInt(cell.dataset.startCol, 10);
+            const endCol = cell._endCol !== undefined ? cell._endCol : parseInt(cell.dataset.endCol, 10);
+
+            trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
+
+            if (endCol === 0 || isNaN(startCol)) return;
+
+            if (!cachedTableCells) {
+                cachedTableCells = trackerTable.querySelectorAll('th, td');
+            }
+
+            cachedTableCells.forEach(c => {
+                if (c.colSpan > 1) return;
+
+                const cStart = c._startCol !== undefined ? c._startCol : parseInt(c.dataset.startCol, 10);
+                const cEnd = c._endCol !== undefined ? c._endCol : parseInt(c.dataset.endCol, 10);
+                if (cEnd >= startCol && cStart <= endCol && cEnd > 0) {
+                    c.classList.add('col-highlight');
+                }
+            });
+        });
+
+        trackerTable.addEventListener('mouseout', (e) => {
+            if (isPopoverPinned) return;
+            const infoCell = e.target.closest?.('.char-info-cell');
+            if (infoCell && (!e.relatedTarget || !infoCell.contains(e.relatedTarget))) {
+                hideCharPopover();
+            }
+        });
+
+        trackerTable.addEventListener('mouseleave', () => {
+            trackerTable.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
+            if (!isPopoverPinned) {
+                hideCharPopover();
+            }
+        });
+    }
+
+    const tableWrap = document.querySelector('.table-wrap');
+    if (tableWrap && !tableWrap._hsrScrollBound) {
+        tableWrap._hsrScrollBound = true;
+        tableWrap.addEventListener('scroll', () => {
+            if (activePopoverCell) {
+                hideCharPopover();
+            }
+            hideCharSortMenu();
+        }, { passive: true });
+    }
+
+    if (!document._hsrPopoverOutsideClickBound) {
+        document._hsrPopoverOutsideClickBound = true;
+        document.addEventListener('click', (e) => {
+            if (!activePopoverCell) return;
+            const popover = document.getElementById('char-stats-popover');
+            if (popover && popover.contains(e.target)) return;
+            if (e.target.closest?.('.char-info-cell')) return;
+            hideCharPopover();
+        });
+    }
 }
 
 function setupUIScaleSlider() {
@@ -1206,6 +1878,7 @@ function applyFilters() {
     updateFilterUI(state);
     const { visibleCount, totalChars } = filterTableRows(table, state);
     updateTableUI(table, visibleCount, totalChars);
+    syncStateToUrl();
 }
 
 // 頂部工具列摺疊邏輯
@@ -1255,6 +1928,21 @@ if (typeof module !== 'undefined' && module.exports) {
         getCharacterType,
         buildCharacterHistory,
         getCharacterTooltip,
+        buildCharPopoverHtml,
+        showCharPopover,
+        hideCharPopover,
+        buildCharSortMenuHtml,
+        showCharSortMenu,
+        hideCharSortMenu,
+        toggleCharSortMenu,
+        getSortCharBtnLabel,
+        getSortDescription,
+        setupSortingListeners,
+        sortCharacters,
+        parseUrlState,
+        buildUrlSearchParams,
+        restoreStateFromUrl,
+        syncStateToUrl,
         buildTableHeaderHtml,
         initTracker,
         updateTableColumnIndices,
