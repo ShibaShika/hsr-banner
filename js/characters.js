@@ -1,5 +1,5 @@
-// 更新日期: 2026/10/16
-const LAST_UPDATED = "2026/10/16";
+// 更新日期: 2026/10/31
+const LAST_UPDATED = "2026/10/31";
 
 const RAW_CHARACTERS = [
     {
@@ -29,7 +29,8 @@ const RAW_CHARACTERS = [
         runs: [
             "1.0下",
             "2.0下",
-            "2.7上"
+            "2.7上",
+            "4.7下"
         ]
     },
     {
@@ -111,7 +112,8 @@ const RAW_CHARACTERS = [
         runs: [
             "1.3上",
             "2.0上",
-            "2.6上"
+            "2.6上",
+            "4.7下"
         ]
     },
     {
@@ -260,7 +262,8 @@ const RAW_CHARACTERS = [
         runs: [
             "2.1上",
             "2.6下",
-            "3.2上"
+            "3.2上",
+            "4.7下"
         ]
     },
     {
@@ -623,7 +626,8 @@ const RAW_CHARACTERS = [
         runs: [
             "4.0上",
             "4.0下",
-            "4.3上"
+            "4.3上",
+            "4.7上"
         ]
     },
     {
@@ -634,7 +638,8 @@ const RAW_CHARACTERS = [
         avatar: "",
         runs: [
             "4.0下",
-            "4.4上"
+            "4.4上",
+            "4.7上"
         ]
     },
     {
@@ -656,7 +661,8 @@ const RAW_CHARACTERS = [
         elem: "虛數",
         avatar: "",
         runs: [
-            "4.2上"
+            "4.2上",
+            "4.7上"
         ]
     },
     {
@@ -751,9 +757,9 @@ const RAW_CHARACTERS = [
         elem: "量子",
         avatar: "",
         runs: [
-            "4.7上"
-        ],
-        isPreview: true
+            "4.7上",
+            "4.8上"
+        ]
     },
     {
         cid: "1515",

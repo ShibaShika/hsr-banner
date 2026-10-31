@@ -1,4 +1,4 @@
-// 更新日期: 2026/10/16
+// 更新日期: 2026/10/31
 
 const PATCH_DATA = [
     {
@@ -255,13 +255,11 @@ const PATCH_DATA = [
     },
     {
         patch: "4.7上",
-        date: "26/11/11",
-        isPreview: true
+        date: "26/11/11"
     },
     {
         patch: "4.7下",
-        date: "26/12/02",
-        isPreview: true
+        date: "26/12/02"
     },
     {
         patch: "4.8上",
