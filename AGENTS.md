@@ -49,3 +49,12 @@
      $env:PYTHONIOENCODING="utf-8"; python -m unittest test_update_gist
      npx jest --env=jsdom
      ```
+5. **開工與提交前先確認遠端 Bot 同步狀態**：
+   - `.github/workflows/auto_update.yml` 每日會由 `github-actions[bot]` 自動提交 `js/characters.js` 與 `js/patches.js` 至 `main`。開始修改或準備推送前，請先檢查 `git status` 與遠端差異（必要時執行 `git pull --ff-only`），避免與每日自動更新衝突。
+
+---
+
+## 4. 協作模式與算力適配
+
+- **單視窗輕量開發**：本專案體量精簡且雙測試秒級完成，維持單視窗全端開發即可，不引入跨視窗 `HANDOFF.md` 交接看板；偶有平行調研或瀏覽器驗證需求時，直接委派子代理處理。
+- **算力適配自我提醒**：跨模組聯動、爬蟲／架構重構或疑難除錯時，建議使用高思考配置；純資料調整、文案或小幅樣式微調時，主動建議切回輕量配置以節省額度。
