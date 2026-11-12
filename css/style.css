@@ -509,6 +509,15 @@ h1::before {
     color: #34d399;
 }
 
+/* ===== 當前大版本 PU 角色一鍵篩選按鈕（星軌金） ===== */
+.toggle-btn#current-version-up-btn.active {
+    background: linear-gradient(135deg, rgba(245, 196, 81, 0.24) 0%, rgba(180, 83, 9, 0.28) 100%);
+    color: #fde68a;
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 12px rgba(245, 196, 81, 0.34);
+    font-weight: 700;
+}
+
 /* ===== 預覽版本專用樣式 ===== */
 .toggle-btn#preview-toggle-btn.active {
     background: linear-gradient(135deg, rgba(168, 85, 247, 0.26) 0%, rgba(88, 28, 135, 0.35) 100%);
@@ -987,6 +996,34 @@ thead th.top-left-cell {
     color: transparent;
 }
 
+.term-stellar {
+    background: linear-gradient(135deg, #164e63 0%, #0e3344 100%);
+    color: #67e8f9;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.term-stellar-empty {
+    background-color: #0d121d;
+    color: transparent;
+}
+
+.term-fallback {
+    background: linear-gradient(135deg, rgba(67, 56, 202, 0.48) 0%, rgba(28, 25, 66, 0.92) 100%);
+    color: #e0e7ff;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    line-height: 1.15;
+    box-shadow: inset 0 0 0 1px rgba(165, 180, 252, 0.45);
+}
+
+.term-fallback-empty {
+    background-color: #0d121d;
+    color: transparent;
+}
+
 .none {
     background-color: #0d121d;
     color: rgba(148, 163, 184, 0.22);
@@ -1017,7 +1054,7 @@ thead th.top-left-cell {
 }
 
 @media (hover: hover) {
-    tr:hover td:not(.img-cell):not(.term-pool-empty):not(.term-shop-empty):not(.collab-empty):not(.collab-text):not(:first-child) {
+    tr:hover td:not(.img-cell):not(.term-pool-empty):not(.term-shop-empty):not(.term-stellar-empty):not(.term-fallback-empty):not(.collab-empty):not(.collab-text):not(:first-child) {
         filter: brightness(1.2);
         transition: filter 0.15s ease;
     }
@@ -1076,6 +1113,17 @@ thead tr:nth-child(2) th.current-patch-col {
     pointer-events: none;
     line-height: 1;
     z-index: 2;
+}
+
+/* 奇緣星魂強化角標：深空底座＋星軌金邊框，避免與當期金欄／熱力黃底／截圖去陰影衝突 */
+.buff-badge[data-buff-type="奇緣星魂"] {
+    color: #fef08a;
+    background: rgba(11, 14, 23, 0.9);
+    border: 1px solid rgba(245, 196, 81, 0.78);
+    border-radius: 4px;
+    padding: 1px 3px;
+    font-size: 8.5px;
+    text-shadow: 0 0 4px rgba(245, 196, 81, 0.85);
 }
 
 /* 空狀態列樣式強化 */
@@ -1312,6 +1360,30 @@ thead tr:nth-child(2) th.current-patch-col {
     white-space: nowrap;
 }
 
+.popover-row-buffs {
+    align-items: flex-start;
+}
+
+.popover-buff-tags {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: flex-end;
+    max-width: 175px;
+}
+
+.popover-tag-buff {
+    background: rgba(16, 185, 129, 0.16);
+    border: 1px solid rgba(52, 211, 153, 0.45);
+    color: #6ee7b7;
+}
+
+.popover-tag-buff[data-buff-type="奇緣星魂"] {
+    background: linear-gradient(135deg, rgba(245, 196, 81, 0.22) 0%, rgba(16, 22, 37, 0.92) 100%);
+    border: 1px solid rgba(245, 196, 81, 0.7);
+    color: #fde68a;
+}
+
 .popover-body {
     display: flex;
     flex-direction: column;
@@ -1515,8 +1587,9 @@ thead tr:nth-child(2) th.current-patch-col {
         white-space: nowrap;
     }
 
-    .buff-mode-group {
-        display: contents;
+    #buff-dropdown .dropdown-panel {
+        left: 0;
+        max-width: calc(100vw - 24px);
     }
 
     .char-path-icon.path-icon-fallback {
@@ -1573,48 +1646,203 @@ thead tr:nth-child(2) th.current-patch-col {
     flex-shrink: 0;
 }
 
-/* 動態強化模式篩選按鈕群組與未定義強化模式的深空琉璃金色徽章風格 */
+/* 動態強化模式篩選選單清單與奇緣星魂／未定義強化模式風格 */
 .buff-mode-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 136px;
 }
 
-.buff-mode-btn.buff-mode-fallback {
-    background: linear-gradient(135deg, rgba(28, 38, 64, 0.9) 0%, rgba(16, 23, 40, 0.95) 100%);
-    border-color: rgba(245, 196, 81, 0.45);
+.buff-mode-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: 1px solid rgba(52, 211, 153, 0.28);
+    background: rgba(20, 27, 45, 0.78);
+    color: #e2e8f0;
+    cursor: pointer;
+    text-align: left;
+    font-size: 12.5px;
+    white-space: nowrap;
+    user-select: none;
+    box-sizing: border-box;
+    transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.buff-mode-btn:hover {
+    border-color: rgba(52, 211, 153, 0.72);
+    background: rgba(16, 185, 129, 0.14);
+    color: #ffffff;
+}
+
+.buff-mode-btn.active {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(15, 34, 42, 0.92) 100%);
+    border-color: #34d399;
+    color: #6ee7b7;
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.24);
+}
+
+.buff-mode-check {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1.5px solid rgba(148, 163, 184, 0.5);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    color: transparent;
+    background: rgba(11, 14, 23, 0.65);
+    transition: all 0.15s ease;
+}
+
+.buff-mode-btn.active .buff-mode-check {
+    border-color: currentColor;
+    color: #0b0e17;
+    background: #34d399;
+}
+
+.buff-mode-btn.active .buff-mode-check::after {
+    content: '✓';
+}
+
+.buff-mode-btn .toggle-icon {
+    font-size: 11px;
+    color: #34d399;
+    flex-shrink: 0;
+}
+
+.buff-mode-label {
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+/* 奇緣星魂選項：星軌金 (Astral Gold) */
+.buff-mode-btn[data-buff-type="奇緣星魂"] {
+    background: linear-gradient(135deg, rgba(30, 34, 48, 0.88) 0%, rgba(16, 22, 37, 0.95) 100%);
+    border-color: rgba(245, 196, 81, 0.38);
     color: #fef3c7;
 }
 
-.buff-mode-btn.buff-mode-fallback .toggle-icon {
+.buff-mode-btn[data-buff-type="奇緣星魂"] .toggle-icon {
     color: var(--accent-gold);
     text-shadow: 0 0 6px rgba(245, 196, 81, 0.65);
 }
 
-.buff-mode-btn.buff-mode-fallback:hover {
+.buff-mode-btn[data-buff-type="奇緣星魂"]:hover {
     border-color: var(--accent-gold);
-    box-shadow: 0 0 12px rgba(245, 196, 81, 0.28);
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(245, 196, 81, 0.25);
+}
+
+.buff-mode-btn[data-buff-type="奇緣星魂"].active {
+    background: linear-gradient(135deg, rgba(245, 196, 81, 0.24) 0%, rgba(36, 49, 82, 0.95) 100%);
+    border-color: var(--accent-gold);
+    color: #fde68a;
+    box-shadow: 0 0 12px rgba(245, 196, 81, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.buff-mode-btn[data-buff-type="奇緣星魂"].active .buff-mode-check {
+    background: var(--accent-gold);
+    color: #0b0e17;
+}
+
+.buff-mode-btn[data-buff-type="奇緣星魂"].active .toggle-icon {
+    color: #fef08a;
+}
+
+/* 未定義新強化模式：深空琉璃星雲紫（虛線外框與星軌金區隔） */
+.buff-mode-btn.buff-mode-fallback {
+    background: linear-gradient(135deg, rgba(34, 24, 58, 0.88) 0%, rgba(16, 22, 37, 0.95) 100%);
+    border-style: dashed;
+    border-color: rgba(192, 132, 252, 0.45);
+    color: #f3e8ff;
+}
+
+.buff-mode-btn.buff-mode-fallback .toggle-icon {
+    color: var(--accent-purple);
+    text-shadow: 0 0 6px rgba(192, 132, 252, 0.65);
+}
+
+.buff-mode-btn.buff-mode-fallback:hover {
+    border-color: var(--accent-purple);
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(192, 132, 252, 0.28);
 }
 
 .buff-mode-btn.buff-mode-fallback.active {
-    background: linear-gradient(135deg, rgba(245, 196, 81, 0.24) 0%, rgba(36, 49, 82, 0.95) 100%);
-    border-color: var(--accent-gold);
-    color: #fde047;
-    box-shadow: 0 0 14px rgba(245, 196, 81, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    background: linear-gradient(135deg, rgba(192, 132, 252, 0.24) 0%, rgba(44, 28, 76, 0.95) 100%);
+    border-style: solid;
+    border-color: var(--accent-purple);
+    color: #e9d5ff;
+    box-shadow: 0 0 12px rgba(192, 132, 252, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
-/* 表格內新強化模式角標：深空琉璃金輝徽章 */
+.buff-mode-btn.buff-mode-fallback.active .buff-mode-check {
+    background: var(--accent-purple);
+    color: #0b0e17;
+}
+
+/* 表格內新強化模式角標：深空琉璃紫徽章 */
 .buff-badge.buff-badge-fallback {
-    color: #fde047;
-    text-shadow: 0 0 5px rgba(245, 196, 81, 0.92), 0 0 10px rgba(245, 196, 81, 0.45);
+    color: #e9d5ff;
+    background: rgba(11, 14, 23, 0.88);
+    border: 1px solid rgba(192, 132, 252, 0.72);
+    border-radius: 4px;
+    padding: 1px 3px;
+    font-size: 8.5px;
+    text-shadow: 0 0 5px rgba(192, 132, 252, 0.85);
 }
 
-/* 角色彈窗內未預設命途／新強化標籤：深空琉璃金邊徽章 */
+/* 角色彈窗內未預設命途／新強化標籤 */
 .popover-tag.popover-tag-fallback {
     background: linear-gradient(135deg, rgba(245, 196, 81, 0.18) 0%, rgba(30, 41, 68, 0.88) 100%);
     border: 1px solid rgba(245, 196, 81, 0.62);
     color: #fde68a;
     box-shadow: 0 0 8px rgba(245, 196, 81, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.popover-tag-buff.popover-tag-fallback {
+    background: linear-gradient(135deg, rgba(192, 132, 252, 0.2) 0%, rgba(30, 24, 58, 0.9) 100%);
+    border: 1px solid rgba(192, 132, 252, 0.65);
+    color: #e9d5ff;
+    box-shadow: 0 0 8px rgba(192, 132, 252, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* 動態未知取得方法：深空琉璃降級篩選選項與彈窗標籤 */
+.type-fallback-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    height: 15px;
+    border-radius: 4px;
+    border: 1px dashed rgba(165, 180, 252, 0.6);
+    background: linear-gradient(135deg, rgba(67, 56, 202, 0.35) 0%, rgba(20, 26, 48, 0.92) 100%);
+    color: #c7d2fe;
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.popover-tag-type {
+    background: linear-gradient(135deg, rgba(30, 58, 110, 0.45) 0%, rgba(20, 30, 54, 0.9) 100%);
+    border: 1px solid rgba(147, 197, 253, 0.45);
+    color: #bfdbfe;
+}
+
+.popover-tag-type.popover-tag-fallback {
+    background: linear-gradient(135deg, rgba(67, 56, 202, 0.25) 0%, rgba(24, 24, 58, 0.92) 100%);
+    border: 1px dashed rgba(165, 180, 252, 0.65);
+    color: #e0e7ff;
+    box-shadow: 0 0 8px rgba(129, 140, 248, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 

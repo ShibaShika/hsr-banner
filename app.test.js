@@ -3,6 +3,9 @@ const {
     getCharDebutVersion,
     getCharDebutMajorVersion,
     getCurrentPatchName,
+    getMajorMinorVersion,
+    getCurrentMajorPatchPrefix,
+    isCharUpInVersion,
     formatHeaderDate,
     escapeHtml,
     getFallbackAvatar,
@@ -45,9 +48,18 @@ const {
     collectBuffTypes,
     handleIconError,
     buildPathIconHtml,
+    getBuffMeta,
     renderBuffModeButtons,
-    applyBuffSelection
+    applyBuffSelection,
+    setupFilterPanels,
+    setupUtilityToggles,
+    clearAllFilters,
+    getCharacterTerms,
+    getCharacterTypes,
+    getAcquisitionMeta,
+    collectAcquisitionTypes
 } = require('./js/app');
+const typesRegistry = require('./js/types');
 
 describe('app.js pure functions', () => {
 
@@ -60,6 +72,7 @@ describe('app.js pure functions', () => {
         });
 
         afterEach(() => {
+            jest.restoreAllMocks();
             global.Date = originalDate;
             delete global.PATCH_DATA;
         });
@@ -1447,6 +1460,491 @@ describe('app.js pure functions', () => {
             const params = new URLSearchParams(qs);
             expect(params.get('path')).toBe('開拓');
             expect(params.get('buff')).toBe('星魂共鳴');
+        });
+
+        it('registers 奇緣星魂 in js/buffs.js and renders Astral Gold button, badge, and popover tags without fallback class', () => {
+            const fs = require('fs');
+            const path = require('path');
+            const vm = require('vm');
+
+            const buffsSrc = fs.readFileSync(path.join(__dirname, 'js', 'buffs.js'), 'utf8');
+            const sandbox = {};
+            vm.runInNewContext(
+                `${buffsSrc}\nthis.__exported = { DEFAULT_BUFF_TYPE, BUFF_ORDER, BUFF_META };`,
+                sandbox
+            );
+            const { DEFAULT_BUFF_TYPE, BUFF_ORDER, BUFF_META } = sandbox.__exported;
+
+            expect(DEFAULT_BUFF_TYPE).toBe('礪爍新輝');
+            expect(BUFF_ORDER).toEqual(expect.arrayContaining(['礪爍新輝', '奇緣星魂']));
+            expect(BUFF_META['奇緣星魂']).toEqual(expect.objectContaining({ icon: '✦' }));
+
+            const saved = {
+                DEFAULT_BUFF_TYPE: global.DEFAULT_BUFF_TYPE,
+                BUFF_ORDER: global.BUFF_ORDER,
+                BUFF_META: global.BUFF_META,
+                PATCH_DATA: global.PATCH_DATA,
+                RAW_CHARACTERS: global.RAW_CHARACTERS
+            };
+
+            document.body.innerHTML = `
+                <div id="buff-mode-container"></div>
+                <table id="tracker"></table>
+            `;
+
+            try {
+                global.DEFAULT_BUFF_TYPE = DEFAULT_BUFF_TYPE;
+                global.BUFF_ORDER = BUFF_ORDER;
+                global.BUFF_META = BUFF_META;
+                global.PATCH_DATA = [
+                    { patch: '2.1上', date: '24/03/27' },
+                    { patch: '4.2上', date: '26/04/22' },
+                    { patch: '4.7上', date: '26/11/11' },
+                    { patch: '4.7下', date: '26/12/02' }
+                ];
+                global.RAW_CHARACTERS = [
+                    { cid: '1308', name: '黃泉', path: '虛無', elem: '雷', runs: ['2.1上', '4.7下'], buffs: ['4.7上'], buffTypes: { '4.7上': '奇緣星魂' } },
+                    { cid: '1310', name: '流螢', path: '毀滅', elem: '火', runs: ['2.1上'], buffs: ['4.2上'] }
+                ];
+
+                renderBuffModeButtons(global.RAW_CHARACTERS);
+                renderTable(global.RAW_CHARACTERS, global.PATCH_DATA, { isPatchAscending: false, charSortMode: 'debut-desc' });
+
+                const aeBtn = document.querySelector('.buff-mode-btn[data-buff-type="奇緣星魂"]');
+                expect(aeBtn).not.toBeNull();
+                expect(aeBtn.classList.contains('buff-mode-fallback')).toBe(false);
+                expect(aeBtn.textContent).toContain('✦');
+                expect(aeBtn.textContent).toContain('奇緣星魂');
+
+                const aeBadge = document.querySelector('tr[data-name="黃泉"] .buff-badge[data-buff-type="奇緣星魂"]');
+                expect(aeBadge).not.toBeNull();
+                expect(aeBadge.classList.contains('buff-badge-fallback')).toBe(false);
+                expect(aeBadge.textContent).toBe('✦');
+
+                const novaBadge = document.querySelector('tr[data-name="流螢"] .buff-badge[data-buff-type="礪爍新輝"]');
+                expect(novaBadge).not.toBeNull();
+                expect(novaBadge.textContent).toBe('▲');
+
+                const acheronCell = document.querySelector('tr[data-name="黃泉"] .char-info-cell');
+                expect(acheronCell.getAttribute('data-buff-entries')).toBe('奇緣星魂@4.7上');
+
+                const popoverHtml = buildCharPopoverHtml({
+                    name: '黃泉',
+                    type: 'normal',
+                    runs: 2,
+                    gaps: [8, 0],
+                    maxGap: 8,
+                    overdue: false,
+                    buffEntries: acheronCell.getAttribute('data-buff-entries')
+                });
+                expect(popoverHtml).toContain('popover-row-buffs');
+                expect(popoverHtml).toContain('角色強化');
+                expect(popoverHtml).toContain('奇緣星魂 (4.7上)');
+                expect(popoverHtml).toContain('data-buff-type="奇緣星魂"');
+                expect(popoverHtml).not.toContain('popover-tag-fallback');
+
+                const fallbackPopoverHtml = buildCharPopoverHtml({
+                    name: '測試角色',
+                    type: 'normal',
+                    runs: 1,
+                    gaps: [0],
+                    maxGap: 0,
+                    overdue: false,
+                    buffEntries: '星魂共鳴@5.0上'
+                });
+                expect(fallbackPopoverHtml).toContain('popover-tag-buff popover-tag-fallback');
+            } finally {
+                Object.keys(saved).forEach(k => {
+                    if (saved[k] === undefined) delete global[k];
+                    else global[k] = saved[k];
+                });
+            }
+        });
+    });
+
+    describe('Collapsible Buff Dropdown & Current Major Version UP Filter', () => {
+        let originalDate;
+
+        beforeEach(() => {
+            originalDate = global.Date;
+        });
+
+        afterEach(() => {
+            jest.restoreAllMocks();
+            global.Date = originalDate;
+            document.body.innerHTML = '';
+            window.history.replaceState(null, '', '/');
+            delete global.DEFAULT_BUFF_TYPE;
+            delete global.BUFF_ORDER;
+            delete global.BUFF_META;
+            delete global.PATCH_DATA;
+            delete global.RAW_CHARACTERS;
+            delete global.PATH_ICONS;
+        });
+
+        it('unifies 礪爍新輝 description style with 奇緣星魂 and merges buff buttons inside one collapsible dropdown', () => {
+            const fs = require('fs');
+            const path = require('path');
+            const vm = require('vm');
+            const buffsSrc = fs.readFileSync(path.join(__dirname, 'js', 'buffs.js'), 'utf8');
+            const sandbox = {};
+            vm.runInNewContext(`${buffsSrc}\nthis.__exported = { DEFAULT_BUFF_TYPE, BUFF_ORDER, BUFF_META };`, sandbox);
+
+            global.DEFAULT_BUFF_TYPE = sandbox.__exported.DEFAULT_BUFF_TYPE;
+            global.BUFF_ORDER = sandbox.__exported.BUFF_ORDER;
+            global.BUFF_META = sandbox.__exported.BUFF_META;
+
+            expect(global.BUFF_META['礪爍新輝']).toEqual({ icon: '▲', desc: '礪爍新輝強化' });
+            expect(global.BUFF_META['奇緣星魂']).toEqual({ icon: '✦', desc: '奇緣星魂強化' });
+            expect(getBuffMeta('礪爍新輝').desc).toBe('礪爍新輝強化');
+
+            document.body.innerHTML = `
+                <div class="multi-select" id="buff-dropdown">
+                    <div class="select-box" id="buff-select-box">角色強化</div>
+                    <div class="dropdown-panel" id="buff-panel">
+                        <div id="buff-mode-container" class="buff-mode-group"></div>
+                    </div>
+                </div>
+                <button type="button" id="reset-filters-btn" style="display: none;">清除</button>
+                <table id="tracker"></table>
+            `;
+
+            global.PATCH_DATA = [
+                { patch: '4.2上', date: '26/04/22' },
+                { patch: '4.7上', date: '26/11/11' }
+            ];
+            global.RAW_CHARACTERS = [
+                { name: '流螢', path: '毀滅', elem: '火', runs: ['2.3上'], buffs: ['4.2上'] },
+                { name: '黃泉', path: '虛無', elem: '雷', runs: ['2.1上'], buffs: ['4.7上'], buffTypes: { '4.7上': '奇緣星魂' } },
+                { name: '翡翠', path: '智識', elem: '量子', runs: ['2.3下'] }
+            ];
+            global.PATH_ICONS = {};
+
+            renderTable();
+            setupFilterPanels();
+            setupUtilityToggles();
+
+            const btns = Array.from(document.querySelectorAll('#buff-mode-container .buff-mode-btn'));
+            expect(btns.map(b => b.dataset.buffType)).toEqual(['礪爍新輝', '奇緣星魂']);
+            expect(btns[0].getAttribute('data-tooltip')).toBe('僅顯示【礪爍新輝】強化過的角色');
+            expect(btns[1].getAttribute('data-tooltip')).toBe('僅顯示【奇緣星魂】強化過的角色');
+            expect(btns[0].querySelector('.buff-mode-desc')).toBeNull();
+            expect(btns[1].querySelector('.buff-mode-desc')).toBeNull();
+            expect(btns[0].querySelector('.buff-mode-label').textContent).toBe('礪爍新輝');
+            expect(btns[1].querySelector('.buff-mode-label').textContent).toBe('奇緣星魂');
+
+            const box = document.getElementById('buff-select-box');
+            const panel = document.getElementById('buff-panel');
+            expect(box.textContent).toBe('角色強化');
+            expect(panel.classList.contains('show')).toBe(false);
+
+            box.click();
+            expect(panel.classList.contains('show')).toBe(true);
+
+            // 點選單一強化模式：選單維持展開供多選，外框標籤同步顯示且篩選角色
+            btns[1].click();
+            expect(panel.classList.contains('show')).toBe(true);
+            expect(box.classList.contains('active')).toBe(true);
+            expect(box.textContent).toBe('✦ 奇緣星魂');
+            expect(document.getElementById('reset-filters-btn').style.display).toBe('inline-flex');
+
+            let visibleNames = Array.from(document.querySelectorAll('#tracker tbody tr:not(.empty-row)'))
+                .filter(r => r.style.display !== 'none')
+                .map(r => r.getAttribute('data-name'));
+            expect(visibleNames).toEqual(['黃泉']);
+
+            // 加選第二個模式
+            btns[0].click();
+            expect(box.textContent).toBe('▲ 礪爍新輝, ✦ 奇緣星魂');
+            visibleNames = Array.from(document.querySelectorAll('#tracker tbody tr:not(.empty-row)'))
+                .filter(r => r.style.display !== 'none')
+                .map(r => r.getAttribute('data-name'));
+            expect(visibleNames).toEqual(expect.arrayContaining(['流螢', '黃泉']));
+            expect(visibleNames).toHaveLength(2);
+
+            // 點擊外部自動收合下拉選單
+            document.body.click();
+            expect(panel.classList.contains('show')).toBe(false);
+        });
+
+        it('extracts major version prefixes and filters one-click current major version (上/中/下) UP characters', () => {
+            expect(getMajorMinorVersion('4.7上')).toBe('4.7');
+            expect(getMajorMinorVersion('4.0中')).toBe('4.0');
+            expect(getMajorMinorVersion('4.7下')).toBe('4.7');
+            expect(isCharUpInVersion({ runs: ['4.0上', '4.7下'] }, '4.7')).toBe(true);
+            expect(isCharUpInVersion({ runs: ['4.0中'] }, '4.0')).toBe(true);
+            expect(isCharUpInVersion({ runs: ['3.4上'], buffs: ['4.7上'] }, '4.7')).toBe(false);
+
+            // 模擬台灣時間 2026-11-12（4.7上 進行中）
+            const mockNow = new Date(2026, 10, 12).getTime();
+            jest.spyOn(global, 'Date').mockImplementation(function() {
+                if (arguments.length === 0) return new originalDate(mockNow);
+                return new originalDate(...arguments);
+            });
+
+            document.body.innerHTML = `
+                <div class="multi-select" id="buff-dropdown">
+                    <div class="select-box" id="buff-select-box">角色強化</div>
+                    <div class="dropdown-panel" id="buff-panel">
+                        <div id="buff-mode-container" class="buff-mode-group"></div>
+                    </div>
+                </div>
+                <button type="button" id="current-version-up-btn" class="toggle-btn current-ver-up-btn" aria-pressed="false">
+                    <span class="current-ver-up-label">當前PU</span>
+                </button>
+                <button type="button" id="reset-filters-btn" style="display: none;">清除</button>
+                <table id="tracker"></table>
+            `;
+
+            global.PATCH_DATA = [
+                { patch: '4.6下', date: '26/10/21' },
+                { patch: '4.7上', date: '26/11/11' },
+                { patch: '4.7下', date: '26/12/02' },
+                { patch: '4.8上', date: '26/12/23', isPreview: true }
+            ];
+            global.RAW_CHARACTERS = [
+                { name: '爻光', path: '歡愉', elem: '物理', runs: ['4.7上'] },
+                { name: '景元', path: '智識', elem: '雷', runs: ['1.0下', '4.7下'], buffs: ['4.7上'], buffTypes: { '4.7上': '奇緣星魂' } },
+                { name: '銀狼', path: '虛無', elem: '量子', runs: ['1.1上'], buffs: ['3.4上'] },
+                { name: '未來角', path: '記憶', elem: '冰', runs: ['4.8上'] }
+            ];
+            global.PATH_ICONS = {};
+
+            expect(getCurrentMajorPatchPrefix()).toBe('4.7');
+
+            renderTable();
+            setupUtilityToggles();
+
+            const curUpBtn = document.getElementById('current-version-up-btn');
+            expect(curUpBtn.querySelector('.toggle-icon')).toBeNull();
+            expect(curUpBtn.querySelector('.current-ver-up-label').textContent).toBe('當前PU');
+            expect(curUpBtn.getAttribute('data-tooltip')).toBe('僅顯示當前大版本 4.7（上／中／下）PU 角色');
+
+            // 預設未啟用：全部顯示
+            expect(getFilterState().onlyCurrentVersionUp).toBe(false);
+            expect(
+                Array.from(document.querySelectorAll('#tracker tbody tr:not(.empty-row)'))
+                    .filter(r => r.style.display !== 'none').length
+            ).toBe(4);
+
+            // 一鍵點擊「當前PU」：僅顯示當前 4.7上 + 4.7下 PU 角色，直接移除其餘角色
+            curUpBtn.click();
+            expect(curUpBtn.classList.contains('active')).toBe(true);
+            expect(curUpBtn.getAttribute('aria-pressed')).toBe('true');
+            expect(getFilterState().onlyCurrentVersionUp).toBe(true);
+            expect(document.getElementById('reset-filters-btn').style.display).toBe('inline-flex');
+            expect(window.location.search).toContain('up=1');
+
+            const filteredNames = Array.from(document.querySelectorAll('#tracker tbody tr:not(.empty-row)'))
+                .filter(r => r.style.display !== 'none')
+                .map(r => r.getAttribute('data-name'));
+            expect(filteredNames).toEqual(expect.arrayContaining(['爻光', '景元']));
+            expect(filteredNames).toHaveLength(2);
+            expect(document.getElementById('table-count-badge').textContent).toBe('2/4 位');
+
+            // 推進時間至未來 4.8 版本，按鈕仍顯示「當前PU」並自動切換追蹤 4.8 PU 角色
+            const futureNow = new Date(2026, 11, 24).getTime();
+            jest.spyOn(global, 'Date').mockImplementation(function() {
+                if (arguments.length === 0) return new originalDate(futureNow);
+                return new originalDate(...arguments);
+            });
+            expect(getCurrentMajorPatchPrefix()).toBe('4.8');
+            renderTable();
+            expect(curUpBtn.querySelector('.current-ver-up-label').textContent).toBe('當前PU');
+            expect(curUpBtn.getAttribute('data-tooltip')).toBe('僅顯示當前大版本 4.8（上／中／下）PU 角色');
+            const futureNames = Array.from(document.querySelectorAll('#tracker tbody tr:not(.empty-row)'))
+                .filter(r => r.style.display !== 'none')
+                .map(r => r.getAttribute('data-name'));
+            expect(futureNames).toEqual(['未來角']);
+
+            // 清除篩選後恢復顯示全部
+            clearAllFilters();
+            expect(curUpBtn.classList.contains('active')).toBe(false);
+            expect(window.location.search).not.toContain('up=');
+
+            // 網址 ?up=1 可正確還原狀態（依當下 4.8 時間環境顯示 未來角）
+            restoreStateFromUrl('?up=1');
+            expect(curUpBtn.classList.contains('active')).toBe(true);
+            const restoredVisible = Array.from(document.querySelectorAll('#tracker tbody tr:not(.empty-row)'))
+                .filter(r => r.style.display !== 'none')
+                .map(r => r.getAttribute('data-name'));
+            expect(restoredVisible).toEqual(['未來角']);
+        });
+    });
+
+    describe('動態取得方式 (Acquisition Method) 自動化與通用降級機制', () => {
+        let origGlobals;
+
+        beforeEach(() => {
+            origGlobals = {
+                RAW_CHARACTERS: global.RAW_CHARACTERS,
+                PATCH_DATA: global.PATCH_DATA,
+                TYPE_ORDER: global.TYPE_ORDER,
+                TYPE_META: global.TYPE_META,
+                DEFAULT_ACQUISITION_TYPE: global.DEFAULT_ACQUISITION_TYPE,
+                PATH_ORDER: global.PATH_ORDER,
+                PATH_ICONS: global.PATH_ICONS,
+                BUFF_ORDER: global.BUFF_ORDER,
+                BUFF_META: global.BUFF_META,
+                DEFAULT_BUFF_TYPE: global.DEFAULT_BUFF_TYPE,
+            };
+
+            global.DEFAULT_ACQUISITION_TYPE = typesRegistry.DEFAULT_ACQUISITION_TYPE;
+            global.TYPE_ORDER = typesRegistry.TYPE_ORDER;
+            global.TYPE_META = typesRegistry.TYPE_META;
+            global.PATH_ORDER = ['巡獵', '虛無', '智識'];
+            global.PATH_ICONS = {};
+            global.DEFAULT_BUFF_TYPE = '礪爍新輝';
+            global.BUFF_ORDER = ['礪爍新輝', '奇緣星魂'];
+            global.BUFF_META = {
+                '礪爍新輝': { label: '礪爍新輝', shortBadge: '爍', badgeClass: 'buff-badge-novaflare' },
+                '奇緣星魂': { label: '奇緣星魂', shortBadge: '魂', badgeClass: 'buff-badge-eidolon' },
+            };
+
+            global.PATCH_DATA = [
+                { patch: '1.1上', date: '23/06/07' },
+                { patch: '2.4下', date: '24/08/21' },
+                { patch: '4.2上', date: '26/05/20' },
+                { patch: '4.7上', date: '26/11/11' },
+                { patch: '5.0上', date: '27/03/24' },
+            ];
+            global.RAW_CHARACTERS = [
+                { cid: '1006', name: '銀狼', path: '虛無', elem: '量子', runs: ['1.1上'], terms: [{ type: 'pool', patch: '4.2上' }, { type: 'shop', patch: '5.0上' }], term: { type: 'shop', patch: '5.0上' } },
+                { cid: '1218', name: '椒丘', path: '虛無', elem: '火', runs: ['2.4下'], term: { type: 'shop', patch: '4.7上' } },
+                { cid: '1002', name: '景元', path: '智識', elem: '雷', runs: ['1.1上'], term: { type: '星穹秘藏', patch: '4.7上' } },
+                { cid: '1014', name: 'Saber', path: '巡獵', elem: '風', runs: [], isCollab: '4.2上', collabDate: '2026/05/20' },
+            ];
+
+            document.body.innerHTML = `
+                <div id="version-items-container"></div>
+                <div id="path-items-container"></div>
+                <div id="elem-items-container"></div>
+                <div id="type-items-container"></div>
+                <div id="buff-mode-container"></div>
+                <div id="buff-dropdown">
+                    <button id="buff-mode-btn"><span id="buff-mode-label"></span></button>
+                    <div id="buff-menu"></div>
+                </div>
+                <button id="buff-toggle-btn"></button>
+                <button id="preview-toggle-btn"></button>
+                <button id="current-ver-up-btn"><span class="current-ver-up-label"></span></button>
+                <input id="char-search-input" type="text" />
+                <div id="filter-count"></div>
+                <table id="tracker"><thead><tr></tr></thead><tbody></tbody></table>
+            `;
+        });
+
+        afterEach(() => {
+            Object.entries(origGlobals).forEach(([k, v]) => {
+                if (v === undefined) delete global[k];
+                else global[k] = v;
+            });
+            document.body.innerHTML = '';
+            window.history.replaceState({}, '', window.location.pathname);
+        });
+
+        it('js/types.js 註冊核心取得方式並為未來未知取得方式建立深空琉璃降級樣式', () => {
+            expect(typesRegistry.DEFAULT_ACQUISITION_TYPE).toBe('normal');
+            expect(typesRegistry.TYPE_ORDER).toEqual(['normal', 'pool', 'shop', 'collab']);
+            expect(typesRegistry.TYPE_META.stellar.label).toBe('群星躍遷');
+
+            const shopMeta = getAcquisitionMeta('shop');
+            expect(shopMeta.label).toBe('聚靈鑄星');
+            expect(shopMeta.shortLabel).toBe('聚靈');
+            expect(shopMeta.cellClass).toBe('term-shop');
+            expect(shopMeta.isFallback).toBe(false);
+
+            const unknownMeta = getAcquisitionMeta('星穹秘藏');
+            expect(unknownMeta.label).toBe('星穹秘藏');
+            expect(unknownMeta.shortLabel).toBe('星穹秘藏');
+            expect(unknownMeta.cellClass).toBe('term-fallback');
+            expect(unknownMeta.emptyClass).toBe('term-fallback-empty');
+            expect(unknownMeta.isFallback).toBe(true);
+            expect(getAcquisitionMeta('Astral Vault').shortLabel).toBe('Astr');
+        });
+
+        it('支援多階段 terms 演進與未知動態管道之時間軸單元格與統計標籤', () => {
+            const patchesList = global.PATCH_DATA.map(p => p.patch);
+            const patchIndexMap = new Map(patchesList.map((p, i) => [p, i]));
+            const silverWolf = global.RAW_CHARACTERS[0];
+            const jingYuan = global.RAW_CHARACTERS[2];
+
+            expect(getCharacterTypes(silverWolf)).toEqual(['pool', 'shop']);
+            expect(getCharacterTerms(silverWolf)).toEqual([
+                { type: 'pool', patch: '4.2上' },
+                { type: 'shop', patch: '5.0上' },
+            ]);
+            // validEndIdx 涵蓋至 5.0上 時，狀態反映最新階段「聚靈」；4.2上仍顯示 pool，5.0上切換為 shop
+            const statusAt5 = getTermStatus(silverWolf, 4, patchesList, patchIndexMap);
+            expect(statusAt5.isTermActive).toBe(true);
+            expect(statusAt5.termLabel).toBe('聚靈');
+
+            const cellState = { hasReleased: true, currentGap: 0, patchesListLength: patchesList.length };
+            expect(getHistoryElement(silverWolf, '4.2上', 2, cellState, patchIndexMap)).toEqual({ status: 'TERM_START', type: 'pool' });
+            expect(getHistoryElement(silverWolf, '4.7上', 3, cellState, patchIndexMap)).toEqual({ status: 'TERM_EMPTY', type: 'pool' });
+            expect(getHistoryElement(silverWolf, '5.0上', 4, cellState, patchIndexMap)).toEqual({ status: 'TERM_START', type: 'shop' });
+
+            // 未知動態管道「星穹秘藏」正確套用深空琉璃通用降級類別 term-fallback / term-fallback-empty
+            const jingYuanHistory = buildCharacterHistory(jingYuan, patchesList, patchIndexMap);
+            const jingYuanHtml = buildHistoryCellsHtml(jingYuan, jingYuanHistory, global.PATCH_DATA, '5.0上', '', '');
+            expect(jingYuanHtml).toContain('class="term-fallback"');
+            expect(jingYuanHtml).toContain('title="取得方法：星穹秘藏">星穹秘藏</td>');
+            expect(jingYuanHtml).toContain('term-fallback-empty');
+        });
+
+        it('動態聚合 #type-items-container 篩選按鈕、URL 雙向同步與 Popover 取得階段標籤', () => {
+            const patchesList = global.PATCH_DATA.map(p => p.patch);
+            const patchIndexMap = new Map(patchesList.map((p, i) => [p, i]));
+            const types = collectAcquisitionTypes(global.RAW_CHARACTERS);
+            expect(types).toContain('pool');
+            expect(types).toContain('shop');
+            expect(types).toContain('collab');
+            expect(types).toContain('星穹秘藏');
+
+            renderFilters(global.RAW_CHARACTERS, patchesList, patchIndexMap);
+            const container = document.getElementById('type-items-container');
+            const labelsText = container.textContent;
+            expect(labelsText).toContain('聚靈鑄星');
+            expect(labelsText).toContain('星緣相邀');
+            expect(labelsText).toContain('星穹秘藏');
+            // 未知動態取得方式應附帶深空琉璃降級標章
+            expect(container.querySelectorAll('.type-fallback-badge').length).toBeGreaterThanOrEqual(1);
+
+            const swRowHtml = buildCharacterRowHtml(global.RAW_CHARACTERS[0], 0, 4, patchesList, patchIndexMap, patchesList, '5.0上');
+            expect(swRowHtml).toContain('data-type="pool"');
+            expect(swRowHtml).toContain('data-types="pool,shop"');
+            expect(swRowHtml).toContain('data-term-entries="pool@4.2上|shop@5.0上"');
+
+            document.querySelector('#tracker tbody').innerHTML =
+                global.RAW_CHARACTERS.map((c, idx) => buildCharacterRowHtml(c, idx, 4, patchesList, patchIndexMap, patchesList, '5.0上')).join('');
+
+            // ?type=pool 可正確命中兼具 pool->shop 演進的 銀狼，而 ?type=星穹秘藏 可精準篩出 景元
+            restoreStateFromUrl('?type=pool');
+            const visibleAfterPool = Array.from(document.querySelectorAll('#tracker tbody tr'))
+                .filter(r => r.style.display !== 'none')
+                .map(r => r.getAttribute('data-name'));
+            expect(visibleAfterPool).toEqual(['銀狼']);
+
+            restoreStateFromUrl('?type=' + encodeURIComponent('星穹秘藏'));
+            const visibleAfterDyn = Array.from(document.querySelectorAll('#tracker tbody tr'))
+                .filter(r => r.style.display !== 'none')
+                .map(r => r.getAttribute('data-name'));
+            expect(visibleAfterDyn).toEqual(['景元']);
+
+            // Popover HTML 應顯示完整取得演進階段標籤（星緣相邀 -> 聚靈鑄星）
+            const popHtml = buildCharPopoverHtml({
+                name: '銀狼',
+                path: '虛無',
+                elem: '量子',
+                isCollab: 'false',
+                runsCount: '1',
+                currentGap: '已加入聚靈',
+                maxGap: '-',
+                termEntries: 'pool@4.2上|shop@5.0上',
+            });
+            expect(popHtml).toContain('星緣相邀');
+            expect(popHtml).toContain('聚靈鑄星');
+            expect(popHtml).toContain('popover-tag-type');
         });
     });
 });

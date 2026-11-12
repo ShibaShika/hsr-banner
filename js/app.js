@@ -37,6 +37,14 @@ function getFallbackAvatar(name) {
    ========================================================================== */
 const DEFAULT_PATH_ORDER = ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
 const DEFAULT_ELEM_ORDER = ["物理", "火", "冰", "雷", "風", "量子", "虛數", "未知"];
+const DEFAULT_TYPE_ORDER = ["normal", "pool", "shop", "collab"];
+const BUILTIN_TYPE_META = {
+    normal: { label: "限定躍遷", shortLabel: "限定躍遷", desc: "" },
+    pool: { label: "星緣相邀", shortLabel: "星緣", desc: "加入非UP自選池", cellClass: "term-pool", emptyClass: "term-pool-empty" },
+    shop: { label: "聚靈鑄星", shortLabel: "聚靈", desc: "加入兌換商店", cellClass: "term-shop", emptyClass: "term-shop-empty" },
+    collab: { label: "長期聯動", shortLabel: "聯動", desc: "" },
+    stellar: { label: "群星躍遷", shortLabel: "群星", desc: "加入常駐躍遷池", cellClass: "term-stellar", emptyClass: "term-stellar-empty" }
+};
 const STAR_RAIL_PATH_ICON_BASE = 'https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/icon/path/';
 const FALLBACK_BUFF_ICON = '◆';
 const UNKNOWN_VALUE_LABEL = '未知';
@@ -51,6 +59,93 @@ function getPathIconMap() {
 
 function getDefaultBuffType() {
     return (typeof DEFAULT_BUFF_TYPE !== 'undefined' && DEFAULT_BUFF_TYPE) ? DEFAULT_BUFF_TYPE : '礪爍新輝';
+}
+
+function getTypeOrder() {
+    return (typeof TYPE_ORDER !== 'undefined' && Array.isArray(TYPE_ORDER)) ? TYPE_ORDER : DEFAULT_TYPE_ORDER;
+}
+
+function getTypeMetaMap() {
+    return (typeof TYPE_META !== 'undefined' && TYPE_META) ? TYPE_META : BUILTIN_TYPE_META;
+}
+
+function buildShortTypeLabel(label) {
+    const chars = Array.from(String(label || '').trim());
+    if (chars.length <= 4) return chars.join('');
+    return chars.slice(0, 4).join('');
+}
+
+function getAcquisitionMeta(type) {
+    const key = String(type || 'normal').trim() || 'normal';
+    const registry = getTypeMetaMap();
+    const rawMeta = Object.prototype.hasOwnProperty.call(registry, key)
+        ? registry[key]
+        : (Object.prototype.hasOwnProperty.call(BUILTIN_TYPE_META, key) ? BUILTIN_TYPE_META[key] : null);
+    if (rawMeta) {
+        return {
+            type: key,
+            label: rawMeta.label || key,
+            shortLabel: rawMeta.shortLabel || buildShortTypeLabel(rawMeta.label || key),
+            desc: rawMeta.desc || '',
+            cellClass: rawMeta.cellClass || 'term-fallback',
+            emptyClass: rawMeta.emptyClass || 'term-fallback-empty',
+            isFallback: false
+        };
+    }
+    return {
+        type: key,
+        label: key,
+        shortLabel: buildShortTypeLabel(key),
+        desc: '特殊取得途徑',
+        cellClass: 'term-fallback',
+        emptyClass: 'term-fallback-empty',
+        isFallback: true
+    };
+}
+
+// 彙整角色全部特殊取得紀錄（向下相容單一 term 物件與未來演進 terms 陣列）
+function getCharacterTerms(char) {
+    if (!char || char.isCollab) return [];
+    const seen = new Set();
+    const result = [];
+    const pushEntry = (entry) => {
+        if (!entry || typeof entry !== 'object') return;
+        const type = entry.type != null ? String(entry.type).trim() : '';
+        if (!type || type === 'none') return;
+        const patch = entry.patch != null ? String(entry.patch).trim() : '';
+        const key = `${type}@@${patch}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        result.push({ type, patch });
+    };
+    if (Array.isArray(char.terms)) {
+        char.terms.forEach(pushEntry);
+    }
+    pushEntry(char.term);
+    return result;
+}
+
+function getCharacterTypes(char) {
+    if (!char) return ['normal'];
+    if (char.isCollab) return ['collab'];
+    const terms = getCharacterTerms(char);
+    if (terms.length === 0) return ['normal'];
+    const types = [];
+    terms.forEach(t => {
+        if (!types.includes(t.type)) types.push(t.type);
+    });
+    return types.length > 0 ? types : ['normal'];
+}
+
+function collectAcquisitionTypes(chars) {
+    const order = getTypeOrder();
+    const seen = [...order];
+    (chars || []).forEach(c => {
+        getCharacterTypes(c).forEach(t => {
+            if (t && !seen.includes(t)) seen.push(t);
+        });
+    });
+    return orderByRegistry(seen, order);
 }
 
 // 依註冊表排序：已知值（依註冊順序）→ 新值（依資料出現順序）→ 指定置底值（如「未知」）
@@ -147,10 +242,10 @@ function getBuffMeta(type) {
     const registry = (typeof BUFF_META !== 'undefined' && BUFF_META) ? BUFF_META : {};
     if (Object.prototype.hasOwnProperty.call(registry, type)) {
         const meta = registry[type] || {};
-        return { icon: meta.icon || '▲', desc: meta.desc || '角色能力加強', isFallback: false };
+        return { icon: meta.icon || '▲', desc: meta.desc || '礪爍新輝強化', isFallback: false };
     }
     if (type === getDefaultBuffType()) {
-        return { icon: '▲', desc: '角色能力加強', isFallback: false };
+        return { icon: '▲', desc: '礪爍新輝強化', isFallback: false };
     }
     return { icon: FALLBACK_BUFF_ICON, desc: '卡池強化', isFallback: true };
 }
@@ -164,9 +259,6 @@ function buildBuffBadgeHtml(types) {
     const primary = types[0];
     const meta = getBuffMeta(primary);
     const title = escapeHtml(buildBuffTitle(types));
-    if (!meta.isFallback && types.length === 1) {
-        return `<span class="buff-badge" title="${title}">${escapeHtml(meta.icon)}</span>`;
-    }
     const fallbackCls = meta.isFallback ? ' buff-badge-fallback' : '';
     const multiCls = types.length > 1 ? ' buff-badge-multi' : '';
     return `<span class="buff-badge${fallbackCls}${multiCls}" data-buff-type="${escapeHtml(primary)}" title="${title}">${escapeHtml(meta.icon)}</span>`;
@@ -246,21 +338,26 @@ function buildBuffModeButton(type, isActive) {
     const isDefault = type === getDefaultBuffType();
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `toggle-btn buff-mode-btn${meta.isFallback ? ' buff-mode-fallback' : ''}`;
+    btn.className = `buff-mode-btn${meta.isFallback ? ' buff-mode-fallback' : ''}`;
     if (isDefault) btn.id = 'buff-toggle-btn';
     btn.dataset.buffType = type;
-    btn.setAttribute('data-tooltip', isDefault ? '僅顯示加強過的角色' : `僅顯示【${type}】強化過的角色`);
+    btn.setAttribute('data-tooltip', `僅顯示【${type}】強化過的角色`);
     setButtonActive(btn, isActive);
+
+    const check = document.createElement('span');
+    check.className = 'buff-mode-check';
+    check.setAttribute('aria-hidden', 'true');
 
     const icon = document.createElement('span');
     icon.className = 'toggle-icon';
     icon.textContent = meta.icon;
+
     const label = document.createElement('span');
     label.className = 'buff-mode-label';
     label.textContent = type;
 
+    btn.appendChild(check);
     btn.appendChild(icon);
-    btn.appendChild(document.createTextNode(' '));
     btn.appendChild(label);
     return btn;
 }
@@ -328,6 +425,23 @@ function getCurrentPatchName() {
     return currentPatch;
 }
 
+// 抽出大版本前綴（例如 "4.7上" / "4.7中" / "4.7下" ➡️ "4.7"）
+function getMajorMinorVersion(patchName) {
+    if (!patchName) return '';
+    const m = String(patchName).trim().match(/^(\d+\.\d+)/);
+    return m ? m[1] : String(patchName).trim();
+}
+
+function getCurrentMajorPatchPrefix() {
+    return getMajorMinorVersion(getCurrentPatchName());
+}
+
+// 判斷角色是否於指定大版本（含上／中／下）登場 UP
+function isCharUpInVersion(char, majorVerPrefix) {
+    if (!char || !majorVerPrefix || !Array.isArray(char.runs)) return false;
+    return char.runs.some(r => getMajorMinorVersion(r) === majorVerPrefix);
+}
+
 // 🔍 取得角色最早登場的小版本名稱
 function getCharEarliestPatch(char, patchesList, patchIndexMap) {
     if (char.isCollab) {
@@ -364,13 +478,23 @@ function getPatchIndex(patch, patchesList, patchIndexMap) {
 }
 
 function getTermStatus(char, validEndIdx, patchesList, patchIndexMap) {
-    if (char.term && char.term.patch) {
-        const termIdx = getPatchIndex(char.term.patch, patchesList, patchIndexMap);
-        if (termIdx !== -1 && termIdx <= validEndIdx) {
+    const terms = getCharacterTerms(char);
+    if (terms.length > 0) {
+        const activeTerms = terms
+            .map((t, order) => ({
+                ...t,
+                idx: t.patch ? getPatchIndex(t.patch, patchesList, patchIndexMap) : -1,
+                order
+            }))
+            .filter(t => t.idx !== -1 && t.idx <= validEndIdx)
+            .sort((a, b) => (a.idx - b.idx) || (a.order - b.order));
+        if (activeTerms.length > 0) {
+            const earliestTerm = activeTerms[0];
+            const latestTerm = activeTerms[activeTerms.length - 1];
             return {
                 isTermActive: true,
-                validEndIdx: termIdx,
-                termLabel: char.term.type === 'pool' ? '星緣' : '聚靈'
+                validEndIdx: earliestTerm.idx,
+                termLabel: getAcquisitionMeta(latestTerm.type).shortLabel
             };
         }
     }
@@ -730,6 +854,10 @@ function parseUrlState(searchStr) {
         onlyBuffs = buffTypes.length > 0;
     }
 
+    // 🎯 up=1 / true：僅顯示當前大版本（上／中／下）UP 角色
+    const rawUp = params.get('up');
+    const onlyCurrentVersionUp = rawUp === '1' || rawUp === 'true';
+
     const state = {
         versions: parseList('ver'),
         paths: parseList('path'),
@@ -743,6 +871,16 @@ function parseUrlState(searchStr) {
     };
     if (buffTypes && buffTypes.length > 0) {
         state.buffTypes = buffTypes;
+    }
+    if (onlyCurrentVersionUp) {
+        state.onlyCurrentVersionUp = true;
+    } else {
+        Object.defineProperty(state, 'onlyCurrentVersionUp', {
+            value: false,
+            enumerable: false,
+            configurable: true,
+            writable: true
+        });
     }
     return state;
 }
@@ -771,6 +909,9 @@ function buildUrlSearchParams(filterState, extraState = {}) {
         const buffTypes = Array.isArray(filterState.selectedBuffs) ? filterState.selectedBuffs : [];
         const isDefaultOnly = buffTypes.length === 0 || (buffTypes.length === 1 && buffTypes[0] === getDefaultBuffType());
         params.set('buff', isDefaultOnly ? '1' : buffTypes.join(','));
+    }
+    if (filterState.onlyCurrentVersionUp) {
+        params.set('up', '1');
     }
 
     const mode = extraState.charSortMode !== undefined ? extraState.charSortMode : charSortMode;
@@ -849,6 +990,11 @@ function restoreStateFromUrl(searchStr) {
         }
 
         applyBuffSelection(parsed.onlyBuffs, parsed.buffTypes || null);
+
+        const currentVerBtn = document.getElementById('current-version-up-btn');
+        if (currentVerBtn) {
+            setButtonActive(currentVerBtn, Boolean(parsed.onlyCurrentVersionUp));
+        }
 
         updateSortControlsUI();
     } finally {
@@ -1057,25 +1203,54 @@ function renderFilters(activeCharacters, patchesList, patchIndexMap) {
     renderBuffModeButtons(activeCharacters);
 
     const typeContainer = document.getElementById('type-items-container');
-    if (typeContainer && typeContainer.children.length === 0) {
-        typeContainer.innerHTML = `
-            <label><input type="checkbox" class="type-item" value="normal"> 限定躍遷</label>
-            <label class="type-desc-label">
-                <input type="checkbox" class="type-item" value="pool">
-                <span class="label-stack">
-                    <span class="label-title">星緣相邀</span>
-                    <span class="label-sub">加入非UP自選池</span>
-                </span>
-            </label>
-            <label class="type-desc-label">
-                <input type="checkbox" class="type-item" value="shop">
-                <span class="label-stack">
-                    <span class="label-title">聚靈鑄星</span>
-                    <span class="label-sub">加入兌換商店</span>
-                </span>
-            </label>
-            <label><input type="checkbox" class="type-item" value="collab"> 長期聯動</label>
-        `;
+    if (typeContainer) {
+        const currentCheckedTypes = new Set(Array.from(document.querySelectorAll('.type-item:checked')).map(i => i.value));
+        const acquisitionTypes = collectAcquisitionTypes(activeCharacters);
+        const fragment = document.createDocumentFragment();
+
+        acquisitionTypes.forEach(typeKey => {
+            const meta = getAcquisitionMeta(typeKey);
+            const label = document.createElement('label');
+            if (meta.desc && !meta.isFallback) {
+                label.className = 'type-desc-label';
+            }
+
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'type-item';
+            input.value = typeKey;
+            if (currentCheckedTypes.has(typeKey)) {
+                input.checked = true;
+            }
+            label.appendChild(input);
+
+            if (meta.isFallback) {
+                label.appendChild(document.createTextNode(' '));
+                const badge = document.createElement('span');
+                badge.className = 'type-fallback-badge';
+                badge.textContent = meta.shortLabel || '新';
+                label.appendChild(badge);
+                label.appendChild(document.createTextNode(` ${meta.label}`));
+            } else if (meta.desc) {
+                const stack = document.createElement('span');
+                stack.className = 'label-stack';
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'label-title';
+                titleSpan.textContent = meta.label;
+                const subSpan = document.createElement('span');
+                subSpan.className = 'label-sub';
+                subSpan.textContent = meta.desc;
+                stack.appendChild(titleSpan);
+                stack.appendChild(subSpan);
+                label.appendChild(stack);
+            } else {
+                label.appendChild(document.createTextNode(` ${meta.label}`));
+            }
+
+            fragment.appendChild(label);
+        });
+
+        typeContainer.replaceChildren(fragment);
     }
 }
 
@@ -1112,7 +1287,7 @@ function buildTableHeaderHtml(displayPatches, totalChars, activePatchName) {
 function getHistoryElement(char, patch, pIdx, state, patchIndexMap) {
     if (char.isCollab) {
         const collabStart = char.isCollab;
-        const sIdx = patchIndexMap.has(collabStart) ? patchIndexMap.get(collabStart) : -1;
+        const sIdx = (patchIndexMap && patchIndexMap.has(collabStart)) ? patchIndexMap.get(collabStart) : -1;
 
         if (pIdx < sIdx) {
             return { status: 'COLLAB_BEFORE' };
@@ -1126,12 +1301,29 @@ function getHistoryElement(char, patch, pIdx, state, patchIndexMap) {
         }
     }
 
-    if (char.term) {
-        const termIdx = patchIndexMap.has(char.term.patch) ? patchIndexMap.get(char.term.patch) : -1;
-        if (pIdx === termIdx) {
-            return { status: 'TERM_START', type: char.term.type };
-        } else if (pIdx > termIdx) {
-            return { status: 'TERM_EMPTY', type: char.term.type };
+    const terms = getCharacterTerms(char);
+    if (terms.length > 0) {
+        const resolvedTerms = terms
+            .map((t, order) => ({
+                ...t,
+                idx: (t.patch && patchIndexMap && patchIndexMap.has(t.patch)) ? patchIndexMap.get(t.patch) : -1,
+                order
+            }))
+            .filter(t => t.idx !== -1)
+            .sort((a, b) => (a.idx - b.idx) || (a.order - b.order));
+
+        const startingHere = resolvedTerms.filter(t => t.idx === pIdx);
+        if (startingHere.length > 0) {
+            const lastType = startingHere[startingHere.length - 1].type;
+            if (startingHere.length === 1) {
+                return { status: 'TERM_START', type: lastType };
+            }
+            return { status: 'TERM_START', type: lastType, types: startingHere.map(t => t.type) };
+        }
+
+        const priorTerms = resolvedTerms.filter(t => t.idx < pIdx);
+        if (priorTerms.length > 0) {
+            return { status: 'TERM_EMPTY', type: priorTerms[priorTerms.length - 1].type };
         }
     }
 
@@ -1211,7 +1403,7 @@ function buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchNa
             : [];
         const cellHasBuff = cellBuffTypes.length > 0;
         const buffBadgeHtml = cellHasBuff ? buildBuffBadgeHtml(cellBuffTypes) : '';
-        const buffTitleAttr = cellHasBuff ? ` title="${escapeHtml(buildBuffTitle(cellBuffTypes))}"` : '';
+        let cellTitleText = cellHasBuff ? buildBuffTitle(cellBuffTypes) : '';
 
         let cls = '';
         let content = '';
@@ -1230,23 +1422,33 @@ function buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchNa
 
         switch (cell.status) {
             case 'UP':
-            case 'COLLAB':
+            case 'COLLAB': {
                 cls = 'img-cell';
-                content = `${buffBadgeHtml}<img src="${avatarUrl}" class="grid-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';"${buffTitleAttr}>`;
+                const imgTitleAttr = cellTitleText ? ` title="${escapeHtml(cellTitleText)}"` : '';
+                content = `${buffBadgeHtml}<img src="${avatarUrl}" class="grid-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';"${imgTitleAttr}>`;
                 break;
+            }
             case 'COLLAB_EMPTY':
             case 'COLLAB_BEFORE':
                 cls = `collab-empty bg-${escapeHtml(char.elem)}`;
                 content = buffBadgeHtml;
                 break;
-            case 'TERM_START':
-                cls = cell.type === 'pool' ? 'term-pool' : 'term-shop';
-                content = `${buffBadgeHtml}${cell.type === 'pool' ? '星緣' : '聚靈'}`;
+            case 'TERM_START': {
+                const startTypes = (Array.isArray(cell.types) && cell.types.length > 0) ? cell.types : [cell.type];
+                const primaryMeta = getAcquisitionMeta(cell.type);
+                cls = primaryMeta.cellClass || 'term-fallback';
+                const labelsText = startTypes.map(t => getAcquisitionMeta(t).shortLabel).join('/');
+                content = `${buffBadgeHtml}${escapeHtml(labelsText)}`;
+                const acqTitle = startTypes.map(t => `取得方法：${getAcquisitionMeta(t).label}`).join('、');
+                cellTitleText = cellTitleText ? `${cellTitleText}｜${acqTitle}` : acqTitle;
                 break;
-            case 'TERM_EMPTY':
-                cls = cell.type === 'pool' ? 'term-pool-empty' : 'term-shop-empty';
+            }
+            case 'TERM_EMPTY': {
+                const emptyMeta = getAcquisitionMeta(cell.type);
+                cls = emptyMeta.emptyClass || 'term-fallback-empty';
                 content = buffBadgeHtml;
                 break;
+            }
             case 'NONE':
                 cls = 'none';
                 content = `${buffBadgeHtml}-`;
@@ -1259,6 +1461,7 @@ function buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchNa
                 else cls = 'w-crit';
                 break;
         }
+        const buffTitleAttr = cellTitleText ? ` title="${escapeHtml(cellTitleText)}"` : '';
         html += `<td class="${cls}${currentColClass}"${buffTitleAttr}>${content}</td>`;
     });
     return html;
@@ -1275,6 +1478,42 @@ function getCharacterTooltip(char, stats, debutVer, isCharPreview) {
         const overdueFlag = stats.isOverdue ? " ⚠️ (超期警報!)" : "";
         return `【${char.name} - 躍遷資訊】\n• 實裝版本：${debutVer}\n• 目前等待：${stats.currentGap}${overdueFlag}\n• 歷史最長等待：${stats.maxGap}\n• 總UP次數：${stats.totalRuns}`;
     }
+}
+
+function buildCharPopoverBuffRowHtml(rawBuffEntries) {
+    if (!rawBuffEntries) return '';
+    const items = String(rawBuffEntries).split('|').map(item => item.trim()).filter(Boolean);
+    if (items.length === 0) return '';
+
+    const tagsHtml = items.map(item => {
+        const sepIdx = item.lastIndexOf('@');
+        const type = sepIdx > 0 ? item.slice(0, sepIdx) : item;
+        const patch = sepIdx > 0 ? item.slice(sepIdx + 1) : '';
+        const meta = getBuffMeta(type);
+        const fallbackCls = meta.isFallback ? ' popover-tag-fallback' : '';
+        const label = patch ? `${meta.icon} ${type} (${patch})` : `${meta.icon} ${type}`;
+        return `<span class="popover-tag popover-tag-buff${fallbackCls}" data-buff-type="${escapeHtml(type)}">${escapeHtml(label)}</span>`;
+    }).join('');
+
+    return `<div class="popover-row popover-row-buffs"><span class="popover-label">角色強化</span><span class="popover-val popover-buff-tags">${tagsHtml}</span></div>`;
+}
+
+function buildCharPopoverAcquisitionRowHtml(rawTermEntries) {
+    if (!rawTermEntries) return '';
+    const items = String(rawTermEntries).split('|').map(item => item.trim()).filter(Boolean);
+    if (items.length === 0) return '';
+
+    const tagsHtml = items.map(item => {
+        const sepIdx = item.lastIndexOf('@');
+        const type = sepIdx > 0 ? item.slice(0, sepIdx) : item;
+        const patch = sepIdx > 0 ? item.slice(sepIdx + 1) : '';
+        const meta = getAcquisitionMeta(type);
+        const fallbackCls = meta.isFallback ? ' popover-tag-fallback' : '';
+        const label = patch ? `${meta.label} (${patch})` : meta.label;
+        return `<span class="popover-tag popover-tag-type${fallbackCls}" data-acq-type="${escapeHtml(type)}">${escapeHtml(label)}</span>`;
+    }).join('');
+
+    return `<div class="popover-row popover-row-types"><span class="popover-label">取得途徑</span><span class="popover-val popover-type-tags">${tagsHtml}</span></div>`;
 }
 
 // 🌌 產生角色統計琉璃浮動資訊卡 HTML
@@ -1301,16 +1540,23 @@ function buildCharPopoverHtml(data) {
         </span>
     `;
 
+    const typeRowHtml = buildCharPopoverAcquisitionRowHtml(data.termEntries);
+    const buffRowHtml = buildCharPopoverBuffRowHtml(data.buffEntries);
+
     let bodyRowsHtml = '';
     if (isPreview) {
         bodyRowsHtml = `
             <div class="popover-row"><span class="popover-label">預定登場</span><span class="popover-val highlight-purple">${debut}</span></div>
             <div class="popover-row"><span class="popover-label">角色狀態</span><span class="popover-val highlight-purple">🔮 預覽角色</span></div>
+            ${typeRowHtml}
+            ${buffRowHtml}
         `;
     } else if (isCollab) {
         bodyRowsHtml = `
             <div class="popover-row"><span class="popover-label">實裝版本</span><span class="popover-val">${debut}</span></div>
             <div class="popover-row"><span class="popover-label">角色狀態</span><span class="popover-val highlight-gold">✦ 長期聯動角色</span></div>
+            ${typeRowHtml}
+            ${buffRowHtml}
         `;
     } else if (isTerm) {
         const maxGapText = maxGap === '-' ? '-' : `${maxGap} 個版本`;
@@ -1319,6 +1565,8 @@ function buildCharPopoverHtml(data) {
             <div class="popover-row"><span class="popover-label">目前狀態</span><span class="popover-val highlight-gold">${currentGap}</span></div>
             <div class="popover-row"><span class="popover-label">歷史最長等待</span><span class="popover-val">${maxGapText}</span></div>
             <div class="popover-row"><span class="popover-label">總 UP 次數</span><span class="popover-val">${totalRuns} 次</span></div>
+            ${typeRowHtml}
+            ${buffRowHtml}
         `;
     } else {
         const waitText = currentGap === '0' ? '當期 UP 中 (0)' : (currentGap === '-' ? '-' : `${currentGap} 個版本`);
@@ -1328,6 +1576,8 @@ function buildCharPopoverHtml(data) {
             <div class="popover-row"><span class="popover-label">目前等待</span><span class="popover-val ${isOverdue ? 'highlight-gold' : ''}">${waitText}</span></div>
             <div class="popover-row"><span class="popover-label">歷史最長等待</span><span class="popover-val">${maxGapText}</span></div>
             <div class="popover-row"><span class="popover-label">總 UP 次數</span><span class="popover-val">${totalRuns} 次</span></div>
+            ${typeRowHtml}
+            ${buffRowHtml}
             ${isOverdue ? '<div class="popover-overdue-alert">⚠️ 超期警報：目前已超越歷史最長等待紀錄！</div>' : ''}
         `;
     }
@@ -1403,10 +1653,11 @@ function hideCharPopover() {
 }
 
 function getCharacterType(char) {
+    if (!char) return 'normal';
     if (char.isCollab) return 'collab';
-    if (char.term) {
-        if (char.term.type === 'pool') return 'pool';
-        if (char.term.type === 'shop') return 'shop';
+    const terms = getCharacterTerms(char);
+    if (terms.length > 0) {
+        return terms[0].type;
     }
     return 'normal';
 }
@@ -1420,18 +1671,28 @@ function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexM
     const seqNum = isCustomRankSort ? (index + 1) : (isCharAscending ? (index + 1) : (totalChars - index));
 
     const charType = getCharacterType(char);
+    const charTypes = getCharacterTypes(char);
+    const charTypesAttr = charTypes.length > 1 ? ` data-types="${escapeHtml(charTypes.join(','))}"` : '';
+    const charTerms = getCharacterTerms(char);
+    const termEntriesAttr = charTerms.length > 0
+        ? ` data-term-entries="${escapeHtml(charTerms.map(t => (t.patch ? `${t.type}@${t.patch}` : t.type)).join('|'))}"`
+        : '';
+    const buffEntries = getCharBuffEntries(char);
     const buffTypes = getCharBuffTypes(char);
     const hasBuff = buffTypes.length > 0;
     const buffTypesAttr = buffTypes.length > 0 ? ` data-buff-types="${escapeHtml(buffTypes.join(','))}"` : '';
+    const buffEntriesAttr = buffEntries.length > 0 ? ` data-buff-entries="${escapeHtml(buffEntries.map(e => `${e.type}@${e.patch}`).join('|'))}"` : '';
     const isUnregisteredPath = char.path && !isRegisteredPath(char.path);
     const unregisteredPathAttr = isUnregisteredPath ? ' data-unregistered-path="true"' : '';
     const majorVer = getCharDebutMajorVersion(char, patchesList, patchIndexMap);
     const debutVer = getCharDebutVersion(char, patchesList, patchIndexMap);
+    const currentVerPrefix = getMajorMinorVersion(activePatchName);
+    const isCurrentVersionUp = isCharUpInVersion(char, currentVerPrefix);
 
     const isCharPreview = Boolean(char.isPreview);
     const stats = calculateCharStats(char, patchesList, activePatchName, patchIndexMap);
 
-    let html = `<tr data-path="${escapeHtml(char.path)}" data-elem="${escapeHtml(char.elem)}" data-type="${charType}" data-has-buff="${hasBuff}"${buffTypesAttr} data-major-version="${escapeHtml(majorVer)}" data-name="${escapeHtml(char.name)}" data-is-preview="${isCharPreview}"${unregisteredPathAttr}>
+    let html = `<tr data-path="${escapeHtml(char.path)}" data-elem="${escapeHtml(char.elem)}" data-type="${escapeHtml(charType)}"${charTypesAttr} data-has-buff="${hasBuff}"${buffTypesAttr} data-major-version="${escapeHtml(majorVer)}" data-name="${escapeHtml(char.name)}" data-is-preview="${isCharPreview}" data-current-version-up="${isCurrentVersionUp}"${unregisteredPathAttr}>
         <td class="bg-${escapeHtml(char.elem)}${isUnregisteredPath ? ' path-fallback-cell' : ''}">
             <div class="char-info-cell"
                  data-char-name="${escapeHtml(char.name)}"
@@ -1444,7 +1705,7 @@ function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexM
                  data-is-overdue="${Boolean(stats.isOverdue)}"
                  data-is-collab="${Boolean(stats.isCollab)}"
                  data-is-term="${Boolean(stats.isTermActive)}"
-                 data-is-preview="${isCharPreview}">
+                 data-is-preview="${isCharPreview}"${termEntriesAttr}${buffEntriesAttr}>
                 <span class="char-seq">${seqNum}</span>
                 ${pathIconHtml}
                 <img src="${avatarUrl}" class="char-avatar" alt="${escapeHtml(char.name)}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
@@ -1460,6 +1721,20 @@ function buildCharacterRowHtml(char, index, totalChars, patchesList, patchIndexM
     html += buildHistoryCellsHtml(char, finalHistory, displayPatches, activePatchName, avatarUrl, fallbackUrl);
     html += `</tr>`;
     return html;
+}
+
+function updateCurrentVersionUpButtonLabel(activePatchName) {
+    const btn = document.getElementById('current-version-up-btn');
+    if (!btn) return;
+    const prefix = getMajorMinorVersion(activePatchName || getCurrentPatchName());
+    const labelEl = btn.querySelector('.current-ver-up-label');
+    if (labelEl) {
+        labelEl.textContent = '當前PU';
+    }
+    const tooltipText = prefix
+        ? `僅顯示當前大版本 ${prefix}（上／中／下）PU 角色`
+        : '僅顯示當前大版本（上／中／下）PU 角色';
+    btn.setAttribute('data-tooltip', tooltipText);
 }
 
 function renderTable() {
@@ -1479,6 +1754,7 @@ function renderTable() {
     patchesList.forEach((patch, index) => patchIndexMap.set(patch, index));
 
     const activePatchName = getCurrentPatchName();
+    updateCurrentVersionUpButtonLabel(activePatchName);
 
     // 1. 決定角色陣列順序
     if (charSortMode === 'debut-desc' || charSortMode === 'debut-asc') {
@@ -1613,7 +1889,8 @@ function setupFilterPanels() {
         { box: document.getElementById('version-select-box'), panel: document.getElementById('version-panel') },
         { box: document.getElementById('path-select-box'), panel: document.getElementById('path-panel') },
         { box: document.getElementById('elem-select-box'), panel: document.getElementById('elem-panel') },
-        { box: document.getElementById('type-select-box'), panel: document.getElementById('type-panel') }
+        { box: document.getElementById('type-select-box'), panel: document.getElementById('type-panel') },
+        { box: document.getElementById('buff-select-box'), panel: document.getElementById('buff-panel') }
     ];
 
     dropdowns.forEach(({ box, panel }) => {
@@ -1645,6 +1922,7 @@ function bindBuffModeButtons() {
 
 function setupUtilityToggles() {
     const previewToggleBtn = document.getElementById('preview-toggle-btn');
+    const currentVerUpBtn = document.getElementById('current-version-up-btn');
 
     if (previewToggleBtn) {
         previewToggleBtn.classList.toggle('active', isShowPreview);
@@ -1657,6 +1935,14 @@ function setupUtilityToggles() {
         });
     }
 
+    if (currentVerUpBtn && !currentVerUpBtn._hsrUpBound) {
+        currentVerUpBtn._hsrUpBound = true;
+        currentVerUpBtn.addEventListener('click', () => {
+            setButtonActive(currentVerUpBtn, !currentVerUpBtn.classList.contains('active'));
+            applyFilters();
+        });
+    }
+
     bindBuffModeButtons();
 }
 
@@ -1665,6 +1951,8 @@ function clearAllFilters() {
     const searchInput = document.getElementById('char-search-input');
     if (searchInput) searchInput.value = '';
     getBuffModeButtons().forEach(btn => setButtonActive(btn, false));
+    const currentVerUpBtn = document.getElementById('current-version-up-btn');
+    if (currentVerUpBtn) setButtonActive(currentVerUpBtn, false);
     applyFilters();
 }
 
@@ -2048,6 +2336,8 @@ function getFilterState() {
     const searchInput = document.getElementById('char-search-input');
     const activeBuffs = getActiveBuffTypes();
     const onlyBuffs = activeBuffs.length > 0;
+    const currentVerUpBtn = document.getElementById('current-version-up-btn');
+    const onlyCurrentVersionUp = Boolean(currentVerUpBtn && currentVerUpBtn.classList.contains('active'));
     const state = {
         selectedVersions: Array.from(document.querySelectorAll('.version-item')).filter(i => i.checked).map(i => i.value),
         selectedPaths: Array.from(document.querySelectorAll('.path-item')).filter(i => i.checked).map(i => i.value),
@@ -2069,6 +2359,17 @@ function getFilterState() {
             writable: true
         });
     }
+
+    if (onlyCurrentVersionUp) {
+        state.onlyCurrentVersionUp = true;
+    } else {
+        Object.defineProperty(state, 'onlyCurrentVersionUp', {
+            value: false,
+            enumerable: false,
+            configurable: true,
+            writable: true
+        });
+    }
     return state;
 }
 
@@ -2084,18 +2385,25 @@ function updateFilterUI(state) {
     const pathBox = document.getElementById('path-select-box');
     const elemBox = document.getElementById('elem-select-box');
     const typeBox = document.getElementById('type-select-box');
+    const buffBox = document.getElementById('buff-select-box');
+    const currentVerUpBtn = document.getElementById('current-version-up-btn');
+
+    const selectedBuffs = Array.isArray(state.selectedBuffs)
+        ? state.selectedBuffs
+        : (state.onlyBuffs ? [getDefaultBuffType()] : []);
 
     if (versionBox) versionBox.classList.toggle('active', state.selectedVersions.length > 0);
     if (pathBox) pathBox.classList.toggle('active', state.selectedPaths.length > 0);
     if (elemBox) elemBox.classList.toggle('active', state.selectedElems.length > 0);
     if (typeBox) typeBox.classList.toggle('active', state.selectedTypes.length > 0);
+    if (buffBox) buffBox.classList.toggle('active', selectedBuffs.length > 0);
+    if (currentVerUpBtn) setButtonActive(currentVerUpBtn, Boolean(state.onlyCurrentVersionUp));
 
-    const hasActiveFilter = state.selectedVersions.length > 0 || state.selectedPaths.length > 0 || state.selectedElems.length > 0 || state.selectedTypes.length > 0 || state.keyword !== '' || state.onlyBuffs;
+    const hasActiveFilter = state.selectedVersions.length > 0 || state.selectedPaths.length > 0 || state.selectedElems.length > 0 || state.selectedTypes.length > 0 || state.keyword !== '' || state.onlyBuffs || Boolean(state.onlyCurrentVersionUp);
     if (resetFiltersBtn) {
         resetFiltersBtn.style.display = hasActiveFilter ? 'inline-flex' : 'none';
     }
 
-    const typeLabelMap = { 'normal': '限定躍遷', 'pool': '星緣', 'shop': '聚靈', 'collab': '聯動' };
     const formatSelectBox = (box, selected, defaultLabel, mapFn = x => x) => {
         if (!box) return;
         if (selected.length === 0) box.textContent = defaultLabel;
@@ -2106,14 +2414,18 @@ function updateFilterUI(state) {
     formatSelectBox(versionBox, state.selectedVersions, '實裝版本');
     formatSelectBox(pathBox, state.selectedPaths, '命途');
     formatSelectBox(elemBox, state.selectedElems, '屬性');
-    formatSelectBox(typeBox, state.selectedTypes, '取得方法', t => typeLabelMap[t]);
+    formatSelectBox(typeBox, state.selectedTypes, '取得方法', t => getAcquisitionMeta(t).shortLabel);
+    formatSelectBox(buffBox, selectedBuffs, '角色強化', t => `${getBuffMeta(t).icon} ${t}`);
 }
 
 function isRowMatchingFilters(rowData, state) {
     const matchVersion = state.selectedVersions.length === 0 || state.selectedVersions.includes(rowData.majorVer);
     const matchPath = state.selectedPaths.length === 0 || state.selectedPaths.includes(rowData.path);
     const matchElem = state.selectedElems.length === 0 || state.selectedElems.includes(rowData.elem);
-    const matchType = state.selectedTypes.length === 0 || state.selectedTypes.includes(rowData.type);
+    const rowTypes = Array.isArray(rowData.types) && rowData.types.length > 0
+        ? rowData.types
+        : (rowData.type ? [rowData.type] : []);
+    const matchType = state.selectedTypes.length === 0 || state.selectedTypes.some(t => rowTypes.includes(t));
     const matchName = state.keyword === '' || rowData.name.includes(state.keyword);
     const selectedBuffs = Array.isArray(state.selectedBuffs) ? state.selectedBuffs : [];
     let matchBuff = true;
@@ -2125,8 +2437,9 @@ function isRowMatchingFilters(rowData, state) {
     } else if (state.onlyBuffs) {
         matchBuff = Boolean(rowData.hasBuff);
     }
+    const matchCurrentVersionUp = !state.onlyCurrentVersionUp || Boolean(rowData.currentVersionUp);
 
-    return matchVersion && matchPath && matchElem && matchType && matchName && matchBuff;
+    return matchVersion && matchPath && matchElem && matchType && matchName && matchBuff && matchCurrentVersionUp;
 }
 
 function filterTableRows(table, state) {
@@ -2139,14 +2452,21 @@ function filterTableRows(table, state) {
             const buffTypes = rawBuffTypes
                 ? rawBuffTypes.split(',').map(s => s.trim()).filter(Boolean)
                 : (hasBuff ? [getDefaultBuffType()] : []);
+            const singleType = row.getAttribute('data-type') || 'normal';
+            const rawTypes = row.getAttribute('data-types') || '';
+            const types = rawTypes
+                ? rawTypes.split(',').map(s => s.trim()).filter(Boolean)
+                : [singleType];
             return {
                 row,
                 majorVer: row.getAttribute('data-major-version'),
                 path: row.getAttribute('data-path'),
                 elem: row.getAttribute('data-elem'),
-                type: row.getAttribute('data-type'),
+                type: singleType,
+                types,
                 hasBuff,
                 buffTypes,
+                currentVersionUp: row.getAttribute('data-current-version-up') === 'true',
                 name: (row.getAttribute('data-name') || '').toLowerCase()
             };
         });
@@ -2246,6 +2566,9 @@ if (typeof module !== 'undefined' && module.exports) {
         getCharDebutVersion,
         getCharDebutMajorVersion,
         getCurrentPatchName,
+        getMajorMinorVersion,
+        getCurrentMajorPatchPrefix,
+        isCharUpInVersion,
         formatHeaderDate,
         escapeHtml,
         getFallbackAvatar,
@@ -2256,6 +2579,10 @@ if (typeof module !== 'undefined' && module.exports) {
         calculateGaps,
         getHistoryElement,
         getCharacterType,
+        getCharacterTerms,
+        getCharacterTypes,
+        getAcquisitionMeta,
+        collectAcquisitionTypes,
         buildCharacterHistory,
         getCharacterTooltip,
         buildCharPopoverHtml,
@@ -2295,6 +2622,9 @@ if (typeof module !== 'undefined' && module.exports) {
         buildPathIconHtml,
         renderBuffModeButtons,
         applyBuffSelection,
+        setupFilterPanels,
+        setupUtilityToggles,
+        clearAllFilters,
         isRegisteredPath,
         getDefaultBuffType
     };

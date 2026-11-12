@@ -7,6 +7,8 @@
     <script src="js/patches.js"></script>
     <script src="js/paths.js"></script>
     <script src="js/elements.js"></script>
+    <script src="js/buffs.js"></script>
+    <script src="js/types.js"></script>
     <script src="js/characters.js"></script>
     <style>
         :root { --bg: #121212; --surface: #1e1e1e; --border: #444; --text: #e0e0e0; --primary: #2e436e; }
@@ -205,7 +207,7 @@
                         <th style="width: 60px;">命途</th>
                         <th style="width: 60px;">屬性</th>
                         <th>取得機制與版本設定</th>
-                        <th style="width: 145px;">礪爍新輝</th>
+                        <th style="width: 190px;">角色強化</th>
                         <th style="width: 52px; text-align: center;">預覽</th>
                         <th style="width: 92px; text-align: center;">操作</th>
                     </tr>
@@ -618,17 +620,31 @@
                     const isPathModified = origChar ? char.path !== origChar.path : false;
                     const isElemModified = origChar ? char.elem !== origChar.elem : false;
                     const isRunsModified = origChar ? JSON.stringify(char.runs || []) !== JSON.stringify(origChar.runs || []) : false;
-                    const isBuffsModified = origChar ? JSON.stringify(char.buffs || []) !== JSON.stringify(origChar.buffs || []) : false;
+                    const isBuffsModified = origChar ? !areBuffsEqual(char, origChar) : false;
                     const isPreviewModified = origChar ? Boolean(char.isPreview) !== Boolean(origChar.isPreview) : false;
 
                     const isCollab = char.isCollab !== undefined;
-                    const termType = char.term ? char.term.type : 'none'; 
+                    const termType = (char.term && char.term.type) ? String(char.term.type) : 'none';
                     const termPatch = char.term ? char.term.patch : '';
-                    
+
                     let currentType = 'normal';
                     if (isCollab) currentType = 'collab';
-                    else if (termType === 'pool') currentType = 'pool';
-                    else if (termType === 'shop') currentType = 'shop';
+                    else if (termType !== 'none') currentType = termType;
+
+                    const builtinTypes = ['normal', 'pool', 'shop', 'collab'];
+                    const typeRegistry = (typeof TYPE_META !== 'undefined' && TYPE_META) ? TYPE_META : {};
+                    const knownTermTypes = (typeof TYPE_ORDER !== 'undefined' && Array.isArray(TYPE_ORDER))
+                        ? TYPE_ORDER
+                        : builtinTypes;
+                    const typeOptionsList = [...knownTermTypes];
+                    if (currentType && !typeOptionsList.includes(currentType)) {
+                        typeOptionsList.push(currentType);
+                    }
+                    charsData.forEach(c => {
+                        if (c && c.term && c.term.type && !typeOptionsList.includes(c.term.type)) {
+                            typeOptionsList.push(c.term.type);
+                        }
+                    });
 
                     let dateInputValue = "";
                     if (isCollab) {
@@ -668,14 +684,14 @@
                         <td>
                             <div style="display: grid; grid-template-columns: 88px 110px 1fr; align-items: center; gap: 6px;">
                                 <select onchange="onTypeChange(${index}, this.value)" style="width: 88px; font-size: 12px; font-weight: bold; background: #222; padding: 4px 2px; box-sizing: border-box;">
-                                    <option value="normal" ${currentType === 'normal' ? 'selected' : ''}>限定躍遷</option>
-                                    <option value="pool" ${currentType === 'pool' ? 'selected' : ''}>星緣相邀</option>
-                                    <option value="shop" ${currentType === 'shop' ? 'selected' : ''}>聚靈鑄星</option>
-                                    <option value="collab" ${currentType === 'collab' ? 'selected' : ''}>長期聯動</option>
+                                    ${typeOptionsList.map(opt => {
+                                        const label = (typeRegistry[opt] && typeRegistry[opt].label) || opt;
+                                        return `<option value="${escapeHtml(opt)}" ${currentType === opt ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                                    }).join('')}
                                 </select>
 
                                 <div>
-                                    ${(currentType === 'pool' || currentType === 'shop') ? `
+                                    ${(currentType !== 'normal' && currentType !== 'collab') ? `
                                         <div class="picker-trigger" onclick="openPatchPicker('${escapeJsStr(termPatch)}', this, ${index}, null, (val) => { updateTermPatch(${index}, val); renderChars(); }, 'run')">
                                             <span>${escapeHtml(termPatch || '選擇版本')}</span> <span>▼</span>
                                         </div>
@@ -703,11 +719,19 @@
                         </td>
                         <td>
                             <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
-                                ${buffs.map((buff, bIdx) => `
-                                    <div class="picker-trigger ${isBuffsModified ? 'modified-highlight' : ''}" onclick="openPatchPicker('${escapeJsStr(buff)}', this, ${index}, ${bIdx}, (val) => { updateBuff(${index}, ${bIdx}, val); renderChars(); }, 'buff')">
-                                        <span>${escapeHtml(buff || '選擇')}</span> <span>▼</span>
-                                    </div>
-                                `).join('')}
+                                ${buffs.map((buff, bIdx) => {
+                                    const currentBuffType = getCharBuffType(char, buff);
+                                    const buffTypeOptions = getBuffTypeOptions(currentBuffType);
+                                    return `
+                                    <div style="display: inline-flex; align-items: center; gap: 3px;">
+                                        <div class="picker-trigger ${isBuffsModified ? 'modified-highlight' : ''}" onclick="openPatchPicker('${escapeJsStr(buff)}', this, ${index}, ${bIdx}, (val) => { updateBuff(${index}, ${bIdx}, val); }, 'buff')">
+                                            <span>${escapeHtml(buff || '選擇')}</span> <span>▼</span>
+                                        </div>
+                                        <select class="${isBuffsModified ? 'modified-highlight' : ''}" style="padding: 3px 4px; font-size: 11px; background: #252525; color: #ddd; border: 1px solid #444; border-radius: 4px;" onchange="setCharBuffType(${index}, '${escapeJsStr(buff)}', this.value)" title="強化模式">
+                                            ${buffTypeOptions.map(opt => `<option value="${escapeHtml(opt)}" ${opt === currentBuffType ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('')}
+                                        </select>
+                                    </div>`;
+                                }).join('')}
                                 <button type="button" class="btn" style="padding: 2px 6px; font-size: 11px; background: #2d5a2d; border-color: #4a8a4a;" onclick="addBuff(${index})" title="新增加強版本">＋</button>
                             </div>
                         </td>
@@ -771,9 +795,88 @@
             renderChars();
         }
 
+        function getDefaultBuffTypeName() {
+            return (typeof DEFAULT_BUFF_TYPE === 'string' && DEFAULT_BUFF_TYPE) ? DEFAULT_BUFF_TYPE : '礪爍新輝';
+        }
+
+        function getBuffTypeOptions(currentType) {
+            const set = new Set([getDefaultBuffTypeName()]);
+            if (typeof BUFF_ORDER !== 'undefined' && Array.isArray(BUFF_ORDER)) {
+                BUFF_ORDER.forEach(t => { if (t) set.add(t); });
+            }
+            if (typeof BUFF_META !== 'undefined' && BUFF_META && typeof BUFF_META === 'object') {
+                Object.keys(BUFF_META).forEach(t => { if (t) set.add(t); });
+            }
+            charsData.forEach(c => {
+                if (c.buffTypes && typeof c.buffTypes === 'object') {
+                    Object.values(c.buffTypes).forEach(t => { if (t) set.add(t); });
+                }
+            });
+            if (currentType) set.add(currentType);
+            return Array.from(set);
+        }
+
+        function getCharBuffType(char, patch) {
+            const defaultType = getDefaultBuffTypeName();
+            if (!char || !patch || !char.buffTypes || typeof char.buffTypes !== 'object') return defaultType;
+            return char.buffTypes[patch] || defaultType;
+        }
+
+        function cleanupEmptyBuffTypes(char) {
+            if (char.buffTypes && Object.keys(char.buffTypes).length === 0) {
+                delete char.buffTypes;
+            }
+        }
+
+        function normalizeCharBuffSnapshot(char) {
+            const buffs = Array.isArray(char && char.buffs) ? char.buffs : [];
+            const defaultType = getDefaultBuffTypeName();
+            const rawTypes = (char && char.buffTypes && typeof char.buffTypes === 'object') ? char.buffTypes : {};
+            const normalizedTypes = {};
+            Object.keys(rawTypes).sort().forEach(k => {
+                if (rawTypes[k] && rawTypes[k] !== defaultType) {
+                    normalizedTypes[k] = rawTypes[k];
+                }
+            });
+            return { buffs, buffTypes: normalizedTypes };
+        }
+
+        function areBuffsEqual(a, b) {
+            return JSON.stringify(normalizeCharBuffSnapshot(a)) === JSON.stringify(normalizeCharBuffSnapshot(b));
+        }
+
+        function setCharBuffType(index, patch, value) {
+            const char = charsData[index];
+            if (!char || !patch) return;
+            const defaultType = getDefaultBuffTypeName();
+            if (!value || value === defaultType) {
+                if (char.buffTypes) {
+                    delete char.buffTypes[patch];
+                    cleanupEmptyBuffTypes(char);
+                }
+            } else {
+                if (!char.buffTypes || typeof char.buffTypes !== 'object') char.buffTypes = {};
+                char.buffTypes[patch] = value;
+            }
+            renderChars();
+        }
+
         function updateBuff(index, bIndex, value) {
-            if (!charsData[index].buffs) charsData[index].buffs = [];
-            charsData[index].buffs[bIndex] = value.trim();
+            const char = charsData[index];
+            if (!char.buffs) char.buffs = [];
+            const oldPatch = char.buffs[bIndex];
+            const newPatch = value.trim();
+            char.buffs[bIndex] = newPatch;
+            if (oldPatch !== newPatch && char.buffTypes && char.buffTypes[oldPatch]) {
+                const movedType = char.buffTypes[oldPatch];
+                if (!char.buffs.includes(oldPatch)) {
+                    delete char.buffTypes[oldPatch];
+                }
+                if (newPatch && movedType !== getDefaultBuffTypeName()) {
+                    char.buffTypes[newPatch] = movedType;
+                }
+                cleanupEmptyBuffTypes(char);
+            }
             renderChars();
         }
 
@@ -784,10 +887,17 @@
         }
 
         function removeBuff(index, bIndex) {
-            if (!charsData[index].buffs) return;
-            charsData[index].buffs.splice(bIndex, 1);
-            if (charsData[index].buffs.length === 0) {
-                delete charsData[index].buffs;
+            const char = charsData[index];
+            if (!char.buffs) return;
+            const removedPatch = char.buffs[bIndex];
+            char.buffs.splice(bIndex, 1);
+            if (char.buffTypes && removedPatch && !char.buffs.includes(removedPatch)) {
+                delete char.buffTypes[removedPatch];
+                cleanupEmptyBuffTypes(char);
+            }
+            if (char.buffs.length === 0) {
+                delete char.buffs;
+                delete char.buffTypes;
             }
             renderChars();
         }
@@ -810,15 +920,18 @@
                 delete charsData[index].isCollab;
                 delete charsData[index].collabDate;
                 delete charsData[index].term;
-            } else if (type === 'pool' || type === 'shop') {
-                delete charsData[index].isCollab;
-                delete charsData[index].collabDate;
-                charsData[index].term = { type: type, patch: getLatestPatch() };
+                delete charsData[index].terms;
             } else if (type === 'collab') {
                 delete charsData[index].term;
+                delete charsData[index].terms;
                 charsData[index].runs = [];
                 charsData[index].isCollab = getLatestPatch();
                 charsData[index].collabDate = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, '/');
+            } else {
+                delete charsData[index].isCollab;
+                delete charsData[index].collabDate;
+                const existingPatch = charsData[index].term ? charsData[index].term.patch : '';
+                charsData[index].term = { type: type, patch: existingPatch || getLatestPatch() };
             }
             renderChars();
         }
@@ -1119,11 +1232,26 @@
                 if (c.term && c.term.patch && !patchNamesSet.has(c.term.patch)) {
                     errors.push(`• 角色 [${name || `#${idx + 1}`}] 的特殊取得版本「${c.term.patch}」不存在於版本清單中`);
                 }
+                (c.terms || []).forEach(t => {
+                    if (t && t.patch && !patchNamesSet.has(t.patch)) {
+                        errors.push(`• 角色 [${name || `#${idx + 1}`}] 的取得歷程版本「${t.patch}」不存在於版本清單中`);
+                    }
+                });
                 (c.buffs || []).forEach(b => {
                     if (!patchNamesSet.has(b)) {
                         errors.push(`• 角色 [${name || `#${idx + 1}`}] 的加強版本「${b}」不存在於版本清單中`);
                     }
                 });
+                if (c.buffTypes && typeof c.buffTypes === 'object') {
+                    const buffsSet = new Set(c.buffs || []);
+                    Object.keys(c.buffTypes).forEach(p => {
+                        if (!patchNamesSet.has(p)) {
+                            errors.push(`• 角色 [${name || `#${idx + 1}`}] 的強化類型版本「${p}」不存在於版本清單中`);
+                        } else if (!buffsSet.has(p)) {
+                            errors.push(`• 角色 [${name || `#${idx + 1}`}] 的 buffTypes 包含未列於 buffs 的孤兒版本「${p}」`);
+                        }
+                    });
+                }
             });
 
             return errors;

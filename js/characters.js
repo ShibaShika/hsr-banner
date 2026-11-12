@@ -1,5 +1,5 @@
-// 更新日期: 2026/10/31
-const LAST_UPDATED = "2026/10/31";
+// 更新日期: 2026/11/12
+const LAST_UPDATED = "2026/11/12";
 
 const RAW_CHARACTERS = [
     {
@@ -31,7 +31,13 @@ const RAW_CHARACTERS = [
             "2.0下",
             "2.7上",
             "4.7下"
-        ]
+        ],
+        buffs: [
+            "4.7上"
+        ],
+        buffTypes: {
+            "4.7上": "奇緣星魂"
+        }
     },
     {
         cid: "1006",
@@ -114,7 +120,13 @@ const RAW_CHARACTERS = [
             "2.0上",
             "2.6上",
             "4.7下"
-        ]
+        ],
+        buffs: [
+            "4.7上"
+        ],
+        buffTypes: {
+            "4.7上": "奇緣星魂"
+        }
     },
     {
         cid: "1208",
@@ -264,7 +276,13 @@ const RAW_CHARACTERS = [
             "2.6下",
             "3.2上",
             "4.7下"
-        ]
+        ],
+        buffs: [
+            "4.7上"
+        ],
+        buffTypes: {
+            "4.7上": "奇緣星魂"
+        }
     },
     {
         cid: "1304",
@@ -358,7 +376,11 @@ const RAW_CHARACTERS = [
         runs: [
             "2.4下",
             "3.2上"
-        ]
+        ],
+        term: {
+            type: "shop",
+            patch: "4.7上"
+        }
     },
     {
         cid: "1220",
@@ -529,7 +551,7 @@ const RAW_CHARACTERS = [
         ]
     },
     {
-        cid: "1502",
+        cid: "1014",
         name: "Saber",
         path: "毀滅",
         elem: "風",
@@ -539,7 +561,7 @@ const RAW_CHARACTERS = [
         collabDate: "2025/07/11"
     },
     {
-        cid: "1503",
+        cid: "1015",
         name: "Archer",
         path: "巡獵",
         elem: "量子",
@@ -751,7 +773,7 @@ const RAW_CHARACTERS = [
         buffs: []
     },
     {
-        cid: "1514",
+        cid: "1511",
         name: "星神★阿哈",
         path: "歡愉",
         elem: "量子",

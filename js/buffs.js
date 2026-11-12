@@ -4,8 +4,9 @@
 // - 未在 BUFF_META 註冊的新模式，前端會自動套用「深空琉璃通用風格（Fallback Style）」，無需修改程式碼。
 const DEFAULT_BUFF_TYPE = "礪爍新輝";
 
-const BUFF_ORDER = ["礪爍新輝"];
+const BUFF_ORDER = ["礪爍新輝", "奇緣星魂"];
 
 const BUFF_META = {
-    "礪爍新輝": { icon: "▲", desc: "角色能力加強" }
+    "礪爍新輝": { icon: "▲", desc: "礪爍新輝強化" },
+    "奇緣星魂": { icon: "✦", desc: "奇緣星魂強化" }
 };

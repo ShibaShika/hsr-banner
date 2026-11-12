@@ -2,7 +2,27 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch, mock_open, MagicMock
 from bs4 import BeautifulSoup
-from update_gist import validate_data_integrity, clean_wikitext_value, sanitize_name, normalize_cjk_name, normalize_patch_date, parse_local_js_array, execute_auto_update, fetch_fandom_schedules_and_patches, serialize_js_file, contains_cjk, _format_summary_text, parse_warp_list_tables
+from update_gist import (
+    validate_data_integrity,
+    clean_wikitext_value,
+    sanitize_name,
+    normalize_cjk_name,
+    normalize_patch_date,
+    parse_local_js_array,
+    execute_auto_update,
+    fetch_fandom_schedules_and_patches,
+    serialize_js_file,
+    contains_cjk,
+    _format_summary_text,
+    parse_warp_list_tables,
+    normalize_acquisition_type,
+    parse_shop_character_items,
+    fetch_fandom_acquisition_methods,
+    apply_acquisition_schedules,
+    audit_dynamic_tags,
+    _build_dynamic_tags_log,
+    _merge_characters,
+)
 
 class TestFormatSummaryText(unittest.TestCase):
     def test_empty_logs(self):
@@ -1128,6 +1148,440 @@ class TestDynamicPathAndBuffAdaptation(unittest.TestCase):
         self.assertIn('5.0上', akivili['buffs'])
         self.assertNotIn('buffTypes', akivili)
         self.assertTrue(any('阿基維利 (開拓/虛數)' in log for log in new_chars_log))
+
+
+class TestAutomatedBuffIntegration(unittest.TestCase):
+    def test_buff_type_map_aliases(self):
+        from update_gist import normalize_buff_type
+
+        self.assertEqual(normalize_buff_type('Affinitive Eidolon'), '奇緣星魂')
+        self.assertEqual(normalize_buff_type('Affinitive Eidolons'), '奇緣星魂')
+        self.assertEqual(normalize_buff_type('奇缘星魂'), '奇緣星魂')
+        self.assertEqual(normalize_buff_type('Novaflare'), '礪爍新輝')
+        self.assertEqual(normalize_buff_type('星魂共鳴'), '星魂共鳴')
+
+    def test_resolve_patch_by_date_across_three_phases(self):
+        from update_gist import resolve_patch_by_date
+
+        patches = [
+            {'patch': '4.0上', 'date': '26/02/13'},
+            {'patch': '4.0中', 'date': '26/03/04'},
+            {'patch': '4.0下', 'date': '26/03/25'},
+            {'patch': '4.7上', 'date': '26/11/11'},
+            {'patch': '4.7下', 'date': '26/12/02'},
+        ]
+        self.assertEqual(resolve_patch_by_date('2026-02-13', patches, version_hint='4.0'), '4.0上')
+        self.assertEqual(resolve_patch_by_date('2026-03-04', patches, version_hint='4.0'), '4.0中')
+        self.assertEqual(resolve_patch_by_date('2026-03-28', patches, version_hint='4.0'), '4.0下')
+        self.assertEqual(resolve_patch_by_date('2026-11-11 11:00:00', patches, version_hint='4.7'), '4.7上')
+        self.assertEqual(resolve_patch_by_date(None, patches, version_hint='4.7'), '4.7上')
+        self.assertIsNone(resolve_patch_by_date('2027-01-01', patches, version_hint='4.8'))
+
+    def test_fetch_fandom_character_buffs_novaflare_and_affinitive_eidolon(self):
+        from update_gist import fetch_fandom_character_buffs
+
+        patches = [
+            {'patch': '3.4上', 'date': '25/07/02'},
+            {'patch': '4.7上', 'date': '26/11/11'},
+            {'patch': '4.7下', 'date': '26/12/02'},
+        ]
+
+        pages_db = {
+            'Novaflare': {
+                'title': 'Novaflare',
+                'content': '{{Other Languages\n|en = Novaflare\n|zht = 礪爍新輝\n}}',
+            },
+            'Novaflare/2025-07-02': {
+                'title': 'Novaflare/2025-07-02',
+                'content': '|time_start = 2025-07-02\nReleased in [[Version 3.4]].\n* {{Character Intro|Jingliu}}\n* {{Character Intro|Welt}}',
+            },
+            'Affinitive Eidolon': {
+                'title': 'Affinitive Eidolon',
+                'content': '{{Other Languages\n|en = Affinitive Eidolon\n|zht = \n|zht_rm = \n}}',
+            },
+            'A Glance Through Rime to Bone': {
+                'title': 'A Glance Through Rime to Bone',
+                'content': '{{Skill Infobox\n|character = Acheron\n|level = Affinitive Eidolon\n}}\n{{Change History|4.7}}',
+            },
+            'Future Wave Skill': {
+                'title': 'Future Wave Skill',
+                'content': '{{Skill Infobox\n|character = Firefly\n|level = Affinitive Eidolon\n}}\n{{Change History|4.7}}',
+            },
+            "Acheron's Affinitive Eidolon": {
+                'title': "Acheron's Affinitive Eidolon",
+                'content': '{{Item Infobox\n|event = Affinitive Starveil\n|event2 = Myriad Symphony\n}}',
+            },
+            "Firefly's Affinitive Eidolon": {
+                'title': "Firefly's Affinitive Eidolon",
+                'content': '{{Item Infobox\n|source1 = [[Future Event|Future]]\n}}',
+            },
+            'Affinitive Starveil': {
+                'title': 'Affinitive Starveil',
+                'content': '{{Event Infobox\n|time_start = 2026-11-11 11:00:00\n}}',
+            },
+            'Myriad Symphony': {
+                'title': 'Myriad Symphony',
+                'content': '{{Event Infobox\n|time_start = 2026-11-11 11:00:00\n}}',
+            },
+            'Future Event': {
+                'title': 'Future Event',
+                'content': '{{Event Infobox\n|time_start = 2026-12-02 04:00:00\n}}',
+            },
+            'Version/4.7': {
+                'title': 'Version/4.7',
+                'content': '{{Version Infobox\n|release_date = 2026-11-11\n}}',
+            },
+        }
+
+        def fake_get(url, params=None, timeout=None):
+            resp = MagicMock()
+            list_kind = (params or {}).get('list')
+            if list_kind == 'allpages':
+                resp.json.return_value = {
+                    'query': {
+                        'allpages': [
+                            {'title': 'Novaflare/2025-07-02'},
+                            {'title': 'Novaflare/2025-07-02/Character Trials'},
+                        ]
+                    }
+                }
+            elif list_kind == 'categorymembers':
+                resp.json.return_value = {
+                    'query': {
+                        'categorymembers': [
+                            {'title': 'A Glance Through Rime to Bone'},
+                            {'title': 'Future Wave Skill'},
+                        ]
+                    }
+                }
+            else:
+                titles = ((params or {}).get('titles') or '').split('|')
+                pages = {}
+                for idx, t in enumerate(titles, start=1):
+                    if t in pages_db:
+                        pages[str(idx)] = {
+                            'title': pages_db[t]['title'],
+                            'revisions': [{'slots': {'main': {'*': pages_db[t]['content']}}}],
+                        }
+                    else:
+                        pages[f'-{idx}'] = {'title': t, 'missing': ''}
+                resp.json.return_value = {'query': {'pages': pages}}
+            return resp
+
+        session = MagicMock()
+        session.get.side_effect = fake_get
+
+        records = fetch_fandom_character_buffs(session, patches)
+        self.assertIn({'en_name': 'Jingliu', 'patch': '3.4上', 'buff_type': '礪爍新輝'}, records)
+        self.assertIn({'en_name': 'Welt', 'patch': '3.4上', 'buff_type': '礪爍新輝'}, records)
+        self.assertIn({'en_name': 'Acheron', 'patch': '4.7上', 'buff_type': '奇緣星魂'}, records)
+        self.assertIn({'en_name': 'Firefly', 'patch': '4.7下', 'buff_type': '奇緣星魂'}, records)
+
+    def test_apply_buff_schedules_enriches_existing_only_and_skips_standard_chars(self):
+        from update_gist import apply_buff_schedules
+
+        en_data = {
+            '1004': {'name': 'Welt'},
+            '1204': {'name': 'Jing Yuan'},
+            '1212': {'name': 'Jingliu'},
+            '1308': {'name': 'Acheron'},
+        }
+        cht_data = {
+            '1004': {'name': '瓦爾特'},
+            '1204': {'name': '景元'},
+            '1212': {'name': '鏡流'},
+            '1308': {'name': '黃泉'},
+        }
+        merged_chars = [
+            {'cid': '1204', 'name': '景元', 'runs': ['1.0上', '4.7下']},
+            {'cid': '1212', 'name': '鏡流', 'runs': ['1.4上'], 'buffs': ['3.4上']},
+            {'cid': '1308', 'name': '黃泉', 'runs': ['2.1上', '4.7下']},
+        ]
+        buff_records = [
+            {'en_name': 'Welt', 'patch': '3.4上', 'buff_type': '礪爍新輝'},
+            {'en_name': 'Jingliu', 'patch': '3.4上', 'buff_type': '礪爍新輝'},
+            {'en_name': 'Jing Yuan', 'patch': '4.7上', 'buff_type': '奇緣星魂'},
+            {'en_name': 'Acheron', 'patch': '4.7上', 'buff_type': '奇緣星魂'},
+        ]
+        runs_log = []
+
+        updated = apply_buff_schedules(
+            merged_chars, buff_records, session=None, runs_added_log=runs_log,
+            en_data=en_data, cht_data=cht_data
+        )
+        self.assertEqual(updated, 2)
+        self.assertEqual(len(merged_chars), 3)
+        self.assertFalse(any(c['name'] == '瓦爾特' for c in merged_chars))
+        jingyuan = next(c for c in merged_chars if c['name'] == '景元')
+        acheron = next(c for c in merged_chars if c['name'] == '黃泉')
+        self.assertEqual(jingyuan.get('buffs'), ['4.7上'])
+        self.assertEqual(jingyuan.get('buffTypes'), {'4.7上': '奇緣星魂'})
+        self.assertEqual(acheron.get('buffs'), ['4.7上'])
+        self.assertEqual(acheron.get('buffTypes'), {'4.7上': '奇緣星魂'})
+        self.assertIn('景元 💠 4.7上【奇緣星魂】', runs_log)
+        self.assertIn('黃泉 💠 4.7上【奇緣星魂】', runs_log)
+
+
+def _build_wiki_mock_session(pages_dict, list_dict=None):
+    """建立模擬 Fandom MediaWiki API (query revisions / parse / list) 與 StarRailRes 的 Session"""
+    list_dict = list_dict or {}
+
+    def _side_effect(url, params=None, timeout=None):
+        resp = MagicMock()
+        params = params or {}
+        if 'Warp/List' == params.get('page') and params.get('action') == 'parse':
+            resp.json.return_value = {
+                'parse': {'text': {'*': pages_dict.get('__warp_list_html__', '')}}
+            }
+            return resp
+
+        if params.get('action') == 'query' and params.get('list'):
+            list_key = params.get('list')
+            key_arg = params.get('cmtitle') or params.get('apprefix') or list_key
+            resp.json.return_value = {
+                'query': {list_key: list_dict.get(key_arg, [])}
+            }
+            return resp
+
+        if params.get('action') == 'query' and params.get('titles'):
+            titles = str(params['titles']).split('|')
+            pages = {}
+            for idx, title in enumerate(titles, 1):
+                if title in pages_dict:
+                    pages[str(idx)] = {
+                        'pageid': idx,
+                        'title': title,
+                        'revisions': [{'slots': {'main': {'*': pages_dict[title]}}}]
+                    }
+                else:
+                    pages[str(-idx)] = {'missing': '', 'title': title}
+            resp.json.return_value = {'query': {'pages': pages}}
+            return resp
+
+        resp.json.return_value = {}
+        return resp
+
+    session = MagicMock()
+    session.get.side_effect = _side_effect
+    return session
+
+
+class TestAcquisitionAutomation(unittest.TestCase):
+    def test_normalize_acquisition_type_known_and_dynamic(self):
+        self.assertEqual(normalize_acquisition_type('Celestial Invitation'), 'pool')
+        self.assertEqual(normalize_acquisition_type('星緣相邀'), 'pool')
+        self.assertEqual(normalize_acquisition_type('Stellar Convergence'), 'shop')
+        self.assertEqual(normalize_acquisition_type('聚靈鑄星'), 'shop')
+        self.assertEqual(normalize_acquisition_type('Stellar Warp'), 'stellar')
+        self.assertEqual(normalize_acquisition_type('群星躍遷'), 'stellar')
+        self.assertEqual(normalize_acquisition_type('Collaboration'), 'collab')
+        # 未知未來管道必須保留原名，不被白名單濾除
+        self.assertEqual(normalize_acquisition_type('星穹秘藏'), '星穹秘藏')
+        self.assertEqual(normalize_acquisition_type('{{Main|Astral Exchange}}'), 'Astral Exchange')
+
+    def test_parse_shop_character_items_excludes_currency_and_light_cones(self):
+        sc_wikitext = """
+==Inventory==
+===Character Redemption===
+{{Shop|shop=Stellar Convergence|currency=Golden Companion Spirit
+|Jiaoqiu ;; type{{=}}Character ;; 1 ;; inf ;; note{{=}}Test
+|Topaz and Numby ;; type{{=}}Character ;; 1 ;; inf ;; text{{=}}Topaz & Numby
+|Himeko ;; type{{=}}Character ;; 1 ;; inf
+|Golden Companion Spirit ;; 2 ;; inf ;; currency{{=}}Silver Companion Spirit
+|Variable Dice ;; x{{=}}2 ;; 1 ;; inf
+}}
+
+===Light Cone Redemption===
+{{Shop|shop=Stellar Convergence|currency=Light Cone Memory Shard
+|Those Many Springs ;; 4 ;; inf
+}}
+"""
+        items = parse_shop_character_items(sc_wikitext)
+        names = [i['en_name'] for i in items]
+        self.assertEqual(names, ['Jiaoqiu', 'Topaz and Numby'])
+        self.assertNotIn('Himeko', names)
+        self.assertNotIn('Golden Companion Spirit', names)
+        self.assertNotIn('Variable Dice', names)
+        self.assertNotIn('Those Many Springs', names)
+
+    @patch('update_gist.fetch_starrailres_data')
+    def test_collab_indefinite_warp_resolution_and_merge(self, mock_srr):
+        mock_srr.return_value = (
+            {'1014': {'name': 'Saber'}},
+            {'1014': {'name': 'Saber'}},
+        )
+        warp_list_html = """
+<table>
+<tr><th colspan="2">Version 3.4 : Since July 2, 2025 – July 23, 2025</th></tr>
+<tr><td>Character</td><td><a href="/wiki/Phainon/2025-07-02" title="Phainon/2025-07-02">Phainon</a></td></tr>
+<tr><th colspan="2">Version 3.4 : Since July 11, 2025 (Indefinite)</th></tr>
+<tr><td>Character Collaboration</td><td><a href="/wiki/Excalibur/2025-07-11" title="Excalibur/2025-07-11">Excalibur</a></td></tr>
+</table>
+"""
+        pages_dict = {
+            '__warp_list_html__': warp_list_html,
+            'Phainon/2025-07-02': '|character_5_F = Phainon\n|type = Character Event Warp',
+            'Excalibur/2025-07-11': '|character_5_F = Saber\n|type = [[Character Collaboration Warp]]',
+        }
+        session = _build_wiki_mock_session(pages_dict)
+        schedules, patches = fetch_fandom_schedules_and_patches(session)
+        saber_sched = next((s for s in schedules if s['en_name'] == 'Saber'), None)
+        self.assertIsNotNone(saber_sched)
+        self.assertTrue(saber_sched['is_collab'])
+        self.assertEqual(saber_sched['run'], '3.4上')
+        self.assertEqual(saber_sched['collab_date'], '2025/07/11')
+
+        # 若專案原本僅有錯誤 cid 與預覽標記，合併後應自動修正 cid 並補齊 collabDate、清空 runs
+        orig_chars = [{
+            'cid': '1502',
+            'name': 'Saber',
+            'path': '毀滅',
+            'elem': '風',
+            'avatar': '',
+            'runs': ['3.4上'],
+            'isPreview': True,
+        }]
+        merged, _, _, _ = _merge_characters(orig_chars, [saber_sched], session)
+        saber = merged[0]
+        self.assertEqual(saber['cid'], '1014')
+        self.assertEqual(saber['isCollab'], '3.4上')
+        self.assertEqual(saber['collabDate'], '2025/07/11')
+        self.assertEqual(saber['runs'], [])
+        self.assertNotIn('isPreview', saber)
+
+    def test_fetch_shop_pool_dynamic_store_and_char_page_signals(self):
+        patches = [
+            {'patch': '3.2上', 'date': '25/04/09'},
+            {'patch': '4.2上', 'date': '26/05/20'},
+            {'patch': '4.7上', 'date': '26/11/11'},
+            {'patch': '5.1上', 'date': '27/05/05'},
+            {'patch': '5.2上', 'date': '27/06/16'},
+        ]
+        pages_dict = {
+            'Character Event Warp/Change History': (
+                '[[Version 4.2]]\n'
+                '* Added to Celestial Invitation: {{Item List|Silver Wolf;Yunli|type=Character}}\n'
+            ),
+            'Stellar Convergence/Change History': (
+                '[[Version 4.7]]\n'
+                '* Added to Character Redemption:{{Item List|type=Character|\nJiaoqiu\n}}\n'
+                '* Added to Light Cone Redemption:{{Item List|type=Light Cone|\nThose Many Springs\n}}\n'
+            ),
+            'Stellar Convergence': (
+                '{{Shop|shop=Stellar Convergence\n'
+                '|Ruan Mei ;; type{{=}}Character ;; 1 ;; inf\n'
+                '}}\n'
+                '{{Change History|3.2}}\n'
+            ),
+            'Stellar Companions': '|release_date = 2025-04-09\n',
+            'Store': '{{Main|Astral Vault}}\n',
+            'Astral Vault': (
+                '{{Other Languages|zht=星穹秘藏}}\n'
+                '{{Shop|shop=Astral Vault\n'
+                '|Seele ;; type{{=}}Character ;; 1 ;; inf\n'
+                '}}\n'
+                '{{Change History|5.1}}\n'
+            ),
+            'Astral Vault/Change History': (
+                '[[Version 5.1]]\n'
+                '* Added {{Item|Seele|type=Character}}\n'
+            ),
+            'Version/3.2': '|release_date = 2025-04-09\n',
+            'Version/4.2': '|release_date = 2026-05-20\n',
+            'Version/4.7': '|release_date = 2026-11-11\n',
+            'Version/5.1': '|release_date = 2027-05-05\n',
+            'Version/5.2': '|release_date = 2027-06-16\n',
+            # Topaz 頁含 {{Shop Availability|Topaz and Numby}} 不可誤認本身為商店；而 Bronya(或 Kafka) 含全新永久途徑
+            'Topaz & Numby': (
+                '|type = Playable Character\n'
+                '|how_to_obtain = \n* [[Sunset Clause]]\n* [[Stellar Convergence]]\n'
+                '{{Shop Availability|Topaz and Numby}}\n'
+            ),
+            'Kafka': (
+                '|type = Playable Character\n'
+                '|how_to_obtain = \n* [[Mirror Decree]]\n'
+                '|release_date = 2023-08-09\n'
+            ),
+            'Mirror Decree': (
+                '|type = Permanent\n'
+                '{{Other Languages|zht=鏡諭典藏}}\n'
+                '{{Change History|5.2}}\n'
+            ),
+        }
+        session = _build_wiki_mock_session(pages_dict)
+        records = fetch_fandom_acquisition_methods(
+            session, patches, target_en_names=['Topaz & Numby', 'Kafka']
+        )
+        as_tuples = {(r['en_name'], r['acq_type'], r['patch']) for r in records}
+        self.assertIn(('Jiaoqiu', 'shop', '4.7上'), as_tuples)
+        self.assertIn(('Ruan Mei', 'shop', '3.2上'), as_tuples)
+        self.assertIn(('Silver Wolf', 'pool', '4.2上'), as_tuples)
+        self.assertIn(('Seele', '星穹秘藏', '5.1上'), as_tuples)
+        self.assertIn(('Kafka', '鏡諭典藏', '5.2上'), as_tuples)
+        self.assertFalse(any(r['acq_type'] == 'Topaz and Numby' for r in records))
+
+    def test_apply_acquisition_preserves_curated_and_accumulates_terms(self):
+        en_data = {
+            '1006': {'name': 'Silver Wolf'},
+            '1218': {'name': 'Jiaoqiu'},
+            '1004': {'name': 'Welt'},
+        }
+        cht_data = {
+            '1006': {'name': '銀狼'},
+            '1218': {'name': '椒丘'},
+            '1004': {'name': '瓦爾特'},
+        }
+        patches = [
+            {'patch': '4.2上', 'date': '26/05/20'},
+            {'patch': '4.7上', 'date': '26/11/11'},
+            {'patch': '5.0上', 'date': '27/03/24'},
+        ]
+        chars = [
+            {'cid': '1006', 'name': '銀狼', 'path': '虛無', 'elem': '量子', 'runs': ['1.1上'], 'term': {'type': 'pool', 'patch': '4.2上'}},
+            {'cid': '1218', 'name': '椒丘', 'path': '虛無', 'elem': '火', 'runs': ['2.4下', '3.2上']},
+        ]
+        acq_records = [
+            {'en_name': 'Silver Wolf', 'acq_type': 'pool', 'patch': '4.2上'},
+            {'en_name': 'Silver Wolf', 'acq_type': 'shop', 'patch': '5.0上'},
+            {'en_name': 'Jiaoqiu', 'acq_type': 'shop', 'patch': '4.7上'},
+            {'en_name': 'Welt', 'acq_type': 'shop', 'patch': '4.7上'},
+        ]
+        runs_log = []
+        updated = apply_acquisition_schedules(
+            chars, acq_records, patches=patches, session=None,
+            runs_added_log=runs_log, en_data=en_data, cht_data=cht_data
+        )
+        self.assertEqual(updated, 2)
+        self.assertEqual(len(chars), 2)  # 常駐角絕不被誤加入
+
+        sw = chars[0]
+        self.assertEqual(sw['term'], {'type': 'shop', 'patch': '5.0上'})
+        self.assertEqual(sw['terms'], [
+            {'type': 'pool', 'patch': '4.2上'},
+            {'type': 'shop', 'patch': '5.0上'},
+        ])
+
+        jq = chars[1]
+        self.assertEqual(jq['term'], {'type': 'shop', 'patch': '4.7上'})
+        self.assertNotIn('terms', jq)
+        self.assertIn('椒丘 🎁 4.7上【shop】', runs_log)
+
+    def test_gate4_orphan_term_patch_and_gate6_dynamic_acquisition_audit(self):
+        orig_patches = [{'patch': '1.0上', 'date': '23/04/26'}, {'patch': '4.7上', 'date': '26/11/11'}]
+        orig_chars = [{'cid': '1001', 'name': '希兒', 'path': '巡獵', 'elem': '量子', 'runs': ['1.0上']}]
+
+        # 門檻 4：孤兒 term.patch 必須熔斷
+        bad_term_chars = [{'cid': '1001', 'name': '希兒', 'path': '巡獵', 'elem': '量子', 'runs': ['1.0上'], 'term': {'type': 'shop', 'patch': '9.9上'}}]
+        with self.assertRaises(AssertionError) as ctx:
+            validate_data_integrity(orig_chars, orig_patches, bad_term_chars, orig_patches)
+        self.assertIn('門檻 4 失敗', str(ctx.exception))
+
+        # 審計 6：未知動態取得方式「星穹秘藏」僅記錄與警示、絕不熔斷
+        dyn_chars = [{'cid': '1001', 'name': '希兒', 'path': '巡獵', 'elem': '量子', 'runs': ['1.0上'], 'term': {'type': '星穹秘藏', 'patch': '4.7上'}}]
+        audit = validate_data_integrity(orig_chars, orig_patches, dyn_chars, orig_patches)
+        self.assertEqual(audit['dynamic_acquisition_types'], ['星穹秘藏'])
+        self.assertEqual(audit['introduced_acquisition_types'], ['星穹秘藏'])
+        self.assertIn('新取得方式：星穹秘藏', _build_dynamic_tags_log(audit))
 
 
 if __name__ == '__main__':

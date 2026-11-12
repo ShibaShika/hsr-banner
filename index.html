@@ -20,6 +20,7 @@
     <script src="js/patches.js"></script>
     <script src="js/paths.js"></script>
     <script src="js/buffs.js"></script>
+    <script src="js/types.js"></script>
     <script src="js/elements.js"></script>
     <script src="js/characters.js"></script>
 </head>
@@ -80,12 +81,24 @@
                         </div>
                     </div>
 
-                    <!-- 強化模式切換按鈕群組（依角色資料中出現過的強化模式動態生成；以下為首屏預設按鈕） -->
-                    <div id="buff-mode-container" class="buff-mode-group" role="group" aria-label="強化模式篩選">
-                        <button type="button" id="buff-toggle-btn" class="toggle-btn buff-mode-btn" data-buff-type="礪爍新輝" data-tooltip="僅顯示加強過的角色">
-                            <span class="toggle-icon">▲</span> <span class="buff-mode-label">礪爍新輝</span>
-                        </button>
+                    <!-- 角色強化篩選選單（合併 礪爍新輝 / 奇緣星魂 與未來強化系統） -->
+                    <div class="multi-select" id="buff-dropdown">
+                        <div class="select-box" id="buff-select-box">角色強化</div>
+                        <div class="dropdown-panel" id="buff-panel">
+                            <div id="buff-mode-container" class="buff-mode-group" role="group" aria-label="強化模式篩選">
+                                <button type="button" id="buff-toggle-btn" class="buff-mode-btn" data-buff-type="礪爍新輝" data-tooltip="僅顯示【礪爍新輝】強化過的角色" aria-pressed="false">
+                                    <span class="buff-mode-check" aria-hidden="true"></span>
+                                    <span class="toggle-icon">▲</span>
+                                    <span class="buff-mode-label">礪爍新輝</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- 當前大版本（上／中／下）PU 角色一鍵篩選按鈕 -->
+                    <button type="button" id="current-version-up-btn" class="toggle-btn current-ver-up-btn" data-tooltip="僅顯示當前大版本（上／中／下）PU 角色" aria-pressed="false">
+                        <span class="current-ver-up-label">當前PU</span>
+                    </button>
 
                     <!-- 預覽版本切換按鈕 -->
                     <button type="button" id="preview-toggle-btn" class="toggle-btn" data-tooltip="切換顯示預覽版本">
