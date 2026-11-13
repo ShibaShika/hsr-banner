@@ -1,6 +1,6 @@
-# AGENTS.md — 專案架構、開發規範與多 Agent 協同體系
+# AGENTS.md — 專案架構與單視窗開發規範
 
-本文件供 AI Agent 快速掌握 `hsr-banner`（崩壞：星穹鐵道｜限定躍遷一覽表）的核心架構、檔案職責、修改鐵則與多 Agent 協同規範，無需重新掃描全專案即可安全開發。
+本文件供 AI Agent 快速掌握 `hsr-banner`（崩壞：星穹鐵道｜限定躍遷一覽表）的核心架構、檔案職責、修改鐵則與動態模型分級規範，無需重新掃描全專案即可於單一對話串安全開發。
 
 ---
 
@@ -56,46 +56,12 @@
 
 ---
 
-## 4. 角色職責邊界 (Role Boundaries)
-
-本專案採用多角色職能分工機制，並以 [`docs/HANDOFF.md`](docs/HANDOFF.md) 作為所有對話視窗的共享即時交接看板：
-
-| 角色 | `role_key` | 核心職責與負責目錄 | 嚴禁事項（邊界鐵則） |
-| :--- | :--- | :--- | :--- |
-| 👑 **技術主管** | `tech_lead` | 架構設計、病因診斷、任務拆解分診、Code Review、五道門檻把關與全域測試驗收 | **Triage & Dispatch First**：凡屬明確領域開發或獨立功能，優先轉化工單派發給對應專家，不輕易越俎代庖。 |
-| ⚙️ **後端 / 爬蟲與資料專家** | `backend_specialist` | `update_gist.py`（Fandom Wiki 爬蟲、MediaWiki 解析、StarRailRes 繁中對齊、五道防護門檻與動態審計） | 不碰前端 UI 樣式，不執行 `git push`；改動須附帶對應單元測試。 |
-| 🎨 **前端 / 介面設計師** | `frontend_designer` | `index.html`、`editor.html`、`css/style.css`、`js/app.js`、`js/paths.js`、`js/buffs.js`、`js/types.js`（深空琉璃樣式、圖示降級、篩選面板、表格渲染與 Popover） | 不碰爬蟲核心邏輯與五道防護門檻，不執行 `git push`。 |
-| 🧪 **品質驗證專家** | `qa_engineer` | `test_update_gist.py`（Python 79+ 測試）、`app.test.js`（Jest 113+ 測試）與回歸把關 | 不直接魔改生產業務代碼以迎合測試；發現缺陷回報工單交由對應專家修復。 |
-| 🔄 **發布工程師** | `release_engineer` | GitOps、分支整合、排除每日 `github-actions[bot]` 自動更新衝突、版本標籤與遠端倉庫推送 | **唯一推送權**：未經技術主管驗收通過嚴禁 `git push`；非發布工程師嚴禁私自推送遠端。 |
-
----
-
-## 5. 跨對話協同與交接看板協議 (Multi-Agent Handoff & Baton Protocol)
-
-1. **頂部接力棒強制指針**：[`docs/HANDOFF.md`](docs/HANDOFF.md) 頂部永遠維護單一明確的 `🚩 【當前接力棒 (Active Baton)】`。每次更新看板時，最後動手的角色必須將接力棒指向下一個執行者（例如：`⚙️ 爬蟲專家施工中` → `👑 技術主管待審核` → `🔄 發布工程師待推送` → `待命 (Standby)`）。
-2. **雙向工單流轉**：
-   - 專家完工交付時：在自己章節打勾 `[x]` 並填寫完工摘要，於【👑 技術主管】章節登記 `- [ ] 【待審核驗收】工單 TASK-XXX`。
-   - 技術主管驗收通過時：在自己章節結案，於【🔄 發布工程師】章節登記 `- [ ] 【待發布推送】工單 TASK-XXX`。
-3. **無縫觸發**：當收到使用者輸入 `@[docs/HANDOFF.md]` 時，應立即閱讀頂部接力棒並自主執行對應工單，使用者無需額外說明前情提要。
-4. **🚨 看板即時磁碟強制讀取鐵律**：
-   - 凡輸入提及 `HANDOFF.md`、交接或完工回報，**第一個工具呼叫必須強制讀取磁碟上的 `docs/HANDOFF.md`**，嚴禁依賴對話記憶判斷接力棒歸屬。
-   - 技術主管驗收時必須同步確認 `git status -s`，以實體檔案變更為客觀真理。
-
----
-
-## 6. 對話身分自鎖定協議 (Session Role Auto-Binding Protocol)
-
-- 每個對話視窗透過本機全域 Hook（`role_injector.py`）自動比對環境 `Conversation ID` 與 [`docs/agent_sessions.json`](docs/agent_sessions.json)。
-- **首次開啟視窗**：當使用者指定角色時，Agent 應取得自身 `Conversation ID` 並登記至 `docs/agent_sessions.json`，確保 `/compact` 或重啟後身分永久不遺失。
-
----
-
-## 7. 任務前置模組適配度審查與動態模型建議協議 (Adaptive Model Tier Protocol)
+## 4. 任務前置模組適配度審查與動態模型建議協議 (Adaptive Model Tier Protocol)
 
 本協議採用**「抽象算力階級 + 平台即時感知」**設計，嚴禁在規範或腳本中寫死特定模型名稱，以確保隨 Antigravity 平台迭代自動跟上最新模型（並恪守**僅使用 Google Gemini 原生系列、排除 Claude 與 GPT** 之鐵則）：
 
 ### A. 抽象算力階級標準
-- **`light`（輕量極速級）**：輕量高速模型（低思考 `Low / Medium`）— 適用純查詢、文字記錄、看板勾選、常規 GitOps。
+- **`light`（輕量極速級）**：輕量高速模型（低思考 `Low / Medium`）— 適用純查詢、文字記錄、常規 GitOps。
 - **`standard`（常規主力級）**：輕量/中階模型高思考（`High`）或進階主力低思考 — 適用單一明確功能開發、局部單元測試、UI 微調、局部審查。
 - **`heavy`（高階推理級）**：高階旗艦模型（優先挑選即時額度 > 0% 之最新高階 Gemini 模型，開 `High` 至極限 `XHigh`）— 適用複雜病因除錯、長日誌診斷、動態架構重構、防護門檻擴充。
 
@@ -124,8 +90,8 @@
 
 ---
 
-## 8. 常用互動口令約定
+## 5. 常用互動口令約定
 
-- **「開工」**：檢查 `git status -s`、`docs/HANDOFF.md` 與專案雙測試健康狀態；若有待辦工單則立即安排施工。
-- **「檢討」**：針對最新執行/測試結果或錯誤日誌做根因診斷，產出可交接的精確修復工單。
-- **「結案」**：確認雙測試全綠且遠端已同步後，清理暫存檔並將 `docs/HANDOFF.md` 重置為輕量待命模式。
+- **「開工」**：檢查 `git status -s`、遠端同步狀態與專案雙測試健康狀態。
+- **「檢討」**：針對最新執行/測試結果或錯誤日誌做根因診斷，產出精確修復方案。
+- **「結案」**：確認雙測試全綠且遠端已同步後，清理暫存檔並完成收尾。
