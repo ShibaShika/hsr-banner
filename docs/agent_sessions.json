@@ -1,0 +1,27 @@
+{
+  "_schema_version": "1.0",
+  "_description": "Antigravity Multi-Agent Session Role Mapping Registry (Starter Template)",
+  "sessions": {},
+  "available_roles": {
+    "tech_lead": {
+      "title": "👑 技術主管",
+      "summary": "技術會診、架構設計、任務分診、Code Review 與回歸測試把關"
+    },
+    "backend_specialist": {
+      "title": "⚙️ 後端 / 核心邏輯專家",
+      "summary": "核心業務邏輯、演算法、API 介面與資料存取層實作"
+    },
+    "frontend_designer": {
+      "title": "🎨 前端 / 介面設計師",
+      "summary": "UI 元件、樣式主題、互動流程與多語系在地化"
+    },
+    "qa_engineer": {
+      "title": "🧪 品質驗證專家",
+      "summary": "單元測試、整合測試、邊界壓測與缺陷復現驗證"
+    },
+    "release_engineer": {
+      "title": "🔄 發布工程師",
+      "summary": "GitOps、分支同步、衝突排除、版本標籤與遠端推送"
+    }
+  }
+}
